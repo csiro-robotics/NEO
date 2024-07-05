@@ -1,0 +1,16 @@
+[project]
+name = "neo"
+description = "Repository contining Neo method for Nerfstudio."
+version = "0.0.1"
+
+dependencies=[
+    "scipy",
+    "tqdm",
+    "nerfstudio>=1.0.0"
+]
+
+[tool.setuptools.packages.find]
+include = ["neo*"]
+
+[project.entry-points.'nerfstudio.method_configs']
+neo = 'neo.neo_config:neo_method'
