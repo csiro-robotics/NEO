@@ -1,0 +1,7 @@
+# Data
+/data
+/outputs
+
+# Pytohn
+__pycache__
+*.egg-info
