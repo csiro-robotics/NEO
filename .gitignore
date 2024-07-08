@@ -1,3 +1,7 @@
+# VScode
+*.code-workspace
+*.env
+
 # Data
 /data
 /outputs

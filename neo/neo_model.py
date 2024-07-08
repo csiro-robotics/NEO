@@ -6,17 +6,17 @@ import os
 import numpy as np
 
 from dataclasses import dataclass, field
-from typing import Type, Optional
+from typing import Type, Optional, Tuple, List
 from scipy.spatial.transform import Rotation
 from pathlib import Path
 
 from neo.utils.bbox_utils import(
+    BBoxData,
     BoundingBoxToolbox,
     BoundingBox
 )
 
 from nerfstudio.models.nerfacto import NerfactoModel, NerfactoModelConfig  # for subclassing Nerfacto model
-from nerfstudio.models.base_model import Model, ModelConfig  # for custom Model
 
 
 @dataclass
@@ -34,115 +34,85 @@ class NeoModel(NerfactoModel):
     def populate_modules(self):
         super().populate_modules()
 
-        # Check if the file exists
-        bbox_data = None
-        filename = self.kwargs['bbox_dir'] / 'bbox.json'
-        if not os.path.exists(filename):
+        # Load bbox data
+        self.bbox_vis: List[BoundingBox] = []
+        self.bboxes = {"bboxes": []}
+        self.bbox_dir = self.kwargs['bbox_dir'] / 'bbox.json'
+        if not os.path.exists(self.bbox_dir):
             print(f"File bbox.json does not exist. Creating a file.")
 
-            with open(filename, 'w') as f:
-
-                bbox_data = {
-                    "labels": [
-                        {
-                            "id": "0",
-                            "data": {
-                                "position": [0.0, 0.0, 0.0],
-                                "rotation": [0.0, 0.0, 0.0],
-                                "quaternion": [1.0, 0.0, 0.0, 0.0],
-                                "scale": [0.1, 0.1, 0.1]
-                            }
-                        }
-                    ]
-                }
-
-                json.dump(bbox_data, f, indent=2)
+            with open(self.bbox_dir, 'w') as f:
+                json.dump(self.bboxes, f, indent=2)
 
         else:
             print(f"File bbox.json already exists. Loading the file.")
 
-            with open(filename, 'r') as f:
-                bbox_data = json.load(f)
+            with open(self.bbox_dir, 'r') as f:
+                self.bboxes = json.load(f)
 
-        bbox_data = bbox_data['labels'][0]['data']
-        # self.bbox = Cube(bbox_data['scale'], bbox_data['position'], bbox_data['rotation'])
+        if len(self.bboxes['bboxes']) > 0:
 
-        dimensions = tuple(np.array(bbox_data['scale']) * 10)
-        deg = tuple(np.round(np.rad2deg(bbox_data['rotation'])[::-1] * np.array([1, -1, 1])))
-        rot = Rotation.from_euler('xyz', deg, degrees=True)
-        wxyz = tuple(rot.as_quat(False))
-        position = tuple(np.array(bbox_data['position']) * 10)
+            bbox_data = self.bboxes['bboxes'][0]['data']
+            dimensions = tuple(np.array(bbox_data['scale']) * 10)
+            rotation = tuple(np.round(np.rad2deg(bbox_data['rotation'])[::-1] * np.array([1, -1, 1])))
+            quaternion = tuple(bbox_data['quaternion'])
+            position = tuple(np.array(bbox_data['position']) * 10)
 
-        self.bbox_tool = BoundingBoxToolbox("Box", cb_hook=self.move_box, resize_hook=self.resize_box, dimensions=dimensions, rotation=deg, position=position)
-        self.bbox_vis = BoundingBox("Box", cb_hook=self.display_wireframe, dimensions=dimensions, wxyz=wxyz, position=position)
+            bbox_data = BBoxData(0, dimensions=dimensions, rotation=rotation, quaternion=quaternion, position=position)
+            self.bbox_tool = BoundingBoxToolbox("Boxes", move_hook=self.move_box, resize_hook=self.resize_box, bbox_selector_hook=self.bbox_selector_hook, add_box_hook=self.add_box_hook)
 
-    def update_bbox_save_file(self):
+        else:
+            bbox_data = BBoxData(0, [1.0, 1.0, 1.0], [0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
+            self.bbox_tool = BoundingBoxToolbox("Boxes", bbox_data, move_hook=self.move_box, resize_hook=self.resize_box, bbox_selector_hook=self.bbox_selector_hook, add_box_hook=self.add_box_hook)
 
-        with open(self.config.bbox_path / 'bbofx.json', 'w') as f:
+    def update_bbox_data(self):
+        
+        # for box in self.bbox_vis:
+        #     position = tuple(np.array(self.bbox_tool.position_handle.value) / 10)
+        #     rotation = tuple(np.deg2rad(self.bbox_tool.rotation_handle.value[::-1] * np.array([1, -1, 1])))
+        #     rot = Rotation.from_euler('zyx', rotation)
+        #     quaternion = tuple(rot.as_quat(True))
+        #     dimensions = tuple(np.array(self.bbox_tool.dimensions_handle.value) / 10)
 
-            position = tuple(np.array(self.bbox_tool.position_handle.value) / 10)
-            rotation = tuple(np.deg2rad(self.bbox_tool.rotation_handle.value[::-1] * np.array([1, -1, 1])))
-            rot = Rotation.from_euler('zyx', rotation, degrees=False)
-            quaternion = tuple(rot.as_quat(False))
-            dimensions = tuple(np.array(self.bbox_tool.dimensions_handle.value) / 10)
+        #     self.bboxes.append({"data": {"position": position, "rotation": rotation, "quaternion": quaternion, "scale": dimensions}})
 
-            bbox_data = {
-                "labels": [
-                    {
-                        "id": "0",
-                        "data": {
-                            "position": position,
-                            "rotation": rotation,
-                            "quaternion": quaternion,
-                            "scale": dimensions
-                        }
-                    }
-                ]
-            }
+        # with open(self.bbox_dir, 'w') as f:
+        #         bbox_data = {"boxes": self.bboxes}
+        #         json.dump(bbox_data, f, indent=2)
 
-            json.dump(bbox_data, f, indent=2)
+        print("Update data!")
+
+    def add_box_hook(self, element):
+        
+        bbox_data = BBoxData(len(self.bbox_vis), [0.1, 0.1, 0.1], [0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
+
+        bbox_handle = BoundingBox(data=bbox_data.get_nerfstudio_data(), cb_hook=self.display_wireframe)
+        bbox_handle.install(element.viser_server)
+
+        self.bbox_vis.append(bbox_handle)
+        self.bboxes["bboxes"].append(bbox_data.get_json_data())
 
     def move_box(self, element):
-        self.bbox_vis.box_handle.position = element.position_handle.value
-        rot = Rotation.from_euler('xyz', element.rotation_handle.value, degrees=True)
-        rot_quat = rot.as_quat(False)
-        self.bbox_vis.box_handle.wxyz = rot_quat
-
-        self.update_bbox_save_file()
+        bbox = self.bbox_vis[element.bbox_selector_handle.value]
+        bbox.update(self.bbox_tool.get_bbox_data().get_nerfstudio_data())
 
     def resize_box(self, element):
+        bbox = self.bbox_vis[self.bbox_tool.bbox_selector_handle.value]
+        prev_wireframe = bool(bbox.wireframe)
 
-        assert self.bbox_tool is not None
-        
-        viser_server = self.bbox_vis.viser_server
-        prev_wireframe = bool(self.bbox_vis.wireframe)
-
-        self.bbox_vis.box_handle.remove()
-        dimensions = element.dimensions_handle.value
-        rot = Rotation.from_euler('xyz', element.rotation_handle.value, degrees=True)
-        wxyz = tuple(rot.as_quat(False))
-        position = element.position_handle.value
-
-        self.bbox_vis = BoundingBox("Box", cb_hook=self.display_wireframe, dimensions=dimensions, wxyz=wxyz, position=position, wireframe=prev_wireframe)
-
-        assert viser_server is not None
-
-        self.bbox_vis.install(viser_server)
-        self.update_bbox_save_file()
+        bbox.box_handle.remove()
+        bbox = BoundingBox(data=element.get_bbox_data().get_nerfstudio_data(), cb_hook=self.display_wireframe, wireframe=prev_wireframe)
+        bbox.install(element.viser_server)
 
     def display_wireframe(self, element):
-
-        viser_server = element.viser_server
+        bbox = self.bbox_vis[self.bbox_tool.bbox_selector_handle.value]
         prev_wireframe = not bool(element.wireframe)
 
         element.box_handle.remove()
-        dimensions = self.bbox_tool.dimensions_handle.value
-        rot = Rotation.from_euler('xyz', self.bbox_tool.rotation_handle.value, degrees=True)
-        wxyz = tuple(rot.as_quat(False))
-        position = self.bbox_tool.position_handle.value
+        bbox = BoundingBox(data=self.bbox_tool.get_bbox_data().get_nerfstudio_data(), cb_hook=self.display_wireframe, wireframe=prev_wireframe)
+        bbox.install(self.bbox_tool.viser_server)
 
-        self.bbox_vis = BoundingBox("Box", cb_hook=self.display_wireframe, dimensions=dimensions, wxyz=wxyz, position=position, wireframe=prev_wireframe)
+    def bbox_selector_hook(self, element):
+        bbox = self.bbox_vis[self.bbox_tool.bbox_selector_handle.value]
 
-        assert viser_server is not None
-
-        self.bbox_vis.install(viser_server)
+        self.bbox_tool.update_data(bbox.data)

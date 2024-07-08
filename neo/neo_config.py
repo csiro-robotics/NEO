@@ -12,15 +12,15 @@ from nerfstudio.engine.optimizers import AdamOptimizerConfig
 from nerfstudio.engine.schedulers import (
     ExponentialDecaySchedulerConfig,
 )
-from nerfstudio.engine.trainer import TrainerConfig
 from nerfstudio.plugins.types import MethodSpecification
 
+from neo.neo_trainer import NeoTrainerConfig
 from neo.neo_model import NeoModelConfig
 from neo.neo_pipeline import NeoPipelineConfig
 
 
 neo_method = MethodSpecification(
-    config=TrainerConfig(
+    config=NeoTrainerConfig(
         method_name="neo",
         steps_per_eval_batch=500,
         steps_per_save=2000,

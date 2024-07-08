@@ -5,6 +5,7 @@ Neo pipeline.
 import typing
 from dataclasses import dataclass, field
 from typing import Literal, Optional, Type
+from pathlib import Path
 
 import torch.distributed as dist
 from torch.cuda.amp.grad_scaler import GradScaler
@@ -47,6 +48,7 @@ class NeoPipeline(VanillaPipeline):
         self,
         config: NeoPipelineConfig,
         device: str,
+        data_path: Path,
         test_mode: Literal["test", "val", "inference"] = "val",
         world_size: int = 1,
         local_rank: int = 0,
@@ -67,7 +69,7 @@ class NeoPipeline(VanillaPipeline):
             metadata=self.datamanager.train_dataset.metadata,
             device=device,
             grad_scaler=grad_scaler,
-            bbox_dir=config.datamanager.data,
+            bbox_dir=data_path,
         )
         self.model.to(device)
 
