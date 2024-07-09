@@ -70,19 +70,19 @@ class NeoModel(NerfactoModel):
         idx = len(self.bbox_vis)
         bbox_data = BBoxData(idx, [0.1, 0.1, 0.1], [0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
 
-        self.bbox = ViserBoundingBox(data=bbox_data.get_nerfstudio_data(), cb_hook=self.display_wireframe)
+        self.bbox = ViserBoundingBox(data=bbox_data.viser_format(), cb_hook=self.display_wireframe)
         self.bbox.install(self.bbox_tool.viser_server)
 
         self.bbox_vis.append(self.bbox)
         self.bboxes["bboxes"].append(bbox_data.get_json_data())
-        self.bbox_tool.update(self.bbox.data)
+        self.bbox_tool.bbox_selector_handle.value = idx
 
     def move_box(self, element):
-        self.bbox.update(self.bbox_tool.get_bbox_data().get_nerfstudio_data())
+        self.bbox.update(self.bbox_tool.get_bbox_data().viser_format())
 
     def resize_box(self, element):
         self.bbox.box_handle.remove()
-        self.bbox = ViserBoundingBox(data=self.bbox_tool.get_bbox_data().get_nerfstudio_data(), cb_hook=self.display_wireframe)
+        self.bbox = ViserBoundingBox(data=self.bbox_tool.get_bbox_data().viser_format(), cb_hook=self.display_wireframe)
         self.bbox_vis[self.bbox_tool.bbox_selector_handle.value] = self.bbox
         self.bbox.install(self.bbox_tool.viser_server)
 

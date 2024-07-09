@@ -34,7 +34,7 @@ class BBoxData:
     position: List[float, float, float]
     """Position of the bounding box"""
 
-    def get_nerfstudio_data(self):
+    def viser_format(self):
 
         dimensions = np.array(self.dimensions) * 10
         euler = np.round(np.rad2deg(self.euler)[::-1] * np.array([1, -1, 1]))
@@ -131,7 +131,7 @@ class BoundingBoxToolbox(ViewerElement[bool]):
         self.dimensions_handle.value = data.dimensions
 
 
-class BoundingBox(ViewerElement[bool]):
+class ViserBoundingBox(ViewerElement[bool]):
     """A box in the viewer
 
     Args:
@@ -143,7 +143,7 @@ class BoundingBox(ViewerElement[bool]):
 
     box_handle: MeshHandle
 
-    def __init__(self, data: BBoxData, cb_hook: Callable[[BoundingBox], Any], disabled: bool = False, visible: bool = True, wireframe: bool = False):
+    def __init__(self, data: BBoxData, cb_hook: Callable[[ViserBoundingBox], Any], disabled: bool = False, visible: bool = True, wireframe: bool = False):
 
         name = f"Box_{data.idx}"
         super().__init__(name, disabled=disabled, visible=visible, cb_hook=cb_hook)
