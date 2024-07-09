@@ -53,7 +53,19 @@ class BBoxData:
     
     def get_json_data(self):
 
-        return {"idx": self.idx, "data": {"dimensions": self.dimensions, "euler": self.euler, "quaternion": self.quaternion, "position": self.position}}
+        dimensions = (np.array(self.dimensions) / 10).tolist()
+        euler = np.deg2rad(self.euler[::-1] * np.array([1, -1, 1]))
+        R = Rotation.from_euler('xyz', euler)
+        quaternion = tuple(R.as_quat(True))
+        position = (np.array(self.position) / 10).tolist()
+
+        return {"idx": self.idx, 
+                "data": {"dimensions": dimensions, 
+                         "euler": list(euler), 
+                         "quaternion": list(quaternion), 
+                         "position": position
+                         }
+                }
 
 
 class BoundingBoxToolbox(ViewerElement[bool]):
@@ -101,7 +113,7 @@ class BoundingBoxToolbox(ViewerElement[bool]):
         self.dimensions_handle = viser_server.add_gui_vector3(
             "Size", tuple(self.bbox_data.dimensions), step=0.1, disabled=self.disabled, visible=self.visible, hint="Provide size in meters"
         )
-        self.bbox_selector_handle = viser_server.add_gui_number("Selected box", 0, 0, step=1)
+        self.bbox_selector_handle = viser_server.add_gui_number("Selected box", self.bbox_data.idx, 0, step=1)
         self.add_box_handle = viser_server.add_gui_button("Add Bbox", color='gray', icon=Icon.BOX)
 
     def install(self, viser_server: ViserServer) -> None:
@@ -120,7 +132,7 @@ class BoundingBoxToolbox(ViewerElement[bool]):
 
         dimensions = tuple(np.array(self.dimensions_handle.value) / 10)
         euler = tuple(np.deg2rad(self.rotation_handle.value[::-1] * np.array([1, -1, 1])))
-        R = Rotation.from_euler('zyx', euler)
+        R = Rotation.from_euler('xyz', euler)
         quaternion = tuple(R.as_quat(True))
         position = tuple(np.array(self.position_handle.value) / 10)
 

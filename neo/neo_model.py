@@ -56,8 +56,8 @@ class NeoModel(NerfactoModel):
 
         # Load bbox data
         self.bbox = None
-        self.bbox_vis: List[ViserBoundingBox] = []
         self.bboxes = {"bboxes": []}
+        self.bbox_vis: List[ViserBoundingBox] = []
         self.bbox_dir = self.kwargs['bbox_dir'] / 'bbox.json'
         if not os.path.exists(self.bbox_dir):
             print(f"File bbox.json does not exist. Creating a file.")
@@ -72,15 +72,21 @@ class NeoModel(NerfactoModel):
                 self.bboxes = json.load(f)
 
         if len(self.bboxes['bboxes']) > 0:
+            for i, bbox in enumerate(self.bboxes['bboxes']):
+                data = bbox['data']
+                bbox_data = BBoxData(bbox['idx'], 
+                                     dimensions=data['dimensions'], 
+                                     euler=data['euler'], 
+                                     quaternion=data['quaternion'], 
+                                     position=data['position'])
 
-            bbox_data = self.bboxes['bboxes'][0]['data']
-            dimensions = tuple(np.array(bbox_data['scale']) * 10)
-            rotation = tuple(np.round(np.rad2deg(bbox_data['rotation'])[::-1] * np.array([1, -1, 1])))
-            quaternion = tuple(bbox_data['quaternion'])
-            position = tuple(np.array(bbox_data['position']) * 10)
-
-            bbox_data = BBoxData(0, dimensions=dimensions, rotation=rotation, quaternion=quaternion, position=position)
-            self.bbox_tool = BoundingBoxToolbox("Boxes", move_hook=self.move_box, resize_hook=self.resize_box, bbox_selector_hook=self.bbox_selector_hook, add_box_hook=self.add_box_hook)
+                self.bbox = ViserBoundingBox(data=bbox_data.viser_format(), cb_hook=self.display_wireframe)
+                self.bbox_vis.append(self.bbox)
+                
+                # Register loaded bounding boxes
+                setattr(self, f"temp_bbox_{i}", self.bbox)
+                
+            self.bbox_tool = BoundingBoxToolbox("Boxes", self.bbox_vis[-1].data, move_hook=self.move_box, resize_hook=self.resize_box, bbox_selector_hook=self.bbox_selector_hook, add_box_hook=self.add_box_hook)
 
         else:
             bbox_data = BBoxData(0, [1.0, 1.0, 1.0], [0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
@@ -119,7 +125,6 @@ class NeoModel(NerfactoModel):
         self.bbox.install(self.bbox_tool.viser_server)
 
         self.bbox_vis.append(self.bbox)
-        self.bboxes["bboxes"].append(bbox_data.get_json_data())
         self.bbox_tool.bbox_selector_handle.value = idx
 
     def move_box(self, element):
@@ -197,6 +202,16 @@ class NeoModel(NerfactoModel):
                 field_outputs[FieldHeadNames.NORMALS].detach(),
                 field_outputs[FieldHeadNames.PRED_NORMALS],
             )
+
+        # Update json file
+        if self.bbox is not None:
+
+            self.bboxes["bboxes"] = []
+            for bbox in self.bbox_vis:
+                self.bboxes["bboxes"].append(bbox.data.get_json_data())
+
+            with open(self.bbox_dir, 'w') as f:
+                    json.dump(self.bboxes, f, indent=2)
 
         # Generate ray masks
         new_ray_masks = torch.zeros_like(ray_samples.frustums.starts)
