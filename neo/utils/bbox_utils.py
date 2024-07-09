@@ -34,15 +34,22 @@ class BBoxData:
     position: List[float, float, float]
     """Position of the bounding box"""
 
-    def viser_format(self):
+    def viser_format(self) -> BBoxData:
 
         dimensions = np.array(self.dimensions) * 10
         euler = np.round(np.rad2deg(self.euler)[::-1] * np.array([1, -1, 1]))
         R = Rotation.from_euler('xyz', euler, degrees=True)
-        wxyz = R.as_quat(False)
+        quaternion = R.as_quat(False)
         position = np.array(self.position) * 10
 
-        return BBoxData(self.idx, dimensions, euler, wxyz, position)
+        return BBoxData(self.idx, dimensions, euler, quaternion, position)
+    
+    def nerfstudio_format(self) -> BBoxData:
+
+        dimensions = np.array(self.dimensions) / 10
+        position = np.array(self.position) / 10
+
+        return BBoxData(self.idx, dimensions, self.euler, self.quaternion, position)
     
     def get_json_data(self):
 

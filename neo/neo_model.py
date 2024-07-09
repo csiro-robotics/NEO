@@ -4,19 +4,39 @@ Neo Model.
 import json
 import os
 import numpy as np
+import torch
 
 from dataclasses import dataclass, field
-from typing import Type, Optional, Tuple, List
+from collections import defaultdict
+from typing import Type, Optional, Tuple, List, Union, Dict
 from scipy.spatial.transform import Rotation
 from pathlib import Path
 
-from neo.utils.bbox_utils import(
+from neo.utils.bbox import BoundingBox
+
+from neo.utils.bbox_utils import (
     BBoxData,
     BoundingBoxToolbox,
     ViserBoundingBox
 )
 
-from nerfstudio.models.nerfacto import NerfactoModel, NerfactoModelConfig  # for subclassing Nerfacto model
+from neo.utils.ray_samplers import (
+    RegionAwareUniformLinDispPiecewiseSampler,
+    RegionAwarePDFSampler,
+    RegionAwareProposalNetworkSampler
+)
+
+from nerfstudio.cameras.cameras import Cameras
+from nerfstudio.cameras.rays import RayBundle, RaySamples
+from nerfstudio.model_components.ray_samplers import UniformSampler
+from nerfstudio.models.nerfacto import NerfactoModel, NerfactoModelConfig
+from nerfstudio.field_components.field_heads import FieldHeadNames
+
+from nerfstudio.model_components.losses import (
+    orientation_loss,
+    pred_normal_loss,
+    scale_gradients_by_distance_squared,
+)
 
 
 @dataclass
@@ -35,6 +55,7 @@ class NeoModel(NerfactoModel):
         super().populate_modules()
 
         # Load bbox data
+        self.bbox = None
         self.bbox_vis: List[ViserBoundingBox] = []
         self.bboxes = {"bboxes": []}
         self.bbox_dir = self.kwargs['bbox_dir'] / 'bbox.json'
@@ -65,6 +86,30 @@ class NeoModel(NerfactoModel):
             bbox_data = BBoxData(0, [1.0, 1.0, 1.0], [0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
             self.bbox_tool = BoundingBoxToolbox("Boxes", bbox_data, move_hook=self.move_box, resize_hook=self.resize_box, bbox_selector_hook=self.bbox_selector_hook, add_box_hook=self.add_box_hook)
 
+        # Samplers
+        def update_schedule(step):
+            return np.clip(
+                np.interp(step, [0, self.config.proposal_warmup], [0, self.config.proposal_update_every]),
+                1,
+                self.config.proposal_update_every,
+            )
+
+        # Change default samplers to Region-Aware samplers
+        initial_sampler = RegionAwareUniformLinDispPiecewiseSampler(single_jitter=self.config.use_single_jitter)
+        if self.config.proposal_initial_sampler == "uniform":
+            initial_sampler = UniformSampler(single_jitter=self.config.use_single_jitter)
+        pdf_sampler = RegionAwarePDFSampler(include_original=False, single_jitter=self.config.use_single_jitter)
+
+        self.proposal_sampler = RegionAwareProposalNetworkSampler(
+            num_nerf_samples_per_ray=self.config.num_nerf_samples_per_ray,
+            num_proposal_samples_per_ray=self.config.num_proposal_samples_per_ray,
+            num_proposal_network_iterations=self.config.num_proposal_iterations,
+            single_jitter=self.config.use_single_jitter,
+            update_sched=update_schedule,
+            initial_sampler=initial_sampler,
+            pdf_sampler=pdf_sampler,
+        )
+
     def add_box_hook(self, element):
         
         idx = len(self.bbox_vis)
@@ -82,7 +127,7 @@ class NeoModel(NerfactoModel):
 
     def resize_box(self, element):
         self.bbox.box_handle.remove()
-        self.bbox = ViserBoundingBox(data=self.bbox_tool.get_bbox_data().viser_format(), cb_hook=self.display_wireframe)
+        self.bbox = ViserBoundingBox(data=self.bbox_tool.get_bbox_data().viser_format(), cb_hook=self.display_wireframe, wireframe=self.bbox.wireframe)
         self.bbox_vis[self.bbox_tool.bbox_selector_handle.value] = self.bbox
         self.bbox.install(self.bbox_tool.viser_server)
 
@@ -97,3 +142,133 @@ class NeoModel(NerfactoModel):
     def bbox_selector_hook(self, element):
         self.bbox = self.bbox_vis[self.bbox_tool.bbox_selector_handle.value]
         self.bbox_tool.update(self.bbox.data)
+
+    def get_outputs(self, ray_bundle: RayBundle, ray_masks: Optional[torch.Tensor] = None):
+        # Apply the camera optimizer pose tweaks
+        if self.training:
+            self.camera_optimizer.apply_to_raybundle(ray_bundle)
+
+        ray_samples: RaySamples
+
+        if ray_masks == None:
+            ray_samples, weights_list, ray_samples_list = self.proposal_sampler(ray_bundle, density_fns=self.density_fns)
+
+        else:
+            ray_samples, weights_list, ray_samples_list = self.proposal_sampler(ray_bundle, density_fns=self.density_fns, ray_masks=ray_masks)
+
+        field_outputs = self.field.forward(ray_samples, compute_normals=self.config.predict_normals)
+        if self.config.use_gradient_scaling:
+            field_outputs = scale_gradients_by_distance_squared(field_outputs, ray_samples)
+
+        weights = ray_samples.get_weights(field_outputs[FieldHeadNames.DENSITY])
+        weights_list.append(weights)
+        ray_samples_list.append(ray_samples)
+
+        rgb = self.renderer_rgb(rgb=field_outputs[FieldHeadNames.RGB], weights=weights)
+        with torch.no_grad():
+            depth = self.renderer_depth(weights=weights, ray_samples=ray_samples)
+        expected_depth = self.renderer_expected_depth(weights=weights, ray_samples=ray_samples)
+        accumulation = self.renderer_accumulation(weights=weights)
+
+        outputs = {
+            "rgb": rgb,
+            "accumulation": accumulation,
+            "depth": depth,
+            "expected_depth": expected_depth,
+        }
+
+        if self.config.predict_normals:
+            normals = self.renderer_normals(normals=field_outputs[FieldHeadNames.NORMALS], weights=weights)
+            pred_normals = self.renderer_normals(field_outputs[FieldHeadNames.PRED_NORMALS], weights=weights)
+            outputs["normals"] = self.normals_shader(normals)
+            outputs["pred_normals"] = self.normals_shader(pred_normals)
+        # These use a lot of GPU memory, so we avoid storing them for eval.
+        if self.training:
+            outputs["weights_list"] = weights_list
+            outputs["ray_samples_list"] = ray_samples_list
+
+        if self.training and self.config.predict_normals:
+            outputs["rendered_orientation_loss"] = orientation_loss(
+                weights.detach(), field_outputs[FieldHeadNames.NORMALS], ray_bundle.directions
+            )
+
+            outputs["rendered_pred_normal_loss"] = pred_normal_loss(
+                weights.detach(),
+                field_outputs[FieldHeadNames.NORMALS].detach(),
+                field_outputs[FieldHeadNames.PRED_NORMALS],
+            )
+
+        # Generate ray masks
+        new_ray_masks = torch.zeros_like(ray_samples.frustums.starts)
+
+        if self.bbox is not None:
+            boundingbox = BoundingBox(self.bbox.data.nerfstudio_format())
+            bound_dist = boundingbox.calculate_distances(ray_bundle.origins.reshape(-1, 3), ray_bundle.directions.reshape(-1, 3))
+
+            new_ray_masks[:, 1:3, :] = bound_dist[..., None]
+
+        for i in range(self.config.num_proposal_iterations):
+            outputs[f"prop_depth_{i}"] = self.renderer_depth(weights=weights_list[i], ray_samples=ray_samples_list[i])
+
+        if ray_masks == None and not self.training:
+            return outputs, new_ray_masks
+        
+        else:
+            return outputs
+        
+    @torch.no_grad()
+    def get_outputs_for_camera_ray_bundle(self, camera_ray_bundle: RayBundle) -> Dict[str, torch.Tensor]:
+        """Takes in camera parameters and computes the output of the model.
+
+        Args:
+            camera_ray_bundle: ray bundle to calculate outputs over
+        """
+        input_device = camera_ray_bundle.directions.device
+        num_rays_per_chunk = self.config.eval_num_rays_per_chunk
+        image_height, image_width = camera_ray_bundle.origins.shape[:2]
+        num_rays = len(camera_ray_bundle)
+        outputs_lists = defaultdict(list)
+        for i in range(0, num_rays, num_rays_per_chunk):
+            start_idx = i
+            end_idx = i + num_rays_per_chunk
+            ray_bundle = camera_ray_bundle.get_row_major_sliced_ray_bundle(start_idx, end_idx)
+            # move the chunk inputs to the model device
+            ray_bundle = ray_bundle.to(self.device)
+            outputs, ray_masks = self.forward(ray_bundle=ray_bundle)
+            outputs_bounded = self.forward(ray_bundle=ray_bundle, ray_masks=ray_masks)
+
+            for output_name, output in outputs.items():  # type: ignore
+                if not isinstance(output, torch.Tensor):
+                    # TODO: handle lists of tensors as well
+                    continue
+                # move the chunk outputs from the model device back to the device of the inputs.
+                outputs_lists[output_name].append(output.to(input_device))
+
+            for output_name, output in outputs_bounded.items():  # type: ignore
+                if not isinstance(output, torch.Tensor):
+                    # TODO: handle lists of tensors as well
+                    continue
+                # move the chunk outputs from the model device back to the device of the inputs.
+                outputs_lists[f"{output_name}_preview"].append(output.to(input_device))
+
+        outputs = {}
+        for output_name, outputs_list in outputs_lists.items():
+            outputs[output_name] = torch.cat(outputs_list).view(image_height, image_width, -1)  # type: ignore
+        return outputs
+    
+    def forward(self, ray_bundle: Union[RayBundle, Cameras], ray_masks: Optional[torch.Tensor] = None) -> Dict[str, Union[torch.Tensor, List]]:
+        """Run forward starting with a ray bundle. This outputs different things depending on the configuration
+        of the model and whether or not the batch is provided (whether or not we are training basically)
+
+        Args:
+            ray_bundle: containing all the information needed to render that ray latents included
+        """
+
+        if self.collider is not None:
+            ray_bundle = self.collider(ray_bundle)
+
+        if ray_masks == None:
+            return self.get_outputs(ray_bundle)
+        
+        else:
+            return self.get_outputs(ray_bundle, ray_masks)
