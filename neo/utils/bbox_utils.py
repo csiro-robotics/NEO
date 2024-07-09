@@ -3,7 +3,9 @@ Utils for displaying bbox in the viewer
 """
 from __future__ import annotations
 
+import time
 import numpy as np
+import trimesh.creation
 
 from scipy.spatial.transform import Rotation
 from dataclasses import dataclass
@@ -117,12 +119,15 @@ class BoundingBoxToolbox(ViewerElement[bool]):
 
         return BBoxData(self.bbox_selector_handle.value, dimensions, euler, quaternion, position)
     
-    def update_data(self, data: BBoxData) -> None:
+    def update(self, data: BBoxData) -> None:
 
         self.bbox_data = data
 
         self.position_handle.value = data.position
         self.rotation_handle.value = data.euler
+        time.sleep(0.1) # Not ideal solution
+        # Above lines of the code trigger callback functions which run in separate threads
+        # This causes issue with the line below because it should wait until the code above finished execution
         self.dimensions_handle.value = data.dimensions
 
 
@@ -147,8 +152,6 @@ class BoundingBox(ViewerElement[bool]):
         self.wireframe = wireframe
 
     def _create_gui_handle(self, viser_server: ViserServer) -> None:
-
-        import trimesh.creation
 
         mesh = trimesh.creation.box(tuple(self.data.dimensions))
 
