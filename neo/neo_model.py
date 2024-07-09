@@ -13,7 +13,7 @@ from pathlib import Path
 from neo.utils.bbox_utils import(
     BBoxData,
     BoundingBoxToolbox,
-    BoundingBox
+    ViserBoundingBox
 )
 
 from nerfstudio.models.nerfacto import NerfactoModel, NerfactoModelConfig  # for subclassing Nerfacto model
@@ -35,7 +35,7 @@ class NeoModel(NerfactoModel):
         super().populate_modules()
 
         # Load bbox data
-        self.bbox_vis: List[BoundingBox] = []
+        self.bbox_vis: List[ViserBoundingBox] = []
         self.bboxes = {"bboxes": []}
         self.bbox_dir = self.kwargs['bbox_dir'] / 'bbox.json'
         if not os.path.exists(self.bbox_dir):
@@ -67,23 +67,22 @@ class NeoModel(NerfactoModel):
 
     def add_box_hook(self, element):
         
-        bbox_data = BBoxData(len(self.bbox_vis), [0.1, 0.1, 0.1], [0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
+        idx = len(self.bbox_vis)
+        bbox_data = BBoxData(idx, [0.1, 0.1, 0.1], [0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
 
-        bbox_handle = BoundingBox(data=bbox_data.get_nerfstudio_data(), cb_hook=self.display_wireframe)
-        bbox_handle.install(self.bbox_tool.viser_server)
+        self.bbox = ViserBoundingBox(data=bbox_data.get_nerfstudio_data(), cb_hook=self.display_wireframe)
+        self.bbox.install(self.bbox_tool.viser_server)
 
-        if len(self.bbox_vis) == 0:
-            self.bbox = bbox_handle
-
-        self.bbox_vis.append(bbox_handle)
+        self.bbox_vis.append(self.bbox)
         self.bboxes["bboxes"].append(bbox_data.get_json_data())
+        self.bbox_tool.update(self.bbox.data)
 
     def move_box(self, element):
         self.bbox.update(self.bbox_tool.get_bbox_data().get_nerfstudio_data())
 
     def resize_box(self, element):
         self.bbox.box_handle.remove()
-        self.bbox = BoundingBox(data=self.bbox_tool.get_bbox_data().get_nerfstudio_data(), cb_hook=self.display_wireframe)
+        self.bbox = ViserBoundingBox(data=self.bbox_tool.get_bbox_data().get_nerfstudio_data(), cb_hook=self.display_wireframe)
         self.bbox_vis[self.bbox_tool.bbox_selector_handle.value] = self.bbox
         self.bbox.install(self.bbox_tool.viser_server)
 
@@ -91,7 +90,7 @@ class NeoModel(NerfactoModel):
         wireframe = not bool(self.bbox.wireframe)
 
         self.bbox.box_handle.remove()
-        self.bbox = BoundingBox(data=self.bbox.data, cb_hook=self.display_wireframe, wireframe=wireframe)
+        self.bbox = ViserBoundingBox(data=self.bbox.data, cb_hook=self.display_wireframe, wireframe=wireframe)
         self.bbox_vis[self.bbox_tool.bbox_selector_handle.value] = self.bbox
         self.bbox.install(self.bbox_tool.viser_server)
 
