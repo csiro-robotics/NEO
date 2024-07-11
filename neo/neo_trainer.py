@@ -64,13 +64,16 @@ class NeoTrainer(Trainer):
                 'test': loads train/test datasets into memory
                 'inference': does not load any dataset into memory
         """
+
+        self.config.pipeline.bbox_data_path = self.config.get_base_dir()
+        self.config.save_config()
+
         self.pipeline = self.config.pipeline.setup(
             device=self.device,
             test_mode=test_mode,
             world_size=self.world_size,
             local_rank=self.local_rank,
             grad_scaler=self.grad_scaler,
-            data_path=self.config.get_base_dir(),
         )
         self.optimizers = self.setup_optimizers()
 

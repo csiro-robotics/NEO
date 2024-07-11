@@ -47,9 +47,12 @@ class BBoxData:
     def nerfstudio_format(self) -> BBoxData:
 
         dimensions = np.array(self.dimensions) / 10
+        euler = np.deg2rad(self.euler[::-1] * np.array([1, -1, 1]))
+        R = Rotation.from_euler('xyz', euler)
+        quaternion = R.as_quat(True)
         position = np.array(self.position) / 10
 
-        return BBoxData(self.idx, dimensions, self.euler, self.quaternion, position)
+        return BBoxData(self.idx, dimensions, euler, quaternion, position)
     
     def get_json_data(self):
 

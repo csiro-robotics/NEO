@@ -31,6 +31,8 @@ class NeoPipelineConfig(VanillaPipelineConfig):
 
     _target: Type = field(default_factory=lambda: NeoPipeline)
     """target class to instantiate"""
+    bbox_data_path: Path = None
+    """path to file with bounding boxes"""
     datamanager: DataManagerConfig = VanillaDataManagerConfig()
     """specifies the datamanager config"""
     model: ModelConfig = NeoModelConfig()
@@ -48,7 +50,6 @@ class NeoPipeline(VanillaPipeline):
         self,
         config: NeoPipelineConfig,
         device: str,
-        data_path: Path,
         test_mode: Literal["test", "val", "inference"] = "val",
         world_size: int = 1,
         local_rank: int = 0,
@@ -63,13 +64,14 @@ class NeoPipeline(VanillaPipeline):
         self.datamanager.to(device)
 
         assert self.datamanager.train_dataset is not None, "Missing input dataset"
+        assert self.config.bbox_data_path is not None, "No bbox data please specify --pipeline.bbox_data_path 'PATH_TO_BBOX_JSON'"
         self._model = config.model.setup(
             scene_box=self.datamanager.train_dataset.scene_box,
             num_train_data=len(self.datamanager.train_dataset),
             metadata=self.datamanager.train_dataset.metadata,
             device=device,
             grad_scaler=grad_scaler,
-            bbox_dir=data_path,
+            bbox_dir=self.config.bbox_data_path,
         )
         self.model.to(device)
 

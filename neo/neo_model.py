@@ -82,7 +82,7 @@ class NeoModel(NerfactoModel):
 
                 self.bbox = ViserBoundingBox(data=bbox_data.viser_format(), cb_hook=self.display_wireframe)
                 self.bbox_vis.append(self.bbox)
-                
+
                 # Register loaded bounding boxes
                 setattr(self, f"temp_bbox_{i}", self.bbox)
                 
@@ -217,10 +217,43 @@ class NeoModel(NerfactoModel):
         new_ray_masks = torch.zeros_like(ray_samples.frustums.starts)
 
         if self.bbox is not None:
-            boundingbox = BoundingBox(self.bbox.data.nerfstudio_format())
-            bound_dist = boundingbox.calculate_distances(ray_bundle.origins.reshape(-1, 3), ray_bundle.directions.reshape(-1, 3))
+            bound_dists = []
+            for i, bbox in enumerate(self.bbox_vis):
+                boundingbox = BoundingBox(bbox.data.nerfstudio_format())
+                bound_dist = boundingbox.calculate_distances(ray_bundle.origins.reshape(-1, 3), ray_bundle.directions.reshape(-1, 3))
+                bound_dists.append(bound_dist.unsqueeze(1))
 
-            new_ray_masks[:, 1:3, :] = bound_dist[..., None]
+            data = torch.concat(bound_dists, dim=1)
+            data = torch.where(data == 0, 3, data)
+            twos = torch.ones_like(data) * 2
+            threes = torch.ones_like(data) * 3
+
+            temp_1 = torch.concat([data[:, :, 0:1], twos[:, :, 0:1]], dim=2)
+            temp_2 = torch.concat([data[:, :, 1:2], threes[:, :, 1:2]], dim=2)
+
+            values = None
+            for i in range(data.shape[1]):
+                if values is None:
+                    values = torch.concat([temp_1[:, i:i+1, :], temp_2[:, i:i+1, :]], dim=1)
+                else:
+                    values = torch.concat([values, temp_1[:, i:i+1, :], temp_2[:, i:i+1, :]], dim=1)
+            
+            indices = values[:, :, 0].sort(stable=True)[1]
+            values = values[torch.arange(values.size(0)).unsqueeze(1), indices]
+            values = values.reshape(values.shape[0], values.shape[1] * values.shape[2])
+
+            # Indices of columns to keep
+            indices_to_keep = [i for i in range(values.shape[1]) if ((i + 1) % 4) - 2 != 0]
+            values = values[:, indices_to_keep]
+            values = torch.where(values == 3, 0, values)
+            values = torch.where(values == 2, 0.1, values)
+
+            new_ray_masks[:, 1:values.shape[1] + 1, :] = values[..., None]
+
+            # for i in range(len(self.bbox_vis) - 1):
+                
+            #     discontinuity = torch.logical_and(new_ray_masks[:, 2 + (3 * i), :] > new_ray_masks[:, 4 + (3 * i), :], new_ray_masks[:, 4 + (3 * i)] > 0)
+            #     new_ray_masks[:, 3 + (3 * i), :] = discontinuity.int()
 
         for i in range(self.config.num_proposal_iterations):
             outputs[f"prop_depth_{i}"] = self.renderer_depth(weights=weights_list[i], ray_samples=ray_samples_list[i])

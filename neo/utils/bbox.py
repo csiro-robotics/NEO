@@ -58,7 +58,7 @@ class BoundingBox():
         self.w_y = (torch.max(cube[:, 1]) - torch.min(cube[:, 1])) / 2
         self.w_z = (torch.max(cube[:, 2]) - torch.min(cube[:, 2])) / 2
 
-    def calculate_distances(self, ray_origins, ray_directions):
+    def calculate_distances(self, ray_origins, ray_directions) -> torch.Tensor:
         """
         Perform inverse translations and rotations on rays. 
         This function returns bounds per ray.
