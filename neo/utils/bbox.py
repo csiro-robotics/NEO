@@ -2,6 +2,7 @@ import torch
 
 from neo.utils.bbox_utils import BBoxData
 
+
 class BoundingBox():
 
     def __init__(self, data: BBoxData, device="cuda:0") -> None:
@@ -9,8 +10,9 @@ class BoundingBox():
 
         Args:
             size: (x, y, z) size in meters
-            translation: translation of a cube in global coordinates
-            rotation: rotation of a cube in RPY euler angles in radians
+            data: BBoxData object containing:
+                translation: translation of a cube in global coordinates
+                rotation: rotation of a cube in RPY euler angles in radians
             device: device where to send data default "cuda:0"
         """
         self.device = device

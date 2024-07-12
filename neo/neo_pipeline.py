@@ -63,6 +63,8 @@ class NeoPipeline(VanillaPipeline):
         )
         self.datamanager.to(device)
 
+        dataparser_output = self.datamanager.dataparser._generate_dataparser_outputs()
+
         assert self.datamanager.train_dataset is not None, "Missing input dataset"
         assert self.config.bbox_data_path is not None, "No bbox data please specify --pipeline.bbox_data_path 'PATH_TO_BBOX_JSON'"
         self._model = config.model.setup(
@@ -71,7 +73,10 @@ class NeoPipeline(VanillaPipeline):
             metadata=self.datamanager.train_dataset.metadata,
             device=device,
             grad_scaler=grad_scaler,
+            data_path=self.config.datamanager.data,
             bbox_dir=self.config.bbox_data_path,
+            dataparser_transform=dataparser_output.dataparser_transform,
+            dataparser_scale=dataparser_output.dataparser_scale,
         )
         self.model.to(device)
 

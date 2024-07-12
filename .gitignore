@@ -5,6 +5,7 @@
 # Data
 /data
 /outputs
+/renders
 
 # Pytohn
 __pycache__

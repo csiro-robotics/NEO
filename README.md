@@ -13,3 +13,10 @@ ns-install-cli
 ```bash
 neo --data data/bouquet --timestamp "" --pipeline.datamanager.pixel-sampler.ignore-mask True
 ```
+
+If running inside docker container or remote server you need to run
+```bash
+sudo apt-get install -y xvfb
+Xvfb :99 -screen 0 1024x768x24 &
+export DISPLAY=:99
+```

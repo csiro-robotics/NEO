@@ -13,6 +13,7 @@ from scipy.spatial.transform import Rotation
 from pathlib import Path
 
 from neo.utils.bbox import BoundingBox
+from neo.utils.sparse_dataset import generate_sparse_dataset
 
 from neo.utils.bbox_utils import (
     BBoxData,
@@ -54,11 +55,16 @@ class NeoModel(NerfactoModel):
     def populate_modules(self):
         super().populate_modules()
 
+        # Dataparser transformations
+        self.dataparser_transform = self.kwargs['dataparser_transform']
+        self.dataparser_scale = self.kwargs['dataparser_scale']
+
         # Load bbox data
         self.bbox = None
         self.bboxes = {"bboxes": []}
         self.bbox_vis: List[ViserBoundingBox] = []
         self.bbox_dir = self.kwargs['bbox_dir'] / 'bbox.json'
+        self.data_path = self.kwargs['data_path']
         if not os.path.exists(self.bbox_dir):
             print(f"File bbox.json does not exist. Creating a file.")
 
@@ -86,11 +92,11 @@ class NeoModel(NerfactoModel):
                 # Register loaded bounding boxes
                 setattr(self, f"temp_bbox_{i}", self.bbox)
                 
-            self.bbox_tool = BoundingBoxToolbox("Boxes", self.bbox_vis[-1].data, move_hook=self.move_box, resize_hook=self.resize_box, bbox_selector_hook=self.bbox_selector_hook, add_box_hook=self.add_box_hook)
+            self.bbox_tool = BoundingBoxToolbox("Boxes", self.bbox_vis[-1].data, move_hook=self.move_box, resize_hook=self.resize_box, bbox_selector_hook=self.bbox_selector_hook, add_box_hook=self.add_box_hook, apply_changes_hook=self.apply_changes_hook)
 
         else:
             bbox_data = BBoxData(0, [1.0, 1.0, 1.0], [0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
-            self.bbox_tool = BoundingBoxToolbox("Boxes", bbox_data, move_hook=self.move_box, resize_hook=self.resize_box, bbox_selector_hook=self.bbox_selector_hook, add_box_hook=self.add_box_hook)
+            self.bbox_tool = BoundingBoxToolbox("Boxes", bbox_data, move_hook=self.move_box, resize_hook=self.resize_box, bbox_selector_hook=self.bbox_selector_hook, add_box_hook=self.add_box_hook, apply_changes_hook=self.apply_changes_hook)
 
         # Samplers
         def update_schedule(step):
@@ -115,6 +121,10 @@ class NeoModel(NerfactoModel):
             initial_sampler=initial_sampler,
             pdf_sampler=pdf_sampler,
         )
+
+    def apply_changes_hook(self, element):
+
+        generate_sparse_dataset(self.data_path, self.bbox_dir, self.dataparser_transform, self.dataparser_scale)
 
     def add_box_hook(self, element):
         
@@ -249,11 +259,6 @@ class NeoModel(NerfactoModel):
             values = torch.where(values == 2, 0.1, values)
 
             new_ray_masks[:, 1:values.shape[1] + 1, :] = values[..., None]
-
-            # for i in range(len(self.bbox_vis) - 1):
-                
-            #     discontinuity = torch.logical_and(new_ray_masks[:, 2 + (3 * i), :] > new_ray_masks[:, 4 + (3 * i), :], new_ray_masks[:, 4 + (3 * i)] > 0)
-            #     new_ray_masks[:, 3 + (3 * i), :] = discontinuity.int()
 
         for i in range(self.config.num_proposal_iterations):
             outputs[f"prop_depth_{i}"] = self.renderer_depth(weights=weights_list[i], ray_samples=ray_samples_list[i])

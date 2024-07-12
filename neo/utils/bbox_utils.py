@@ -92,6 +92,7 @@ class BoundingBoxToolbox(ViewerElement[bool]):
                  resize_hook: Callable[[BoundingBoxToolbox], Any], 
                  bbox_selector_hook: Callable[[BoundingBoxToolbox], Any], 
                  add_box_hook: Callable[[BoundingBoxToolbox], Any], 
+                 apply_changes_hook: Callable[[BoundingBoxToolbox], Any], 
                  disabled: bool = False, 
                  visible: bool = True, 
                  ):
@@ -103,6 +104,7 @@ class BoundingBoxToolbox(ViewerElement[bool]):
         self.move_hook = move_hook
         self.bbox_selector_hook = bbox_selector_hook
         self.add_box_hook = add_box_hook
+        self.apply_changes_hook = apply_changes_hook
 
         self.bbox_data = bbox_data
 
@@ -118,18 +120,20 @@ class BoundingBoxToolbox(ViewerElement[bool]):
         )
         self.bbox_selector_handle = viser_server.add_gui_number("Selected box", self.bbox_data.idx, 0, step=1)
         self.add_box_handle = viser_server.add_gui_button("Add Bbox", color='gray', icon=Icon.BOX)
+        self.apply_changes_handle = viser_server.add_gui_button("Apply changes", color='gray', icon=Icon.DEVICE_FLOPPY)
 
     def install(self, viser_server: ViserServer) -> None:
         self._create_gui_handle(viser_server)
 
         self.viser_server = viser_server
 
-        assert self.position_handle is not None and self.rotation_handle is not None and self.dimensions_handle is not None
+        assert self.position_handle is not None and self.rotation_handle is not None and self.dimensions_handle is not None and self.apply_changes_handle is not None
         self.position_handle.on_update(lambda _: self.move_hook(self))
         self.rotation_handle.on_update(lambda _: self.move_hook(self))
         self.dimensions_handle.on_update(lambda _: self.resize_hook(self))
         self.bbox_selector_handle.on_update(lambda _: self.bbox_selector_hook(self))
         self.add_box_handle.on_click(lambda _: self.add_box_hook(self))
+        self.apply_changes_handle.on_click(lambda _: self.apply_changes_hook(self))
 
     def get_bbox_data(self) -> BBoxData:
 
