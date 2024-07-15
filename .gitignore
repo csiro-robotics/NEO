@@ -3,6 +3,7 @@
 *.env
 
 # Data
+/ckpts
 /data
 /outputs
 /renders

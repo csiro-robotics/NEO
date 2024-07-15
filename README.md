@@ -14,6 +14,10 @@ ns-install-cli
 neo --data data/bouquet --timestamp "" --pipeline.datamanager.pixel-sampler.ignore-mask True
 ```
 
+```bash
+pip install git+https://github.com/facebookresearch/segment-anything.git
+```
+
 If running inside docker container or remote server you need to run
 ```bash
 sudo apt-get install -y xvfb

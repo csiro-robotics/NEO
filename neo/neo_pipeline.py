@@ -75,6 +75,7 @@ class NeoPipeline(VanillaPipeline):
             grad_scaler=grad_scaler,
             data_path=self.config.datamanager.data,
             bbox_dir=self.config.bbox_data_path,
+            dataparser_config=config.datamanager.dataparser,
             dataparser_transform=dataparser_output.dataparser_transform,
             dataparser_scale=dataparser_output.dataparser_scale,
         )

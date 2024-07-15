@@ -5,23 +5,60 @@ import torch
 import open3d as o3d
 import numpy as np
 
+from PIL import Image
+from typing import Dict, Any
 from pathlib import Path
 
-from neo.utils.bbox_utils import BoundingBoxToolbox
+from nerfstudio.models.base_model import Model
+from nerfstudio.cameras.cameras import Cameras
+
+from neo.utils.cameras import get_cameras
 
 
-def generate_sparse_dataset(data_path: Path, bboxes_path: Path, dataparser_transform: torch.Tensor, dataparser_scale: torch.Tensor) -> None:
+def generate_sparse_dataset(model: Model,
+                            dataparser_config: Dict[str, Any],
+                            data_path: Path, 
+                            bboxes_path: Path, 
+                            dataparser_transform: torch.Tensor, 
+                            dataparser_scale: torch.Tensor) -> None:
 
     print("Generating Sparse Data!")
-    
+
     # Load camera data
     with open(data_path / "transforms.json", "r") as file:
         camera_data = json.load(file)
+    
+    generate_masks(camera_data, bboxes_path, dataparser_transform, dataparser_scale)
+    print(a)
 
+    cameras = get_cameras(dataparser_config)
+    inpaint_images(model, cameras)
+
+
+
+def inpaint_images(model: Model, cameras: Cameras) -> None:
+
+    print("Inpainting images")
+
+    for camera in cameras:
+        with torch.no_grad():
+            outputs = model.get_outputs_for_camera(camera)
+
+        print(outputs)
+
+        print(a)
+
+    print(outputs)
+
+
+def generate_masks(camera_data: Dict[str, float], 
+                   bboxes_path: Path, 
+                   dataparser_transform: torch.Tensor, 
+                   dataparser_scale: torch.Tensor) -> None:
+    
     # Load bbox data
     with open(bboxes_path, "r") as file:
         bboxes = json.load(file)
-        # bbox_data = bbox_data['bboxes'][0]['data']
 
     # Create masks folder
     os.makedirs(bboxes_path.parent / "masks", exist_ok=True)
@@ -47,7 +84,7 @@ def generate_sparse_dataset(data_path: Path, bboxes_path: Path, dataparser_trans
     vis.get_render_option().background_color = np.asarray([0, 0, 0])
 
     # Add boxes to visualization
-    for bbox in bboxes['bboxes']:
+    for idx, bbox in enumerate(bboxes['bboxes']):
         bbox_data = bbox['data']
         offset = 0.0
         bbox_w, bbox_h, bbox_d  = np.array(bbox_data['dimensions']) - offset
@@ -56,7 +93,8 @@ def generate_sparse_dataset(data_path: Path, bboxes_path: Path, dataparser_trans
                                                         height=bbox_h,
                                                         depth=bbox_d)
         mesh_box.translate(np.array([-bbox_w / 2, -bbox_h / 2, -bbox_d / 2]))
-        mesh_box.paint_uniform_color([1.0, 1.0, 1.0])
+        color = (idx + 10) / 255
+        mesh_box.paint_uniform_color((color, color, color))
 
         position = np.array(bbox_data['position']) - dataparser_transform[:, 3].cpu().detach().numpy()
 
@@ -89,8 +127,6 @@ def generate_sparse_dataset(data_path: Path, bboxes_path: Path, dataparser_trans
         while len(num) < 4:
             num = '0' + num
 
-        print(Path(frame["file_path"]))
-
         # Extract transformation matrix
         transform_matrix = np.array(frame["transform_matrix"])
 
@@ -108,8 +144,12 @@ def generate_sparse_dataset(data_path: Path, bboxes_path: Path, dataparser_trans
         # Save images
         img = vis.capture_screen_float_buffer(do_render=True)
         img = (255.0 * np.asarray(img)).astype(np.uint8)
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        cv2.imwrite(f"{bboxes_path.parent}/masks/{Path(frame['file_path']).name}", img)
+        _, thr = cv2.threshold(gray, 5, 255, cv2.THRESH_BINARY)
+        cnt, _ = cv2.findContours(thr.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE) 
+
+        print(i, Path(frame['file_path']).name, np.unique(gray), len(cnt))
+        cv2.imwrite(f"{bboxes_path.parent}/masks/{Path(frame['file_path']).name}", thr)
 
     vis.destroy_window()

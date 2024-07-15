@@ -315,7 +315,7 @@ class RegionAwarePDFSampler(PDFSampler):
         cdf = torch.min(torch.ones_like(pdf), torch.cumsum(pdf, dim=-1))
         cdf = torch.cat([torch.zeros_like(cdf[..., :1]), cdf], dim=-1)
 
-        if self.train_stratified and self.training:
+        if self.train_stratified and self.training and ray_masks is None:
             # Stratified samples between 0 and 1
             u = torch.linspace(0.0, 1.0 - (1.0 / num_bins), steps=num_bins, device=cdf.device)
             u = u.expand(size=(*cdf.shape[:-1], num_bins))
@@ -368,7 +368,7 @@ class RegionAwarePDFSampler(PDFSampler):
                 # temp_w = torch.sort(torch.concat([w, raising_values, falling_values], dim=1))
                 # w = temp_w.values[:, :masked_rays.shape[1]]
 
-                #Adding one to the end improves results. Need to validate on different scenes
+                # Adding one to the end improves results. Need to validate on different scenes
                 # w[:, -1] = 1
             
         u = u.contiguous()
@@ -402,7 +402,7 @@ class RegionAwarePDFSampler(PDFSampler):
         # Stop gradients
         bins = bins.detach()
 
-        if ray_masks != None:
+        if ray_masks is not None:
             spacing_fn = lambda x: torch.where(x < 1, x / 2, 1 - 1 / (2 * x))
             masked_rays = spacing_fn(ray_masks[..., 0])
 

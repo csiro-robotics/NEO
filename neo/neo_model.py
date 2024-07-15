@@ -56,6 +56,7 @@ class NeoModel(NerfactoModel):
         super().populate_modules()
 
         # Dataparser transformations
+        self.dataparser_config = self.kwargs['dataparser_config']
         self.dataparser_transform = self.kwargs['dataparser_transform']
         self.dataparser_scale = self.kwargs['dataparser_scale']
 
@@ -124,7 +125,7 @@ class NeoModel(NerfactoModel):
 
     def apply_changes_hook(self, element):
 
-        generate_sparse_dataset(self.data_path, self.bbox_dir, self.dataparser_transform, self.dataparser_scale)
+        generate_sparse_dataset(self, self.dataparser_config, self.data_path, self.bbox_dir, self.dataparser_transform, self.dataparser_scale)
 
     def add_box_hook(self, element):
         
@@ -263,7 +264,7 @@ class NeoModel(NerfactoModel):
         for i in range(self.config.num_proposal_iterations):
             outputs[f"prop_depth_{i}"] = self.renderer_depth(weights=weights_list[i], ray_samples=ray_samples_list[i])
 
-        if ray_masks == None and not self.training:
+        if ray_masks == None:
             return outputs, new_ray_masks
         
         else:
