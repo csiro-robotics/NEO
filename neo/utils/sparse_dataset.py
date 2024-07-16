@@ -51,7 +51,7 @@ def generate_sparse_dataset(model: Model,
 
             for box in visible_boxes:
                 if box in group and random_frame[0] not in frames:
-                    frames.append(random_frame[0])
+                    frames.append(image_names.index(random_frame[0]))
                     break
 
             threshold += 1
@@ -61,9 +61,11 @@ def generate_sparse_dataset(model: Model,
         if threshold == 1000:
             raise TimeoutError("Object designated for removal is not visible in at least four frames!")
 
+    print(random_frames)
+    print(a)
+
     render_preview_images(model, cameras)
 
-    print(a)
 
 
 
