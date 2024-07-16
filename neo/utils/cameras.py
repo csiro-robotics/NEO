@@ -249,7 +249,11 @@ def get_cameras(dataparser_config: Dict[str, Any], split: str = "train") -> Came
     assert dataparser_config.downscale_factor is not None
     cameras.rescale_output_resolution(scaling_factor=1.0 / dataparser_config.downscale_factor)
 
-    return cameras
+    image_names = []
+    for image_filename in image_filenames:
+        image_names.append(image_filename.name)
+
+    return cameras, image_names
 
 
 def _get_fname(dataparser_config: Dict[str, Any], filepath: Path, data_dir: Path, downsample_folder_prefix="images_") -> Path:

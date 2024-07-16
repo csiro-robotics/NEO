@@ -2,12 +2,13 @@ import cv2
 import json
 import os
 import torch
+import random
 import itertools
 import open3d as o3d
 import numpy as np
 
 from PIL import Image
-from typing import Dict, Any
+from typing import Dict, List, Any
 from collections import defaultdict
 from pathlib import Path
 
@@ -31,17 +32,43 @@ def generate_sparse_dataset(model: Model,
     with open(data_path / "transforms.json", "r") as file:
         camera_data = json.load(file)
     
-    collision_groups, masks_metadata = generate_masks(camera_data, bboxes_path, dataparser_transform, dataparser_scale)
-    print(collision_groups, masks_metadata)
-    
+    cameras, image_names = get_cameras(dataparser_config)
+    collision_groups, masks_metadata = generate_masks(camera_data, image_names, bboxes_path, dataparser_transform, dataparser_scale)
+
+    # Select random frames for inpainting
+    random_frames = []
+    for group in collision_groups:
+        frames = []
+        threshold = 0
+        while len(frames) < 4 and threshold < 1000:
+            random_frame = random.choice(list(masks_metadata.items()))
+            
+            visible_boxes = random_frame[1]
+            if len(visible_boxes) > 0:
+                random.shuffle(visible_boxes)
+            else:
+                continue
+
+            for box in visible_boxes:
+                if box in group and random_frame[0] not in frames:
+                    frames.append(random_frame[0])
+                    break
+
+            threshold += 1
+
+        random_frames.append(frames)
+
+        if threshold == 1000:
+            raise TimeoutError("Object designated for removal is not visible in at least four frames!")
+
+    render_preview_images(model, cameras)
+
     print(a)
 
-    cameras = get_cameras(dataparser_config)
-    inpaint_images(model, cameras)
 
 
 
-def inpaint_images(model: Model, cameras: Cameras) -> None:
+def render_preview_images(model: Model, cameras: Cameras) -> None:
 
     print("Inpainting images")
 
@@ -57,6 +84,7 @@ def inpaint_images(model: Model, cameras: Cameras) -> None:
 
 
 def generate_masks(camera_data: Dict[str, float], 
+                   image_names: List[str],
                    bboxes_path: Path, 
                    dataparser_transform: torch.Tensor, 
                    dataparser_scale: torch.Tensor) -> None:
@@ -198,11 +226,13 @@ def generate_masks(camera_data: Dict[str, float],
         img = (255.0 * np.asarray(img)).astype(np.uint8)
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         _, thr = cv2.threshold(gray, 5, 255, cv2.THRESH_BINARY)
-        cnt, _ = cv2.findContours(thr.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE) 
+
+        cv2.imwrite(f"{bboxes_path.parent}/masks/{Path(frame['file_path']).name}", thr)
+
+        if Path(frame['file_path']).name not in image_names:
+            continue
 
         masks_metadata[Path(frame['file_path']).name] = (np.array(np.unique(gray)[1:]) - 10).tolist()
-        print(i, Path(frame['file_path']).name, (np.array(np.unique(gray)[1:]) - 10).tolist(), len(cnt))
-        cv2.imwrite(f"{bboxes_path.parent}/masks/{Path(frame['file_path']).name}", thr)
 
     vis.destroy_window()
 
