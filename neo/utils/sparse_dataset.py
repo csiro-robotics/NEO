@@ -2,17 +2,20 @@ import cv2
 import json
 import os
 import torch
+import itertools
 import open3d as o3d
 import numpy as np
 
 from PIL import Image
 from typing import Dict, Any
+from collections import defaultdict
 from pathlib import Path
 
 from nerfstudio.models.base_model import Model
 from nerfstudio.cameras.cameras import Cameras
 
 from neo.utils.cameras import get_cameras
+from neo.utils.collisions import OBB, check_obb_collision
 
 
 def generate_sparse_dataset(model: Model,
@@ -28,7 +31,9 @@ def generate_sparse_dataset(model: Model,
     with open(data_path / "transforms.json", "r") as file:
         camera_data = json.load(file)
     
-    generate_masks(camera_data, bboxes_path, dataparser_transform, dataparser_scale)
+    collision_groups, masks_metadata = generate_masks(camera_data, bboxes_path, dataparser_transform, dataparser_scale)
+    print(collision_groups, masks_metadata)
+    
     print(a)
 
     cameras = get_cameras(dataparser_config)
@@ -84,6 +89,7 @@ def generate_masks(camera_data: Dict[str, float],
     vis.get_render_option().background_color = np.asarray([0, 0, 0])
 
     # Add boxes to visualization
+    obbs = []
     for idx, bbox in enumerate(bboxes['bboxes']):
         bbox_data = bbox['data']
         offset = 0.0
@@ -118,9 +124,55 @@ def generate_masks(camera_data: Dict[str, float],
         
         mesh_box.rotate(R.T)
 
+        obb = OBB(center=position, axes=R, half_sizes=np.array([-bbox_w / 2, -bbox_h / 2, -bbox_d / 2]))
+        obbs.append(obb)
         vis.add_geometry(mesh_box)
 
+    # Detect collisions between bounding boxes
+    combinations = list(itertools.combinations(np.arange(len(obbs)), 2))
+
+    collision_graph = defaultdict(set)
+    for comb in combinations:
+        collision = check_obb_collision(obbs[comb[0]], obbs[comb[1]])
+        if collision:
+            collision_graph[comb[0]].add(comb[1])
+            collision_graph[comb[1]].add(comb[0])
+
+    def find_connected_components(graph):
+        visited = set()
+        components = []
+
+        def dfs(node, component):
+            stack = [node]
+            while stack:
+                current = stack.pop()
+                if current not in visited:
+                    visited.add(current)
+                    component.append(current)
+                    stack.extend(graph[current] - visited)
+
+        for node in graph:
+            if node not in visited:
+                component = []
+                dfs(node, component)
+                components.append(component)
+
+        return components
+
+    # Get the groups of colliding bounding boxes
+    collision_groups = find_connected_components(collision_graph)
+
+    for bbox_idx in range(len(obbs)):
+        skip = False
+        for group in collision_groups:
+            if bbox_idx in group:
+                skip = True
+
+        if not skip:
+            collision_groups.append([bbox_idx])
+
     # Iterate through frames
+    masks_metadata = {}
     for i, frame in enumerate(camera_data["frames"]):
 
         num = str(i)
@@ -145,11 +197,13 @@ def generate_masks(camera_data: Dict[str, float],
         img = vis.capture_screen_float_buffer(do_render=True)
         img = (255.0 * np.asarray(img)).astype(np.uint8)
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
         _, thr = cv2.threshold(gray, 5, 255, cv2.THRESH_BINARY)
         cnt, _ = cv2.findContours(thr.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE) 
 
-        print(i, Path(frame['file_path']).name, np.unique(gray), len(cnt))
+        masks_metadata[Path(frame['file_path']).name] = (np.array(np.unique(gray)[1:]) - 10).tolist()
+        print(i, Path(frame['file_path']).name, (np.array(np.unique(gray)[1:]) - 10).tolist(), len(cnt))
         cv2.imwrite(f"{bboxes_path.parent}/masks/{Path(frame['file_path']).name}", thr)
 
     vis.destroy_window()
+
+    return collision_groups, masks_metadata
