@@ -28,6 +28,9 @@ def generate_sparse_dataset(model: Model,
 
     print("Generating Sparse Data!")
 
+    print("Generate:", model.training)
+    # print(a)
+
     # Load camera data
     with open(data_path / "transforms.json", "r") as file:
         camera_data = json.load(file)
@@ -36,7 +39,7 @@ def generate_sparse_dataset(model: Model,
     collision_groups, masks_metadata = generate_masks(camera_data, image_names, bboxes_path, dataparser_transform, dataparser_scale)
 
     # Select random frames for inpainting
-    random_frames = []
+    random_images = []
     for group in collision_groups:
         frames = []
         threshold = 0
@@ -56,33 +59,30 @@ def generate_sparse_dataset(model: Model,
 
             threshold += 1
 
-        random_frames.append(frames)
+        random_images.append(frames)
 
         if threshold == 1000:
             raise TimeoutError("Object designated for removal is not visible in at least four frames!")
 
-    print(random_frames)
+    render_preview_images(model, cameras, random_images)
+
     print(a)
 
-    render_preview_images(model, cameras)
 
-
-
-
-
-def render_preview_images(model: Model, cameras: Cameras) -> None:
+def render_preview_images(model: Model, cameras: Cameras, random_images: List[int]) -> None:
 
     print("Inpainting images")
 
-    for camera in cameras:
-        with torch.no_grad():
-            outputs = model.get_outputs_for_camera(camera)
+    print("Render:", model.training)
 
-        print(outputs)
+    for images_group in random_images:
+        for image_idx in images_group:
+            with torch.no_grad():
+                print("No grad:", model.training)
+                outputs = model.get_outputs_for_camera(cameras[image_idx])
 
-        print(a)
-
-    print(outputs)
+            rgb_preview = cv2.cvtColor((outputs['rgb_preview'].cpu().detach().numpy() * 255).astype(np.uint8), cv2.COLOR_BGR2RGB)
+            cv2.imwrite(f"rgb_preview_{image_idx}.png", rgb_preview)
 
 
 def generate_masks(camera_data: Dict[str, float], 
@@ -92,11 +92,11 @@ def generate_masks(camera_data: Dict[str, float],
                    dataparser_scale: torch.Tensor) -> None:
     
     # Load bbox data
-    with open(bboxes_path, "r") as file:
+    with open(bboxes_path / "bbox.json", "r") as file:
         bboxes = json.load(file)
 
     # Create masks folder
-    os.makedirs(bboxes_path.parent / "masks", exist_ok=True)
+    os.makedirs(bboxes_path / "masks", exist_ok=True)
 
     # Extract camera parameters
     fl_x = camera_data["fl_x"]
@@ -229,7 +229,7 @@ def generate_masks(camera_data: Dict[str, float],
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         _, thr = cv2.threshold(gray, 5, 255, cv2.THRESH_BINARY)
 
-        cv2.imwrite(f"{bboxes_path.parent}/masks/{Path(frame['file_path']).name}", thr)
+        cv2.imwrite(f"{bboxes_path}/masks/{Path(frame['file_path']).name}", thr)
 
         if Path(frame['file_path']).name not in image_names:
             continue

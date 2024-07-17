@@ -13,7 +13,6 @@ from scipy.spatial.transform import Rotation
 from pathlib import Path
 
 from neo.utils.bbox import BoundingBox
-from neo.utils.sparse_dataset import generate_sparse_dataset
 
 from neo.utils.bbox_utils import (
     BBoxData,
@@ -56,16 +55,13 @@ class NeoModel(NerfactoModel):
         super().populate_modules()
 
         # Dataparser transformations
-        self.dataparser_config = self.kwargs['dataparser_config']
-        self.dataparser_transform = self.kwargs['dataparser_transform']
-        self.dataparser_scale = self.kwargs['dataparser_scale']
+        self.apply_changes_hook = self.kwargs['apply_changes_hook']
 
         # Load bbox data
         self.bbox = None
         self.bboxes = {"bboxes": []}
         self.bbox_vis: List[ViserBoundingBox] = []
         self.bbox_dir = self.kwargs['bbox_dir'] / 'bbox.json'
-        self.data_path = self.kwargs['data_path']
         if not os.path.exists(self.bbox_dir):
             print(f"File bbox.json does not exist. Creating a file.")
 
@@ -123,10 +119,6 @@ class NeoModel(NerfactoModel):
             pdf_sampler=pdf_sampler,
         )
 
-    def apply_changes_hook(self, element):
-
-        generate_sparse_dataset(self, self.dataparser_config, self.data_path, self.bbox_dir, self.dataparser_transform, self.dataparser_scale)
-
     def add_box_hook(self, element):
         
         idx = len(self.bbox_vis)
@@ -161,6 +153,8 @@ class NeoModel(NerfactoModel):
 
     def get_outputs(self, ray_bundle: RayBundle, ray_masks: Optional[torch.Tensor] = None):
         # Apply the camera optimizer pose tweaks
+
+        print("Get outputs:", self.training, self.proposal_sampler.training)
         if self.training:
             self.camera_optimizer.apply_to_raybundle(ray_bundle)
 
@@ -277,6 +271,7 @@ class NeoModel(NerfactoModel):
         Args:
             camera_ray_bundle: ray bundle to calculate outputs over
         """
+        print("Out ray bundle:", self.training)
         input_device = camera_ray_bundle.directions.device
         num_rays_per_chunk = self.config.eval_num_rays_per_chunk
         image_height, image_width = camera_ray_bundle.origins.shape[:2]

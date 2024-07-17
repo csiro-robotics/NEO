@@ -23,6 +23,8 @@ class RegionAwareProposalNetworkSampler(ProposalNetworkSampler):
         weights_list = []
         ray_samples_list = []
 
+        print("Proposal sampler:", self.training)
+
         n = self.num_proposal_network_iterations
         weights = None
         ray_samples = None
@@ -180,8 +182,12 @@ class RegionAwareSpacedSampler(Sampler):
             starting_positions = temp_starting_positions[:, :ray_masks.shape[1]]
             bins[:, -1] = 1
 
+        print("Sampler:", self.training)
         # TODO More complicated than it needs to be.
         if self.train_stratified and self.training:
+
+            print("I shouldn't be here!")
+
             if self.single_jitter:
                 t_rand = torch.rand((num_rays, 1), dtype=bins.dtype, device=bins.device)
             else:

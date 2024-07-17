@@ -23,6 +23,7 @@ from nerfstudio.pipelines.base_pipeline import (
 )
 
 from neo.neo_model import NeoModel, NeoModelConfig
+from neo.utils.sparse_dataset import generate_sparse_dataset
 
 
 @dataclass
@@ -63,7 +64,7 @@ class NeoPipeline(VanillaPipeline):
         )
         self.datamanager.to(device)
 
-        dataparser_output = self.datamanager.dataparser._generate_dataparser_outputs()
+        self.dataparser_output = self.datamanager.dataparser._generate_dataparser_outputs()
 
         assert self.datamanager.train_dataset is not None, "Missing input dataset"
         assert self.config.bbox_data_path is not None, "No bbox data please specify --pipeline.bbox_data_path 'PATH_TO_BBOX_JSON'"
@@ -73,11 +74,8 @@ class NeoPipeline(VanillaPipeline):
             metadata=self.datamanager.train_dataset.metadata,
             device=device,
             grad_scaler=grad_scaler,
-            data_path=self.config.datamanager.data,
             bbox_dir=self.config.bbox_data_path,
-            dataparser_config=config.datamanager.dataparser,
-            dataparser_transform=dataparser_output.dataparser_transform,
-            dataparser_scale=dataparser_output.dataparser_scale,
+            apply_changes_hook=self.apply_changes_hook,
         )
         self.model.to(device)
 
@@ -87,3 +85,16 @@ class NeoPipeline(VanillaPipeline):
                 NeoModel, DDP(self._model, device_ids=[local_rank], find_unused_parameters=True)
             )
             dist.barrier(device_ids=[local_rank])
+
+    def apply_changes_hook(self, element):
+
+        self.model.eval()
+        print("Apply:", self.model, self.model.training, self.datamanager.training)
+        generate_sparse_dataset(self.model, 
+                                self.config.datamanager.dataparser, 
+                                self.config.datamanager.data, 
+                                self.config.bbox_data_path, 
+                                self.dataparser_output.dataparser_transform, 
+                                self.dataparser_output.dataparser_scale
+                                )
+        self.model.train()
