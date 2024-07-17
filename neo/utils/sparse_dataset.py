@@ -1,6 +1,7 @@
 import cv2
 import json
 import os
+import shutil
 import torch
 import random
 import itertools
@@ -11,9 +12,11 @@ from PIL import Image
 from typing import Dict, List, Any
 from collections import defaultdict
 from pathlib import Path
+from rich.progress import track
 
 from nerfstudio.models.base_model import Model
 from nerfstudio.cameras.cameras import Cameras
+from nerfstudio.utils.rich_utils import CONSOLE
 
 from neo.utils.cameras import get_cameras
 from neo.utils.collisions import OBB, check_obb_collision
@@ -26,7 +29,8 @@ def generate_sparse_dataset(model: Model,
                             dataparser_transform: torch.Tensor, 
                             dataparser_scale: torch.Tensor) -> None:
 
-    print("Generating Sparse Data!")
+    CONSOLE.rule("[bold green]Editing NeRF!")
+    CONSOLE.print("[bold green]Generating Sparse Dataset")
 
     # Load camera data
     with open(data_path / "transforms.json", "r") as file:
@@ -51,7 +55,7 @@ def generate_sparse_dataset(model: Model,
 
             for box in visible_boxes:
                 if box in group and random_frame[0] not in frames:
-                    frames.append(image_names.index(random_frame[0]))
+                    frames.append((random_frame[0], image_names.index(random_frame[0])))
                     break
 
             threshold += 1
@@ -60,6 +64,10 @@ def generate_sparse_dataset(model: Model,
 
         if threshold == 1000:
             raise TimeoutError("Object designated for removal is not visible in at least four frames!")
+    
+    for images_group in random_images:
+        for random_image in images_group:
+            shutil.copy(bboxes_path / f"masks/{random_image[0]}", ".")
 
     render_preview_images(model, cameras, random_images)
 
@@ -68,10 +76,11 @@ def generate_sparse_dataset(model: Model,
 
 def render_preview_images(model: Model, cameras: Cameras, random_images: List[int]) -> None:
 
-    print("Inpainting images")
+    print("Rendering images for inpainting")
 
     for images_group in random_images:
-        for image_idx in images_group:
+        for random_image in images_group:
+            image_idx = random_image[1]
             with torch.no_grad():
                 outputs = model.get_outputs_for_camera(cameras[image_idx])
 
@@ -114,6 +123,7 @@ def generate_masks(camera_data: Dict[str, float],
 
     # Add boxes to visualization
     obbs = []
+    CONSOLE.print("Reading bbox data")
     for idx, bbox in enumerate(bboxes['bboxes']):
         bbox_data = bbox['data']
         offset = 0.0
@@ -194,10 +204,12 @@ def generate_masks(camera_data: Dict[str, float],
 
         if not skip:
             collision_groups.append([bbox_idx])
+    
+    CONSOLE.print(f"Found {len(collision_groups)} groups of bounding boxes")
 
     # Iterate through frames
     masks_metadata = {}
-    for i, frame in enumerate(camera_data["frames"]):
+    for i, frame in enumerate(track(camera_data["frames"], description="Generating masks", transient=False)):
 
         num = str(i)
         while len(num) < 4:

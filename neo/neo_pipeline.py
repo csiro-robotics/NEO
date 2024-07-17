@@ -6,6 +6,7 @@ import typing
 from dataclasses import dataclass, field
 from typing import Literal, Optional, Type
 from pathlib import Path
+from segment_anything import sam_model_registry, SamPredictor
 
 import torch.distributed as dist
 from torch.cuda.amp.grad_scaler import GradScaler
@@ -38,6 +39,10 @@ class NeoPipelineConfig(VanillaPipelineConfig):
     """specifies the datamanager config"""
     model: ModelConfig = NeoModelConfig()
     """specifies the model config"""
+    sam_checkpoint: str = "sam_vit_h_4b8939.pth"
+    """name of the SAM checkpoint"""
+    sam_model_type: str = "vit_h"
+    """SAM model type, vit_h by default"""
 
 
 class NeoPipeline(VanillaPipeline):
@@ -85,6 +90,13 @@ class NeoPipeline(VanillaPipeline):
                 NeoModel, DDP(self._model, device_ids=[local_rank], find_unused_parameters=True)
             )
             dist.barrier(device_ids=[local_rank])
+
+        # Initialize SAM predictor
+        sam_checkpoint = f"ckpts/{self.config.sam_checkpoint}"
+        sam = sam_model_registry[self.config.sam_model_type](checkpoint=sam_checkpoint)
+        sam.to(device=device)
+
+        self.sam_predictor = SamPredictor(sam)
 
     def apply_changes_hook(self, element):
 
