@@ -89,12 +89,11 @@ class NeoPipeline(VanillaPipeline):
     def apply_changes_hook(self, element):
 
         self.model.eval()
-        print("Apply:", self.model, self.model.training, self.datamanager.training)
-        generate_sparse_dataset(self.model, 
-                                self.config.datamanager.dataparser, 
-                                self.config.datamanager.data, 
-                                self.config.bbox_data_path, 
-                                self.dataparser_output.dataparser_transform, 
-                                self.dataparser_output.dataparser_scale
+        generate_sparse_dataset(model=self.model, 
+                                data_path=self.config.datamanager.data, 
+                                bboxes_path=self.config.bbox_data_path, 
+                                dataparser_config=self.config.datamanager.dataparser, 
+                                dataparser_transform=self.dataparser_output.dataparser_transform, 
+                                dataparser_scale=self.dataparser_output.dataparser_scale
                                 )
         self.model.train()

@@ -20,16 +20,13 @@ from neo.utils.collisions import OBB, check_obb_collision
 
 
 def generate_sparse_dataset(model: Model,
-                            dataparser_config: Dict[str, Any],
                             data_path: Path, 
                             bboxes_path: Path, 
+                            dataparser_config: Dict[str, Any],
                             dataparser_transform: torch.Tensor, 
                             dataparser_scale: torch.Tensor) -> None:
 
     print("Generating Sparse Data!")
-
-    print("Generate:", model.training)
-    # print(a)
 
     # Load camera data
     with open(data_path / "transforms.json", "r") as file:
@@ -73,12 +70,9 @@ def render_preview_images(model: Model, cameras: Cameras, random_images: List[in
 
     print("Inpainting images")
 
-    print("Render:", model.training)
-
     for images_group in random_images:
         for image_idx in images_group:
             with torch.no_grad():
-                print("No grad:", model.training)
                 outputs = model.get_outputs_for_camera(cameras[image_idx])
 
             rgb_preview = cv2.cvtColor((outputs['rgb_preview'].cpu().detach().numpy() * 255).astype(np.uint8), cv2.COLOR_BGR2RGB)

@@ -7,6 +7,13 @@ from nerfstudio.cameras.rays import RayBundle, RaySamples
 
 
 class RegionAwareProposalNetworkSampler(ProposalNetworkSampler):
+    """Region aware proposal network sampler that allows for excluding regions along the ray from the sampling process.
+
+    Args:
+        ray_bundle: Rays to generate samples for
+        density_fns: Sampler network
+        ray_masks: Bounds for each ray specifying the regions excluded from the sampling
+    """
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -22,8 +29,6 @@ class RegionAwareProposalNetworkSampler(ProposalNetworkSampler):
 
         weights_list = []
         ray_samples_list = []
-
-        print("Proposal sampler:", self.training)
 
         n = self.num_proposal_network_iterations
         weights = None
@@ -182,16 +187,13 @@ class RegionAwareSpacedSampler(Sampler):
             starting_positions = temp_starting_positions[:, :ray_masks.shape[1]]
             bins[:, -1] = 1
 
-        print("Sampler:", self.training)
         # TODO More complicated than it needs to be.
         if self.train_stratified and self.training:
-
-            print("I shouldn't be here!")
-
             if self.single_jitter:
                 t_rand = torch.rand((num_rays, 1), dtype=bins.dtype, device=bins.device)
             else:
                 t_rand = torch.rand((num_rays, num_samples + 1), dtype=bins.dtype, device=bins.device)
+
             bin_centers = (bins[..., 1:] + bins[..., :-1]) / 2.0
             bin_upper = torch.cat([bin_centers, bins[..., -1:]], -1)
             bin_lower = torch.cat([bins[..., :1], bin_centers], -1)
@@ -207,8 +209,8 @@ class RegionAwareSpacedSampler(Sampler):
         spacing_starts = None
         spacing_ends = None
         ray_samples = None
-        if ray_masks == None:
 
+        if ray_masks == None:
             euclidean_bins = spacing_to_euclidean_fn(bins)  # [num_rays, num_samples+1]
             
             bin_starts = euclidean_bins[..., :-1, None]
@@ -246,7 +248,7 @@ class RegionAwareSpacedSampler(Sampler):
     
 
 class RegionAwareUniformLinDispPiecewiseSampler(RegionAwareSpacedSampler):
-    """Piecewise sampler along a ray that allocates the first half of the samples uniformly and the second half
+    """Piecewise Region Aware sampler along a ray that allocates the first half of the samples uniformly and the second half
     using linearly in disparity spacing.
 
 
@@ -306,10 +308,7 @@ class RegionAwarePDFSampler(PDFSampler):
         assert num_samples is not None
         num_bins = num_samples + 1
 
-        # if ray_masks == None:
         weights = weights[..., 0] + self.histogram_padding
-        # else:
-        #     weights = weights[..., 0] + (self.histogram_padding / 2)
 
         # Add small offset to rays with zero weight to prevent NaNs
         weights_sum = torch.sum(weights, dim=-1, keepdim=True)
@@ -330,9 +329,9 @@ class RegionAwarePDFSampler(PDFSampler):
             else:
                 rand = torch.rand((*cdf.shape[:-1], num_samples + 1), device=cdf.device) / num_bins
             u = u + rand
+
         else:
-            # if ray_masks == None:
-            # Uniform samples between 0 and 1
+            # Uniform samples excluding selected region
             u = torch.linspace(0.0, 1.0 - (1.0 / num_bins), steps=num_bins, device=cdf.device)
             u = u + 1.0 / (2 * num_bins)
             u = u.expand(size=(*cdf.shape[:-1], num_bins))
@@ -352,10 +351,6 @@ class RegionAwarePDFSampler(PDFSampler):
                 multidim_arange = torch.cumsum(torch.ones(masked_rays.shape).to(masked_rays.device), dim=1) - 1
                 bins = (multidim_arange * end / masked_rays.shape[1])
 
-                # raising_values = torch.sort(torch.where(bin_mask_raise * masked_rays > 0, bin_mask_raise * masked_rays, torch.inf)).values
-                # falling_values = torch.sort(torch.where(bin_mask_fall * masked_rays > 0, bin_mask_fall * masked_rays, torch.inf)).values
-                # mid_values = (raising_values + falling_values) / 2
-
                 increment_step = end / (masked_rays.shape[1] - 1)
                 move_idxs = torch.floor(((bins - masked_rays) / (increment_step)) * torch.where(masked_rays > 0, 1, 0))
 
@@ -370,12 +365,6 @@ class RegionAwarePDFSampler(PDFSampler):
                 starting_positions = torch.zeros(masked_rays.shape).to(masked_rays.device)
                 starting_positions[torch.arange(masked_rays.shape[0])[..., None], starting_idxs] = (sort_end - sort_start).float()
                 w = ((multidim_arange + torch.cumsum(starting_positions, dim=1)) * increment_step)
-
-                # temp_w = torch.sort(torch.concat([w, raising_values, falling_values], dim=1))
-                # w = temp_w.values[:, :masked_rays.shape[1]]
-
-                # Adding one to the end improves results. Need to validate on different scenes
-                # w[:, -1] = 1
             
         u = u.contiguous()
 
@@ -434,6 +423,7 @@ class RegionAwarePDFSampler(PDFSampler):
         bin_ends = None
         spacing_starts = None
         spacing_ends = None
+        
         if ray_masks == None:
             bin_starts = euclidean_bins[..., :-1, None]
             bin_ends = euclidean_bins[..., 1:, None]

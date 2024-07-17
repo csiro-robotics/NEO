@@ -153,8 +153,6 @@ class NeoModel(NerfactoModel):
 
     def get_outputs(self, ray_bundle: RayBundle, ray_masks: Optional[torch.Tensor] = None):
         # Apply the camera optimizer pose tweaks
-
-        print("Get outputs:", self.training, self.proposal_sampler.training)
         if self.training:
             self.camera_optimizer.apply_to_raybundle(ray_bundle)
 
@@ -258,7 +256,7 @@ class NeoModel(NerfactoModel):
         for i in range(self.config.num_proposal_iterations):
             outputs[f"prop_depth_{i}"] = self.renderer_depth(weights=weights_list[i], ray_samples=ray_samples_list[i])
 
-        if ray_masks == None:
+        if ray_masks == None and not self.training:
             return outputs, new_ray_masks
         
         else:
@@ -271,7 +269,6 @@ class NeoModel(NerfactoModel):
         Args:
             camera_ray_bundle: ray bundle to calculate outputs over
         """
-        print("Out ray bundle:", self.training)
         input_device = camera_ray_bundle.directions.device
         num_rays_per_chunk = self.config.eval_num_rays_per_chunk
         image_height, image_width = camera_ray_bundle.origins.shape[:2]
