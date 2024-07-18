@@ -1,8 +1,9 @@
 """
 Neo pipeline.
 """
-
+import os
 import typing
+
 from dataclasses import dataclass, field
 from typing import Literal, Optional, Type
 from pathlib import Path
@@ -43,6 +44,8 @@ class NeoPipelineConfig(VanillaPipelineConfig):
     """name of the SAM checkpoint"""
     sam_model_type: str = "vit_h"
     """SAM model type, vit_h by default"""
+    log_inpaint_images: bool = True
+    """If set to True images used for inpainting will be logged."""
 
 
 class NeoPipeline(VanillaPipeline):
@@ -69,6 +72,7 @@ class NeoPipeline(VanillaPipeline):
         )
         self.datamanager.to(device)
 
+        # Obrain example dataparser output. Used for mask generation
         self.dataparser_output = self.datamanager.dataparser._generate_dataparser_outputs()
 
         assert self.datamanager.train_dataset is not None, "Missing input dataset"
@@ -98,14 +102,19 @@ class NeoPipeline(VanillaPipeline):
 
         self.sam_predictor = SamPredictor(sam)
 
+        # Create logs folder
+        os.makedirs("logs", exist_ok=True)
+
     def apply_changes_hook(self, element):
 
         self.model.eval()
         generate_sparse_dataset(model=self.model, 
+                                sam_predictor=self.sam_predictor,
                                 data_path=self.config.datamanager.data, 
                                 bboxes_path=self.config.bbox_data_path, 
                                 dataparser_config=self.config.datamanager.dataparser, 
                                 dataparser_transform=self.dataparser_output.dataparser_transform, 
-                                dataparser_scale=self.dataparser_output.dataparser_scale
+                                dataparser_scale=self.dataparser_output.dataparser_scale,
+                                log_inpaint_images=self.config.log_inpaint_images,
                                 )
         self.model.train()

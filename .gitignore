@@ -5,6 +5,7 @@
 # Data
 /ckpts
 /data
+/logs
 /outputs
 /renders
 

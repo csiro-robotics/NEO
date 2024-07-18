@@ -7,12 +7,14 @@ import random
 import itertools
 import open3d as o3d
 import numpy as np
+import numpy.typing as npt
 
 from PIL import Image
 from typing import Dict, List, Any
 from collections import defaultdict
 from pathlib import Path
 from rich.progress import track
+from segment_anything import SamPredictor
 
 from nerfstudio.models.base_model import Model
 from nerfstudio.cameras.cameras import Cameras
@@ -23,14 +25,25 @@ from neo.utils.collisions import OBB, check_obb_collision
 
 
 def generate_sparse_dataset(model: Model,
+                            sam_predictor: SamPredictor,
                             data_path: Path, 
                             bboxes_path: Path, 
                             dataparser_config: Dict[str, Any],
                             dataparser_transform: torch.Tensor, 
-                            dataparser_scale: torch.Tensor) -> None:
+                            dataparser_scale: torch.Tensor,
+                            log_inpaint_images: bool = False) -> None:
 
     CONSOLE.rule("[bold green]Editing NeRF!")
     CONSOLE.print("[bold green]Generating Sparse Dataset")
+
+    # Create log paths or replace existing logs
+    if log_inpaint_images:
+        logs_path = Path("logs") / bboxes_path / "inpainting"
+
+        if os.path.exists(logs_path):
+            shutil.rmtree(logs_path)
+
+        os.makedirs(logs_path)
 
     # Load camera data
     with open(data_path / "transforms.json", "r") as file:
@@ -65,28 +78,70 @@ def generate_sparse_dataset(model: Model,
         if threshold == 1000:
             raise TimeoutError("Object designated for removal is not visible in at least four frames!")
     
-    for images_group in random_images:
-        for random_image in images_group:
-            shutil.copy(bboxes_path / f"masks/{random_image[0]}", ".")
+    # Inpaint selected images
+    for idx, images_group in enumerate(random_images):
+        
+        if log_inpaint_images:
+            group_logs_path = logs_path / f"{idx}"
+            os.makedirs(group_logs_path)
 
-    render_preview_images(model, cameras, random_images)
+        masks = []
+        for idx, random_image in enumerate(images_group):
+            image = render_preview_image(model, cameras, random_image)
+            mask = cv2.imread(str(bboxes_path / f"masks/{random_image[0]}"), cv2.IMREAD_GRAYSCALE)
+            refined_mask = refine_mask(mask, image, sam_predictor)
+
+            if log_inpaint_images:
+                cv2.imwrite(str(group_logs_path / random_image[0]), cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+                cv2.imwrite(str(group_logs_path / f"mask_{random_image[0]}"), mask)
+                cv2.imwrite(str(group_logs_path / f"refined_mask{random_image[0]}"), refined_mask)
 
     print(a)
 
 
-def render_preview_images(model: Model, cameras: Cameras, random_images: List[int]) -> None:
+def refine_mask(input_mask: npt.NDArray, rendered_image: npt.NDArray, sam_predictor: SamPredictor) -> npt.NDArray:
 
-    print("Rendering images for inpainting")
+    # Generate features for rendered image
+    sam_predictor.set_image(rendered_image)
 
-    for images_group in random_images:
-        for random_image in images_group:
-            image_idx = random_image[1]
-            with torch.no_grad():
-                outputs = model.get_outputs_for_camera(cameras[image_idx])
+    # Create a set of prompt points around objects visible on the masks
+    input_mask = input_mask
+    edges = cv2.Canny(input_mask, threshold1=100, threshold2=200)
+    input_points = np.array(np.where(edges == 255)).transpose()[:, ::-1]
+    indices = np.linspace(0, input_points.shape[0] - 1, 100, dtype=int)
+    input_points = input_points[indices]
+    input_labels = np.ones_like(input_points[:, 0])
 
-            rgb_preview = cv2.cvtColor((outputs['rgb_preview'].cpu().detach().numpy() * 255).astype(np.uint8), cv2.COLOR_BGR2RGB)
-            cv2.imwrite(f"rgb_preview_{image_idx}.png", rgb_preview)
+    # Predict masks for the points and refine input mask
+    masks = []
+    for input_point, input_label in zip(input_points, input_labels):
+        mask, _, _ = sam_predictor.predict(
+            point_coords=np.array([input_point]),
+            point_labels=np.array([input_label]),
+            multimask_output=False,
+        )
+        masks.append(mask[0])
 
+    masks = np.array(masks)
+
+    sum_masks = np.clip(masks.sum(0), 0, 1)
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+    sum_masks = cv2.morphologyEx((sum_masks * 255).astype(np.uint8), cv2.MORPH_CLOSE, kernel, iterations=2)[None, ...] / 255
+
+    refined_mask = np.array(np.logical_and(np.logical_xor(sum_masks[0], input_mask), input_mask)).astype(np.uint8) * 255
+
+    return refined_mask
+
+
+def render_preview_image(model: Model, cameras: Cameras, random_image: List[int]) -> npt.NDArray:
+
+    image_idx = random_image[1]
+    with torch.no_grad():
+        outputs = model.get_outputs_for_camera(cameras[image_idx])
+
+    rgb_preview = (outputs['rgb_preview'].cpu().detach().numpy() * 255).astype(np.uint8)
+    
+    return rgb_preview
 
 def generate_masks(camera_data: Dict[str, float], 
                    image_names: List[str],
