@@ -46,12 +46,30 @@ def generate_sparse_dataset(model: Model,
 
         os.makedirs(logs_path)
 
-    # Load camera data
+    # Create cache path for generating dataset
+    cache_path = Path("cache") / bboxes_path
+
+    if os.path.exists(cache_path):
+        shutil.rmtree(cache_path)
+
+    os.makedirs(cache_path)
+
+    # Copy dataset to cache
+    shutil.copytree(data_path / "images", cache_path / "images")
+    shutil.copy(data_path / "transforms.json", cache_path / "transforms.json")
+    shutil.copy(bboxes_path / "bbox.json", cache_path / "bbox.json")
+
+    # Load camera data and generate masks
     with open(data_path / "transforms.json", "r") as file:
         camera_data = json.load(file)
     
     cameras, image_names = get_cameras(dataparser_config)
-    collision_groups, masks_metadata = generate_masks(camera_data, image_names, bboxes_path, dataparser_transform, dataparser_scale)
+    collision_groups, masks_metadata = generate_masks(camera_data=camera_data, 
+                                                      image_names=image_names, 
+                                                      bboxes_path=bboxes_path, 
+                                                      output_path=cache_path, 
+                                                      dataparser_transform=dataparser_transform, 
+                                                      dataparser_scale=dataparser_scale)
 
     # Select random frames for inpainting
     random_images = []
@@ -90,12 +108,14 @@ def generate_sparse_dataset(model: Model,
         image_names = []
         for random_image in track(images_group, description=f"Rendering images for group {idx + 1}", transient=False):
             image = render_preview_image(model, cameras, random_image)
-            mask = cv2.imread(str(bboxes_path / f"masks/{random_image[0]}"), cv2.IMREAD_GRAYSCALE)
+            mask = cv2.imread(str(cache_path / f"temp_masks/{random_image[0]}"), cv2.IMREAD_GRAYSCALE)
             refined_mask = refine_mask(mask, image, sam_predictor)
 
             images.append(image)
             masks.append(refined_mask)
             image_names.append(random_image[0])
+
+            cv2.imwrite(str(cache_path / f"masks/{random_image[0]}"), mask)
 
             if log_inpaint_images:
                 cv2.imwrite(str(group_logs_path / random_image[0]), cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
@@ -117,12 +137,16 @@ def generate_sparse_dataset(model: Model,
         reconstructed_grid_image = reconstructed_grid_image.resize(img_old_size)
         reconstructed_grid_image = np.array(reconstructed_grid_image)
         reconstructed_images = get_images_from_grid(reconstructed_grid_image, img_old_size)
+
+        for image, name in zip(reconstructed_images, image_names):
+            cv2.imwrite(str(cache_path / f"images/{name}"), cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
         
         if log_inpaint_images:
             for image, name in zip(reconstructed_images, image_names):
                 cv2.imwrite(str(group_logs_path / f"reconstructed_{name}"), cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
-    print(a)
+    # Remove temporary masks
+    shutil.rmtree(cache_path / "temp_masks")
 
 
 def get_images_from_grid(grid_image: npt.NDArray, size: Tuple[int, int]) -> List[npt.NDArray]:
@@ -151,7 +175,6 @@ def get_image_grid(images: List[npt.NDArray]) -> npt.NDArray:
             images_grid[i * width:(i+1) * width, j * height:(j + 1) * height] = images[i * 2 + j]
 
     return images_grid
-
 
 
 def refine_mask(input_mask: npt.NDArray, rendered_image: npt.NDArray, sam_predictor: SamPredictor) -> npt.NDArray:
@@ -201,6 +224,7 @@ def render_preview_image(model: Model, cameras: Cameras, random_image: List[int]
 def generate_masks(camera_data: Dict[str, float], 
                    image_names: List[str],
                    bboxes_path: Path, 
+                   output_path: Path,
                    dataparser_transform: torch.Tensor, 
                    dataparser_scale: torch.Tensor) -> None:
     
@@ -209,7 +233,8 @@ def generate_masks(camera_data: Dict[str, float],
         bboxes = json.load(file)
 
     # Create masks folder
-    os.makedirs(bboxes_path / "masks", exist_ok=True)
+    os.makedirs(output_path / "masks", exist_ok=True)
+    os.makedirs(output_path / "temp_masks", exist_ok=True)
 
     # Extract camera parameters
     fl_x = camera_data["fl_x"]
@@ -345,7 +370,13 @@ def generate_masks(camera_data: Dict[str, float],
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         _, thr = cv2.threshold(gray, 5, 255, cv2.THRESH_BINARY)
 
-        cv2.imwrite(f"{bboxes_path}/masks/{Path(frame['file_path']).name}", thr)
+        cv2.imwrite(f"{output_path}/temp_masks/{Path(frame['file_path']).name}", thr)
+
+        kernel = np.ones((3, 3), np.uint8)
+        dilated_image = cv2.dilate(thr, kernel, iterations=50)
+        dilated_image -= thr
+
+        cv2.imwrite(f"{output_path}/masks/{Path(frame['file_path']).name}", dilated_image)
 
         if Path(frame['file_path']).name not in image_names:
             continue

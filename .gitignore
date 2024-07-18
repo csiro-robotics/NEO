@@ -3,6 +3,7 @@
 *.env
 
 # Data
+/cache
 /ckpts
 /data
 /logs

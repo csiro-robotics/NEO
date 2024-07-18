@@ -115,8 +115,9 @@ class NeoPipeline(VanillaPipeline):
         # self.inpainting_pipeline.safety_checker = None
         # self.inpainting_pipeline.requires_safety_checker = False
 
-        # Create logs folder
+        # Create folder
         os.makedirs("logs", exist_ok=True)
+        os.makedirs("cache", exist_ok=True)
 
     def apply_changes_hook(self, element):
 
@@ -131,4 +132,6 @@ class NeoPipeline(VanillaPipeline):
                                 dataparser_scale=self.dataparser_output.dataparser_scale,
                                 log_inpaint_images=self.config.log_inpaint_images,
                                 )
+        print(a)
+
         self.model.train()
