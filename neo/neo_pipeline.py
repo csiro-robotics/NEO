@@ -2,12 +2,14 @@
 Neo pipeline.
 """
 import os
+import torch
 import typing
 
 from dataclasses import dataclass, field
 from typing import Literal, Optional, Type
 from pathlib import Path
 from segment_anything import sam_model_registry, SamPredictor
+from diffusers import AutoPipelineForInpainting
 
 import torch.distributed as dist
 from torch.cuda.amp.grad_scaler import GradScaler
@@ -46,6 +48,8 @@ class NeoPipelineConfig(VanillaPipelineConfig):
     """SAM model type, vit_h by default"""
     log_inpaint_images: bool = True
     """If set to True images used for inpainting will be logged."""
+    inpainting_model: str = "diffusers/stable-diffusion-xl-1.0-inpainting-0.1"
+    """Model used for inpainting"""
 
 
 class NeoPipeline(VanillaPipeline):
@@ -102,6 +106,15 @@ class NeoPipeline(VanillaPipeline):
 
         self.sam_predictor = SamPredictor(sam)
 
+        # Initialize inpainting model
+        self.inpainting_pipeline = AutoPipelineForInpainting.from_pretrained(
+            self.config.inpainting_model, torch_dtype=torch.float16, variant="fp16"
+        )
+        self.inpainting_pipeline.enable_model_cpu_offload()
+        # If inpainted iages are black uncomment below lines but it may produce NSFW content
+        # self.inpainting_pipeline.safety_checker = None
+        # self.inpainting_pipeline.requires_safety_checker = False
+
         # Create logs folder
         os.makedirs("logs", exist_ok=True)
 
@@ -110,6 +123,7 @@ class NeoPipeline(VanillaPipeline):
         self.model.eval()
         generate_sparse_dataset(model=self.model, 
                                 sam_predictor=self.sam_predictor,
+                                inpainting_pipeline=self.inpainting_pipeline,
                                 data_path=self.config.datamanager.data, 
                                 bboxes_path=self.config.bbox_data_path, 
                                 dataparser_config=self.config.datamanager.dataparser, 

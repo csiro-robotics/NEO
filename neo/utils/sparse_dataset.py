@@ -10,7 +10,7 @@ import numpy as np
 import numpy.typing as npt
 
 from PIL import Image
-from typing import Dict, List, Any
+from typing import Dict, List, Tuple, Any
 from collections import defaultdict
 from pathlib import Path
 from rich.progress import track
@@ -26,6 +26,7 @@ from neo.utils.collisions import OBB, check_obb_collision
 
 def generate_sparse_dataset(model: Model,
                             sam_predictor: SamPredictor,
+                            inpainting_pipeline: Any,
                             data_path: Path, 
                             bboxes_path: Path, 
                             dataparser_config: Dict[str, Any],
@@ -82,21 +83,75 @@ def generate_sparse_dataset(model: Model,
     for idx, images_group in enumerate(random_images):
         
         if log_inpaint_images:
-            group_logs_path = logs_path / f"{idx}"
+            group_logs_path = logs_path / f"{idx + 1}"
             os.makedirs(group_logs_path)
 
-        masks = []
-        for idx, random_image in enumerate(images_group):
+        images, masks = [], []
+        image_names = []
+        for random_image in track(images_group, description=f"Rendering images for group {idx + 1}", transient=False):
             image = render_preview_image(model, cameras, random_image)
             mask = cv2.imread(str(bboxes_path / f"masks/{random_image[0]}"), cv2.IMREAD_GRAYSCALE)
             refined_mask = refine_mask(mask, image, sam_predictor)
 
+            images.append(image)
+            masks.append(refined_mask)
+            image_names.append(random_image[0])
+
             if log_inpaint_images:
                 cv2.imwrite(str(group_logs_path / random_image[0]), cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
                 cv2.imwrite(str(group_logs_path / f"mask_{random_image[0]}"), mask)
-                cv2.imwrite(str(group_logs_path / f"refined_mask{random_image[0]}"), refined_mask)
+                cv2.imwrite(str(group_logs_path / f"refined_mask_{random_image[0]}"), refined_mask)
+
+        images_grid = get_image_grid(images)
+        masks_grid = get_image_grid(masks)
+
+        img_old_size = (images_grid.shape[1], images_grid.shape[0])
+        img_new_size = (1024, 1024)
+        images_grid = Image.fromarray(images_grid)
+        images_grid = images_grid.resize(img_new_size)
+        masks_grid = Image.fromarray(masks_grid)
+        masks_grid = masks_grid.resize(img_new_size)
+
+        CONSOLE.print(f"Inpainting images in group {idx + 1}")
+        reconstructed_grid_image = inpainting_pipeline(prompt="background", image=images_grid, mask_image=masks_grid).images[0]
+        reconstructed_grid_image = reconstructed_grid_image.resize(img_old_size)
+        reconstructed_grid_image = np.array(reconstructed_grid_image)
+        reconstructed_images = get_images_from_grid(reconstructed_grid_image, img_old_size)
+        
+        if log_inpaint_images:
+            for image, name in zip(reconstructed_images, image_names):
+                cv2.imwrite(str(group_logs_path / f"reconstructed_{name}"), cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
     print(a)
+
+
+def get_images_from_grid(grid_image: npt.NDArray, size: Tuple[int, int]) -> List[npt.NDArray]:
+
+    height, width = int(size[0] / 2), int(size[1] / 2)
+    images = []
+    for i in range(2):
+        for j in range(2):
+            image = grid_image[i * width: (i + 1) * width, j * height: (j + 1) * height]
+            images.append(image)
+
+    return images
+
+
+def get_image_grid(images: List[npt.NDArray]) -> npt.NDArray:
+
+    width = images[0].shape[0]
+    height = images[0].shape[1]
+    if len(images[0].shape) > 2:
+        images_grid = np.zeros((2 * width, 2 * height, 3), dtype=np.uint8)
+    else:
+        images_grid = np.zeros((2 * width, 2 * height), dtype=np.uint8)
+
+    for i in range(2):
+        for j in range(2):
+            images_grid[i * width:(i+1) * width, j * height:(j + 1) * height] = images[i * 2 + j]
+
+    return images_grid
+
 
 
 def refine_mask(input_mask: npt.NDArray, rendered_image: npt.NDArray, sam_predictor: SamPredictor) -> npt.NDArray:

@@ -16,6 +16,7 @@ neo --data data/bouquet --timestamp "" --pipeline.datamanager.pixel-sampler.igno
 
 ```bash
 pip install git+https://github.com/facebookresearch/segment-anything.git
+pip install transformers diffusers accelerate
 ```
 
 If running inside docker container or remote server you need to run
