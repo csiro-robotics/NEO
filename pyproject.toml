@@ -14,3 +14,4 @@ include = ["neo*"]
 
 [project.entry-points.'nerfstudio.method_configs']
 neo = 'neo.neo_config:neo_method'
+sparse_guided_nerf_method = 'neo.neo_config:sparse_guided_nerf_method'

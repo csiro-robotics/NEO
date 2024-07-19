@@ -1,5 +1,7 @@
 import torch
 
+from typing import Tuple
+
 from neo.utils.bbox_utils import BBoxData
 
 
@@ -18,6 +20,22 @@ class BoundingBox():
         self.device = device
         self.translation = torch.Tensor(data.position).to(self.device)
         self.rotation = torch.Tensor(data.euler).to(self.device)
+
+        alpha, beta, gamma = self.rotation
+
+        rot_roll = torch.Tensor([[1, 0, 0],
+                                 [0, torch.cos(alpha), -torch.sin(alpha)],
+                                 [0, torch.sin(alpha), torch.cos(alpha)]]).to(self.device)
+        
+        rot_pitch = torch.Tensor([[torch.cos(beta), 0, torch.sin(beta)],
+                                  [0, 1, 0],
+                                  [-torch.sin(beta), 0, torch.cos(beta)]]).to(self.device)
+        
+        rot_yaw = torch.Tensor([[torch.cos(gamma), -torch.sin(gamma), 0],
+                                [torch.sin(gamma), torch.cos(gamma), 0],
+                                [0, 0, 1]]).to(self.device)
+        
+        self.orientation = rot_roll @ rot_pitch @ rot_yaw
 
         x, y, z = data.dimensions
         x, y, z = x / 2, y / 2, z / 2
@@ -69,26 +87,9 @@ class BoundingBox():
         ray_origins = ray_origins.detach().clone()
         ray_directions = ray_directions.detach().clone()
 
-        alpha, beta, gamma = self.rotation
-
-        rot_roll = torch.Tensor([[1, 0, 0],
-                                 [0, torch.cos(alpha), -torch.sin(alpha)],
-                                 [0, torch.sin(alpha), torch.cos(alpha)]]).to(self.device)
-        
-        rot_pitch = torch.Tensor([[torch.cos(beta), 0, torch.sin(beta)],
-                                  [0, 1, 0],
-                                  [-torch.sin(beta), 0, torch.cos(beta)]]).to(self.device)
-        
-        rot_yaw = torch.Tensor([[torch.cos(gamma), -torch.sin(gamma), 0],
-                                [torch.sin(gamma), torch.cos(gamma), 0],
-                                [0, 0, 1]]).to(self.device)
-        
-        rot = rot_roll @ rot_pitch @ rot_yaw
-        rot_inv = rot
-
-        ray_directions = (rot_inv @ ray_directions[..., None]).squeeze(-1)
+        ray_directions = (self.orientation @ ray_directions[..., None]).squeeze(-1)
         ray_origins -= self.translation
-        ray_origins = (rot_inv @ (ray_origins + self.cube_center)[..., None]).squeeze(-1) - self.cube_center
+        ray_origins = (self.orientation @ (ray_origins + self.cube_center)[..., None]).squeeze(-1) - self.cube_center
 
         eps = 0.000001
         planes_intersections = []
@@ -132,3 +133,21 @@ class BoundingBox():
         dist, _ = torch.sort(dist, dim=1)
 
         return dist
+    
+    def are_points_inside(self, points: torch.Tensor, offset: Tuple[float, float, float] = (0, 0, 0)) -> torch.Tensor:
+
+        points_shape = points.shape
+        points = points.reshape((-1, 3))
+
+        # Transform the points into the local coordinate system of the OOBB
+        local_points = torch.matmul(points - self.translation, self.orientation.T)
+        
+        # Perform containment check for each point
+        inside_x = torch.abs(local_points[:, 0]) <= self.w_x + offset[0]
+        inside_y = torch.abs(local_points[:, 1]) <= self.w_y + offset[1]
+        inside_z = torch.abs(local_points[:, 2]) <= self.w_z + offset[2]
+        
+        inside = torch.logical_and(torch.logical_and(inside_x, inside_y), inside_z)
+        inside = inside.reshape(points_shape[0:2]).unsqueeze(-1)
+        
+        return inside

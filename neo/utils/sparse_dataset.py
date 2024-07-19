@@ -99,7 +99,6 @@ def generate_sparse_dataset(model: Model,
     
     # Inpaint selected images
     for idx, images_group in enumerate(random_images):
-        
         if log_inpaint_images:
             group_logs_path = logs_path / f"{idx + 1}"
             os.makedirs(group_logs_path)
@@ -271,7 +270,7 @@ def generate_masks(camera_data: Dict[str, float],
         color = (idx + 10) / 255
         mesh_box.paint_uniform_color((color, color, color))
 
-        position = np.array(bbox_data['position']) - dataparser_transform[:, 3].cpu().detach().numpy()
+        position = (np.array(bbox_data['position']) / dataparser_scale) - dataparser_transform[:, 3].cpu().detach().numpy()
 
         mesh_box.translate(position)
 

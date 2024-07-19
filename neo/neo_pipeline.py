@@ -16,11 +16,14 @@ from torch.cuda.amp.grad_scaler import GradScaler
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from nerfstudio.data.datamanagers.base_datamanager import VanillaDataManagerConfig
+from nerfstudio.models.base_model import ModelConfig
+from nerfstudio.utils.scripts import run_command
+
 from nerfstudio.data.datamanagers.base_datamanager import (
     DataManager,
     DataManagerConfig,
 )
-from nerfstudio.models.base_model import ModelConfig
+
 from nerfstudio.pipelines.base_pipeline import (
     VanillaPipeline,
     VanillaPipelineConfig,
@@ -111,7 +114,7 @@ class NeoPipeline(VanillaPipeline):
             self.config.inpainting_model, torch_dtype=torch.float16, variant="fp16"
         )
         self.inpainting_pipeline.enable_model_cpu_offload()
-        # If inpainted iages are black uncomment below lines but it may produce NSFW content
+        # If inpainted images are black uncomment below lines but it may produce NSFW content
         # self.inpainting_pipeline.safety_checker = None
         # self.inpainting_pipeline.requires_safety_checker = False
 
@@ -121,17 +124,19 @@ class NeoPipeline(VanillaPipeline):
 
     def apply_changes_hook(self, element):
 
-        self.model.eval()
-        generate_sparse_dataset(model=self.model, 
-                                sam_predictor=self.sam_predictor,
-                                inpainting_pipeline=self.inpainting_pipeline,
-                                data_path=self.config.datamanager.data, 
-                                bboxes_path=self.config.bbox_data_path, 
-                                dataparser_config=self.config.datamanager.dataparser, 
-                                dataparser_transform=self.dataparser_output.dataparser_transform, 
-                                dataparser_scale=self.dataparser_output.dataparser_scale,
-                                log_inpaint_images=self.config.log_inpaint_images,
-                                )
-        print(a)
+        # self.model.eval()
+        # generate_sparse_dataset(model=self.model, 
+        #                         sam_predictor=self.sam_predictor,
+        #                         inpainting_pipeline=self.inpainting_pipeline,
+        #                         data_path=self.config.datamanager.data, 
+        #                         bboxes_path=self.config.bbox_data_path, 
+        #                         dataparser_config=self.config.datamanager.dataparser, 
+        #                         dataparser_transform=self.dataparser_output.dataparser_transform, 
+        #                         dataparser_scale=self.dataparser_output.dataparser_scale,
+        #                         log_inpaint_images=self.config.log_inpaint_images,
+        #                         )
+        # self.model.train()
 
-        self.model.train()
+        run_command("ns-train neo -h", verbose=True)
+
+        print(a)
