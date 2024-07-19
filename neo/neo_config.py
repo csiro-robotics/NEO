@@ -4,13 +4,11 @@ Neo configuration file.
 
 from __future__ import annotations
 
-
 from nerfstudio.data.datamanagers.base_datamanager import VanillaDataManagerConfig
 from nerfstudio.configs.base_config import ViewerConfig
 from nerfstudio.data.dataparsers.nerfstudio_dataparser import NerfstudioDataParserConfig
 from nerfstudio.engine.optimizers import AdamOptimizerConfig
 from nerfstudio.plugins.types import MethodSpecification
-from nerfstudio.engine.trainer import TrainerConfig
 from nerfstudio.pipelines.base_pipeline import VanillaPipelineConfig
 from nerfstudio.data.datamanagers.parallel_datamanager import ParallelDataManagerConfig
 
@@ -22,6 +20,7 @@ from neo.neo_trainer import NeoTrainerConfig
 from neo.neo_model import NeoModelConfig
 from neo.neo_pipeline import NeoPipelineConfig
 from neo.sparse_guided_nerf_model import SparseGuidedNeRFModelConfig
+from neo.sparse_guided_nerf_trainer import SparseGuidedNeRFTrainerConfig
 
 
 neo_method = MethodSpecification(
@@ -63,7 +62,7 @@ neo_method = MethodSpecification(
 )
 
 sparse_guided_nerf_method = MethodSpecification(
-    config=TrainerConfig(
+    config=SparseGuidedNeRFTrainerConfig(
         method_name="sparse-guided-nerf",
         steps_per_eval_batch=500,
         steps_per_save=2000,
