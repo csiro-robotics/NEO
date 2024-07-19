@@ -372,7 +372,7 @@ def generate_masks(camera_data: Dict[str, float],
         cv2.imwrite(f"{output_path}/temp_masks/{Path(frame['file_path']).name}", thr)
 
         kernel = np.ones((3, 3), np.uint8)
-        dilated_image = cv2.dilate(thr, kernel, iterations=50)
+        dilated_image = cv2.dilate(thr, kernel, iterations=150)
         dilated_image -= thr
 
         cv2.imwrite(f"{output_path}/masks/{Path(frame['file_path']).name}", dilated_image)

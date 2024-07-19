@@ -62,7 +62,7 @@ class SparseGuidedNeRFModel(NerfactoModel):
                                  quaternion=data['quaternion'], 
                                  position=data['position'])
 
-            self.bboxes.append(BoundingBox(bbox_data.nerfstudio_format()))
+            self.bboxes.append(BoundingBox(bbox_data))
         
         CONSOLE.print("Loaded bounding boxes succesfully!")
         CONSOLE.print()
