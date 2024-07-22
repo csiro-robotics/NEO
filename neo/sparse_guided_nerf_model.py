@@ -31,7 +31,7 @@ class SparseGuidedNeRFModelConfig(NerfactoModelConfig):
 
     _target: Type = field(default_factory=lambda: SparseGuidedNeRFModel)
 
-    bbox_path: str = ""
+    bbox_path: str = None
     """Path to the bounding box"""
 
 
@@ -47,6 +47,8 @@ class SparseGuidedNeRFModel(NerfactoModel):
         CONSOLE.print("Loading bounding boxes from: ")
 
         bbox_path = self.config.bbox_path
+
+        assert bbox_path is not None, "Please specify --pipeline.model.bbox-path"
 
         CONSOLE.print(f"- {bbox_path}")
 
@@ -70,7 +72,8 @@ class SparseGuidedNeRFModel(NerfactoModel):
     def get_outputs(self, ray_bundle: RayBundle):
         # apply the camera optimizer pose tweaks
         if self.training:
-            self.camera_optimizer.apply_to_raybundle(ray_bundle)
+            with torch.no_grad():
+                self.camera_optimizer.apply_to_raybundle(ray_bundle)
         ray_samples: RaySamples
         ray_samples, weights_list, ray_samples_list = self.proposal_sampler(ray_bundle, density_fns=self.density_fns)
         field_outputs = self.field.forward(ray_samples, compute_normals=self.config.predict_normals)
@@ -161,6 +164,4 @@ class SparseGuidedNeRFModel(NerfactoModel):
                 loss_dict["pred_normal_loss"] = self.config.pred_normal_loss_mult * torch.mean(
                     outputs["rendered_pred_normal_loss"]
                 )
-            # Add loss from camera optimizer
-            self.camera_optimizer.get_loss_dict(loss_dict)
         return loss_dict

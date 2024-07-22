@@ -25,3 +25,7 @@ sudo apt-get install -y xvfb
 Xvfb :99 -screen 0 1024x768x24 &
 export DISPLAY=:99
 ```
+
+```bash
+ns-train sparse-guided-nerf --data cache/outputs/bouquet/neo --neo-model-path outputs/bouquet/neo/nerfstudio_models/step-000029999.ckpt --pipeline.model.bbox-path outputs/bouquet/neo/bbox.json
+```

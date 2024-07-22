@@ -77,6 +77,7 @@ sparse_guided_nerf_method = MethodSpecification(
             model=SparseGuidedNeRFModelConfig(
                 eval_num_rays_per_chunk=1 << 15,
                 average_init_density=0.01,
+                background_color='random',
             ),
         ),
         optimizers={
