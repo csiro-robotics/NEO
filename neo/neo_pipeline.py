@@ -17,6 +17,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 
 from nerfstudio.data.datamanagers.base_datamanager import VanillaDataManagerConfig
 from nerfstudio.models.base_model import ModelConfig
+from nerfstudio.utils.rich_utils import CONSOLE, status
 from nerfstudio.utils.scripts import run_command
 
 from nerfstudio.data.datamanagers.base_datamanager import (
@@ -124,19 +125,35 @@ class NeoPipeline(VanillaPipeline):
 
     def apply_changes_hook(self, element):
 
-        self.model.eval()
-        generate_sparse_dataset(model=self.model, 
-                                sam_predictor=self.sam_predictor,
-                                inpainting_pipeline=self.inpainting_pipeline,
-                                data_path=self.config.datamanager.data, 
-                                bboxes_path=self.config.bbox_data_path, 
-                                dataparser_config=self.config.datamanager.dataparser, 
-                                dataparser_transform=self.dataparser_output.dataparser_transform, 
-                                dataparser_scale=self.dataparser_output.dataparser_scale,
-                                log_inpaint_images=self.config.log_inpaint_images,
-                                )
-        self.model.train()
+        # self.model.eval()
+        # generate_sparse_dataset(model=self.model, 
+        #                         sam_predictor=self.sam_predictor,
+        #                         inpainting_pipeline=self.inpainting_pipeline,
+        #                         data_path=self.config.datamanager.data, 
+        #                         bboxes_path=self.config.bbox_data_path, 
+        #                         dataparser_config=self.config.datamanager.dataparser, 
+        #                         dataparser_transform=self.dataparser_output.dataparser_transform, 
+        #                         dataparser_scale=self.dataparser_output.dataparser_scale,
+        #                         log_inpaint_images=self.config.log_inpaint_images,
+        #                         )
+        # self.model.train()
 
-        # run_command("ns-train neo -h", verbose=True)
+        path = self.config.bbox_data_path
+        checkpoint_paths = (path / "nerfstudio_models").glob('*.ckpt')
+        checkpoint_filenames = [path for path in checkpoint_paths if path.is_file()]
+
+        train_sparse_guided_nerf_cmd = [
+            "ns-train sparse-guided-nerf",
+            f"--data cache/{path}",
+            "--timestamp ''",
+            f"--neo-model-path {checkpoint_filenames[0]}",
+            f"--pipeline.model.bbox-path {path}/bbox.json",
+            "--viewer.quit-on-train-completion True",
+            f"--output-dir cache"
+        ]
+        train_sparse_guided_nerf_cmd = " ".join(train_sparse_guided_nerf_cmd)
+
+        with status(msg="[bold green]Training Sparse Guided NeRF", spinner="moon", verbose=False):
+            run_command(train_sparse_guided_nerf_cmd, verbose=False)
 
         print(a)
