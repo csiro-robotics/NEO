@@ -13,16 +13,14 @@ import torch
 from torch.nn import Parameter
 
 from nerfstudio.utils.rich_utils import CONSOLE
-from nerfstudio.cameras.camera_optimizers import CameraOptimizer, CameraOptimizerConfig
+from nerfstudio.cameras.camera_optimizers import CameraOptimizer
 from nerfstudio.cameras.rays import RayBundle, RaySamples
-from nerfstudio.engine.callbacks import TrainingCallback, TrainingCallbackAttributes, TrainingCallbackLocation
 from nerfstudio.field_components.field_heads import FieldHeadNames
 from nerfstudio.field_components.spatial_distortions import SceneContraction
 from nerfstudio.fields.density_fields import HashMLPDensityField
 from nerfstudio.fields.nerfacto_field import NerfactoField
 from nerfstudio.model_components.losses import (
     MSELoss,
-    distortion_loss,
     interlevel_loss,
     orientation_loss,
     pred_normal_loss,
@@ -33,7 +31,6 @@ from nerfstudio.model_components.renderers import AccumulationRenderer, DepthRen
 from nerfstudio.model_components.scene_colliders import NearFarCollider
 from nerfstudio.model_components.shaders import NormalsShader
 from nerfstudio.models.nerfacto import NerfactoModel, NerfactoModelConfig
-from nerfstudio.utils import colormaps
 
 from neo.utils.bbox import BoundingBox
 from neo.utils.bbox_utils import BBoxData
@@ -367,49 +364,6 @@ class ReplaceNeRFModel(NerfactoModel):
         self.lpips = LearnedPerceptualImagePatchSimilarity(normalize=True)
         self.step = 0
 
-    # def get_param_groups(self) -> Dict[str, List[Parameter]]:
-    #     param_groups = {}
-    #     param_groups["proposal_networks"] = list(self.proposal_networks.parameters())
-    #     param_groups["fields"] = list(self.field.parameters())
-    #     self.camera_optimizer.get_param_groups(param_groups=param_groups)
-    #     return param_groups
-
-    # def get_training_callbacks(
-    #     self, training_callback_attributes: TrainingCallbackAttributes
-    # ) -> List[TrainingCallback]:
-    #     callbacks = []
-    #     if self.config.use_proposal_weight_anneal:
-    #         # anneal the weights of the proposal network before doing PDF sampling
-    #         N = self.config.proposal_weights_anneal_max_num_iters
-
-    #         def set_anneal(step):
-    #             # https://arxiv.org/pdf/2111.12077.pdf eq. 18
-    #             self.step = step
-    #             train_frac = np.clip(step / N, 0, 1)
-    #             self.step = step
-
-    #             def bias(x, b):
-    #                 return b * x / ((b - 1) * x + 1)
-
-    #             anneal = bias(train_frac, self.config.proposal_weights_anneal_slope)
-    #             self.proposal_sampler.set_anneal(anneal)
-
-    #         callbacks.append(
-    #             TrainingCallback(
-    #                 where_to_run=[TrainingCallbackLocation.BEFORE_TRAIN_ITERATION],
-    #                 update_every_num_iters=1,
-    #                 func=set_anneal,
-    #             )
-    #         )
-    #         callbacks.append(
-    #             TrainingCallback(
-    #                 where_to_run=[TrainingCallbackLocation.AFTER_TRAIN_ITERATION],
-    #                 update_every_num_iters=1,
-    #                 func=self.proposal_sampler.step_cb,
-    #             )
-    #         )
-    #     return callbacks
-
     def get_outputs(self, ray_bundle: RayBundle):
         # apply the camera optimizer pose tweaks
         if self.training:
@@ -488,22 +442,6 @@ class ReplaceNeRFModel(NerfactoModel):
             outputs[f"prop_depth_{i}"] = self.renderer_depth(weights=weights_list[i], ray_samples=ray_samples_list[i])
         return outputs
 
-    # def get_metrics_dict(self, outputs, batch):
-    #     metrics_dict = {}
-
-    #     # gt_rgb = batch["image"].to(self.device)  # RGB or RGBA image
-    #     gt_rgb = outputs["gt_rgb"]
-
-    #     gt_rgb = self.renderer_rgb.blend_background(gt_rgb)  # Blend if RGBA
-    #     predicted_rgb = outputs["rgb"]
-    #     metrics_dict["psnr"] = self.psnr(predicted_rgb, gt_rgb)
-
-    #     if self.training:
-    #         metrics_dict["distortion"] = distortion_loss(outputs["weights_list"], outputs["ray_samples_list"])
-
-    #     self.camera_optimizer.get_metrics_dict(metrics_dict)
-    #     return metrics_dict
-
     def get_loss_dict(self, outputs, batch, metrics_dict=None):
         loss_dict = {}
 
@@ -537,43 +475,3 @@ class ReplaceNeRFModel(NerfactoModel):
             # Add loss from camera optimizer
             self.camera_optimizer.get_loss_dict(loss_dict)
         return loss_dict
-
-    # def get_image_metrics_and_images(
-    #     self, outputs: Dict[str, torch.Tensor], batch: Dict[str, torch.Tensor]
-    # ) -> Tuple[Dict[str, float], Dict[str, torch.Tensor]]:
-    #     gt_rgb = batch["image"].to(self.device)
-    #     predicted_rgb = outputs["rgb"]  # Blended with background (black if random background)
-    #     gt_rgb = self.renderer_rgb.blend_background(gt_rgb)
-    #     acc = colormaps.apply_colormap(outputs["accumulation"])
-    #     depth = colormaps.apply_depth_colormap(
-    #         outputs["depth"],
-    #         accumulation=outputs["accumulation"],
-    #     )
-
-    #     combined_rgb = torch.cat([gt_rgb, predicted_rgb], dim=1)
-    #     combined_acc = torch.cat([acc], dim=1)
-    #     combined_depth = torch.cat([depth], dim=1)
-
-    #     # Switch images from [H, W, C] to [1, C, H, W] for metrics computations
-    #     gt_rgb = torch.moveaxis(gt_rgb, -1, 0)[None, ...]
-    #     predicted_rgb = torch.moveaxis(predicted_rgb, -1, 0)[None, ...]
-
-    #     psnr = self.psnr(gt_rgb, predicted_rgb)
-    #     ssim = self.ssim(gt_rgb, predicted_rgb)
-    #     lpips = self.lpips(gt_rgb, predicted_rgb)
-
-    #     # all of these metrics will be logged as scalars
-    #     metrics_dict = {"psnr": float(psnr.item()), "ssim": float(ssim)}  # type: ignore
-    #     metrics_dict["lpips"] = float(lpips)
-
-    #     images_dict = {"img": combined_rgb, "accumulation": combined_acc, "depth": combined_depth}
-
-    #     for i in range(self.config.num_proposal_iterations):
-    #         key = f"prop_depth_{i}"
-    #         prop_depth_i = colormaps.apply_depth_colormap(
-    #             outputs[key],
-    #             accumulation=outputs["accumulation"],
-    #         )
-    #         images_dict[key] = prop_depth_i
-
-    #     return metrics_dict, images_dict

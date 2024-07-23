@@ -125,18 +125,18 @@ class NeoPipeline(VanillaPipeline):
 
     def apply_changes_hook(self, element):
 
-        # self.model.eval()
-        # generate_sparse_dataset(model=self.model, 
-        #                         sam_predictor=self.sam_predictor,
-        #                         inpainting_pipeline=self.inpainting_pipeline,
-        #                         data_path=self.config.datamanager.data, 
-        #                         bboxes_path=self.config.bbox_data_path, 
-        #                         dataparser_config=self.config.datamanager.dataparser, 
-        #                         dataparser_transform=self.dataparser_output.dataparser_transform, 
-        #                         dataparser_scale=self.dataparser_output.dataparser_scale,
-        #                         log_inpaint_images=self.config.log_inpaint_images,
-        #                         )
-        # self.model.train()
+        self.model.eval()
+        generate_sparse_dataset(model=self.model, 
+                                sam_predictor=self.sam_predictor,
+                                inpainting_pipeline=self.inpainting_pipeline,
+                                data_path=self.config.datamanager.data, 
+                                bboxes_path=self.config.bbox_data_path, 
+                                dataparser_config=self.config.datamanager.dataparser, 
+                                dataparser_transform=self.dataparser_output.dataparser_transform, 
+                                dataparser_scale=self.dataparser_output.dataparser_scale,
+                                log_inpaint_images=self.config.log_inpaint_images,
+                                )
+        self.model.train()
 
         path = self.config.bbox_data_path
         checkpoint_paths = (path / "nerfstudio_models").glob('*.ckpt')
