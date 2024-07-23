@@ -6,7 +6,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Dict, List, Literal, Tuple, Type
-from copy import deepcopy
 
 import numpy as np
 import json
@@ -408,14 +407,14 @@ class ReplaceNeRFModel(NerfactoModel):
 
             masks = None
             for bbox in self.bboxes:
-                mask = bbox.are_points_inside_reconfigured(reconfigurational_samples.frustums.get_positions(), offset=offset)
+                mask = bbox.are_points_inside_reconfigured(reconfigurational_samples.frustums.get_positions(), offset=(0.0, 0.0, 0.0))
 
                 if masks is None:
                     masks = mask
                 else:
                     masks = torch.logical_or(masks, mask)
             
-            reconfigurational_samples.frustums.origins = reconfigurational_samples.frustums.origins + (masks * torch.tensor([-0.3, 0.0, 0.0], device=masks.device))
+            reconfigurational_samples.frustums.origins = reconfigurational_samples.frustums.origins + torch.tensor([-0.3, 0.0, 0.0], device=masks.device)
             shifted_outputs = self.field_copy.forward(reconfigurational_samples, compute_normals=self.config.predict_normals)
             gt_densities = torch.where(masks, shifted_outputs[FieldHeadNames.DENSITY], gt_densities)
             gt_rgbs = torch.where(masks, shifted_outputs[FieldHeadNames.RGB], gt_rgbs)
