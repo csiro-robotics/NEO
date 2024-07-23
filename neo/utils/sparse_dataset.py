@@ -206,6 +206,7 @@ def refine_mask(input_mask: npt.NDArray, rendered_image: npt.NDArray, sam_predic
     sum_masks = cv2.morphologyEx((sum_masks * 255).astype(np.uint8), cv2.MORPH_CLOSE, kernel, iterations=2)[None, ...] / 255
 
     refined_mask = np.array(np.logical_and(np.logical_xor(sum_masks[0], input_mask), input_mask)).astype(np.uint8) * 255
+    refined_mask = cv2.dilate(refined_mask, kernel)
 
     return refined_mask
 

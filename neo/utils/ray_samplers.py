@@ -250,8 +250,6 @@ class RegionAwareSpacedSampler(Sampler):
             bins = torch.linspace(0.0, 1.0, num_samples + 1).to(ray_bundle.origins.device)[None, ...]  # [1, num_samples+1]
 
         else:
-            # ray_masks = torch.zeros(ray_masks.shape).to(ray_masks.device)
-
             ray_masks = self.spacing_fn(ray_masks[..., 0])
 
             zero_tensor = torch.zeros(ray_masks.shape[0])[..., None].to(ray_masks.device)
@@ -266,7 +264,6 @@ class RegionAwareSpacedSampler(Sampler):
 
             raising_values = torch.roll(torch.sort(torch.where(bin_mask_raise * ray_masks > 0, bin_mask_raise * ray_masks, torch.inf)).values, -1)
             falling_values = torch.sort(torch.where(bin_mask_fall * ray_masks > 0, bin_mask_fall * ray_masks, torch.inf)).values
-            # mid_values = (raising_values + falling_values) / 2
 
             increment_step = end / (ray_masks.shape[1] - 1)
             move_idxs = torch.floor(((bins - ray_masks) / (increment_step)) * torch.where(ray_masks > 0, 1, 0))
@@ -332,7 +329,6 @@ class RegionAwareSpacedSampler(Sampler):
         else:
             euclidean_bins = spacing_to_euclidean_fn(bins)
             bin_mask_start = torch.roll(torch.where(starting_positions > 0, 1, 0), -2)[:, :-1, None]
-            # bin_mask_start = torch.roll(torch.where(starting_positions > 0, 1, 0), -1)[:, :-1, None]
 
             bin_starts = euclidean_bins[..., :-1, None]
             bin_ends = (euclidean_bins[..., 1:, None] * (1 - bin_mask_start)) + ((bin_starts + 1e-9) * bin_mask_start)
