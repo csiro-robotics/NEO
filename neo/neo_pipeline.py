@@ -138,6 +138,7 @@ class NeoPipeline(VanillaPipeline):
                                 )
         self.model.train()
 
+        verbose = False
         path = self.config.bbox_data_path
         checkpoint_paths = (path / "nerfstudio_models").glob('*.ckpt')
         checkpoint_filenames = [path for path in checkpoint_paths if path.is_file()]
@@ -153,7 +154,24 @@ class NeoPipeline(VanillaPipeline):
         ]
         train_sparse_guided_nerf_cmd = " ".join(train_sparse_guided_nerf_cmd)
 
-        with status(msg="[bold green]Training Sparse Guided NeRF", spinner="moon", verbose=False):
-            run_command(train_sparse_guided_nerf_cmd, verbose=False)
+        with status(msg="[bold green]Training Sparse Guided NeRF", spinner="moon", verbose=verbose):
+            run_command(train_sparse_guided_nerf_cmd, verbose=verbose)
 
-        print(a)
+        train_replace_nerf_cmd = [
+            "ns-train replace-nerf",
+            f"--data cache/{path}",
+            "--timestamp ''",
+            f"--pipeline.model.field-path {checkpoint_filenames[0]}",
+            f"--pipeline.model.replace-field-path cache/neo/sparse-guided-nerf/nerfstudio_models/step-000001999.ckpt",
+            f"--pipeline.model.bbox-path {path}/bbox.json",
+            "--pipeline.datamanager.pixel-sampler.ignore-mask True",
+            "--viewer.quit-on-train-completion True",
+            f"--output-dir cache"
+        ]
+
+        train_replace_nerf_cmd = " ".join(train_replace_nerf_cmd)
+
+        with status(msg="[bold green]Replacing objects", spinner="moon", verbose=verbose):
+            run_command(train_replace_nerf_cmd, verbose=verbose)
+
+        CONSOLE.print("[bold green]Editing finished!")

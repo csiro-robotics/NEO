@@ -71,6 +71,7 @@ class DualProposalNetworkSampler(ProposalNetworkSampler):
                     density = density_fns[i_level](ray_positions)
                     replace_density = replace_density_fns[i_level](ray_positions)
 
+                    # Remove object
                     masks_copy = None
                     for bbox in bboxes:
                         mask_copy = bbox.are_points_inside(ray_positions, offset=offset)
@@ -88,6 +89,7 @@ class DualProposalNetworkSampler(ProposalNetworkSampler):
                         density = density_fns[i_level](ray_positions)
                         replace_density = replace_density_fns[i_level](ray_positions)
 
+                        # Remove object
                         masks_copy = None
                         for bbox in bboxes:
                             mask_copy = bbox.are_points_inside(ray_positions, offset=offset)
