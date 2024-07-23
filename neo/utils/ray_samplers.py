@@ -111,6 +111,113 @@ class DualProposalNetworkSampler(ProposalNetworkSampler):
         return ray_samples, weights_list, ray_samples_list
     
 
+class ReconfigurationalProposalNetworkSampler(ProposalNetworkSampler):
+
+    def __init__(
+            self, 
+            num_proposal_samples_per_ray: Tuple[int, ...] = (64, ), 
+            num_nerf_samples_per_ray: int = 32, 
+            num_proposal_network_iterations: int = 2, 
+            single_jitter: bool = False, 
+            update_sched: Callable[..., Any] = lambda x: 1, 
+            initial_sampler: Optional[Sampler] = None, 
+            pdf_sampler: Optional[PDFSampler] = None
+        ) -> None:
+        super().__init__(
+            num_proposal_samples_per_ray, 
+            num_nerf_samples_per_ray, 
+            num_proposal_network_iterations, 
+            single_jitter, 
+            update_sched, 
+            initial_sampler, 
+            pdf_sampler
+        )
+
+    def generate_ray_samples(
+        self,
+        ray_bundle: Optional[RayBundle] = None,
+        density_fns: Optional[List[Callable]] = None,
+        replace_density_fns: Optional[List[Callable]] = None,
+        bboxes: Optional[List[BoundingBox]] = None,
+        offset: Optional[Tuple[float, float, float]] = None,
+    ) -> Tuple[RaySamples, List, List]:
+        assert ray_bundle is not None
+        assert density_fns is not None
+        assert replace_density_fns is not None
+        assert bboxes is not None
+        assert offset is not None
+
+        weights_list = []
+        ray_samples_list = []
+
+        n = self.num_proposal_network_iterations
+        weights = None
+        ray_samples = None
+        updated = self._steps_since_update > self.update_sched(self._step) or self._step < 10
+        for i_level in range(n + 1):
+            is_prop = i_level < n
+            num_samples = self.num_proposal_samples_per_ray[i_level] if is_prop else self.num_nerf_samples_per_ray
+            if i_level == 0:
+                # Uniform sampling because we need to start with some samples
+                ray_samples = self.initial_sampler(ray_bundle, num_samples=num_samples)
+
+            else:
+                # PDF sampling based on the last samples and their weights
+                # Perform annealing to the weights. This will be a no-op if self._anneal is 1.0.
+                assert weights is not None
+                annealed_weights = torch.pow(weights, self._anneal)
+                ray_samples = self.pdf_sampler(ray_bundle, ray_samples, annealed_weights, num_samples=num_samples)
+            if is_prop:
+                if updated:
+                    # always update on the first step or the inf check in grad scaling crashes
+                    ray_positions = ray_samples.frustums.get_positions()
+                    density = density_fns[i_level](ray_positions)
+                    replace_density = replace_density_fns[i_level](ray_positions + torch.tensor([-0.3, 0.0, 0.0], device=density.device))
+
+                    # Remove object
+                    masks_copy = None
+                    for bbox in bboxes:
+                        mask_copy_old = bbox.are_points_inside(ray_positions, offset=offset)
+                        mask_copy = bbox.are_points_inside_reconfigured(ray_positions, offset=offset)
+                        masks_copy = torch.logical_or(mask_copy_old, mask_copy)
+
+                        if masks_copy is None:
+                            masks_copy = mask_copy
+                        else:
+                            masks_copy = torch.logical_or(masks_copy, mask_copy)
+
+                    density = torch.where(masks_copy, replace_density, density)
+                    
+                else:
+                    with torch.no_grad():
+                        ray_positions = ray_samples.frustums.get_positions()
+                        density = density_fns[i_level](ray_positions)
+                        replace_density = replace_density_fns[i_level](ray_positions + torch.tensor([-0.3, 0.0, 0.0], device=density.device))
+
+                        # Remove object
+                        masks_copy = None
+                        for bbox in bboxes:
+                            mask_copy_old = bbox.are_points_inside(ray_positions, offset=offset)
+                            mask_copy = bbox.are_points_inside_reconfigured(ray_positions, offset=offset)
+                            masks_copy = torch.logical_or(mask_copy_old, mask_copy)
+
+                            if masks_copy is None:
+                                masks_copy = mask_copy
+                            else:
+                                masks_copy = torch.logical_or(masks_copy, mask_copy)
+
+                        density = torch.where(masks_copy, replace_density, density)
+
+                weights = ray_samples.get_weights(density)
+                weights_list.append(weights)  # (num_rays, num_samples)
+                ray_samples_list.append(ray_samples)
+        if updated:
+            self._steps_since_update = 0
+
+        assert ray_samples is not None
+        return ray_samples, weights_list, ray_samples_list
+    
+
 class RegionAwareProposalNetworkSampler(ProposalNetworkSampler):
     """Region aware proposal network sampler that allows for excluding regions along the ray from the sampling process.
 

@@ -18,6 +18,7 @@ class BoundingBox():
             device: device where to send data default "cuda:0"
         """
         self.device = device
+        self.is_reconfigured = True
         self.translation = torch.Tensor(data.position).to(self.device)
         self.rotation = torch.Tensor(data.euler).to(self.device)
 
@@ -141,6 +142,24 @@ class BoundingBox():
 
         # Transform the points into the local coordinate system of the OOBB
         local_points = torch.matmul(points - self.translation, self.orientation.T)
+        
+        # Perform containment check for each point
+        inside_x = torch.abs(local_points[:, 0]) <= self.w_x + offset[0]
+        inside_y = torch.abs(local_points[:, 1]) <= self.w_y + offset[1]
+        inside_z = torch.abs(local_points[:, 2]) <= self.w_z + offset[2]
+        
+        inside = torch.logical_and(torch.logical_and(inside_x, inside_y), inside_z)
+        inside = inside.reshape(points_shape[0:2]).unsqueeze(-1)
+        
+        return inside
+    
+    def are_points_inside_reconfigured(self, points: torch.Tensor, offset: Tuple[float, float, float] = (0, 0, 0)) -> torch.Tensor:
+
+        points_shape = points.shape
+        points = points.reshape((-1, 3))
+
+        # Transform the points into the local coordinate system of the OOBB
+        local_points = torch.matmul(points - (self.translation + torch.tensor([0.3, 0.0, 0.0], device=self.device)), self.orientation.T)
         
         # Perform containment check for each point
         inside_x = torch.abs(local_points[:, 0]) <= self.w_x + offset[0]

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Dict, List, Literal, Tuple, Type
+from copy import deepcopy
 
 import numpy as np
 import json
@@ -34,7 +35,7 @@ from nerfstudio.models.nerfacto import NerfactoModel, NerfactoModelConfig
 
 from neo.utils.bbox import BoundingBox
 from neo.utils.bbox_utils import BBoxData
-from neo.utils.ray_samplers import DualProposalNetworkSampler
+from neo.utils.ray_samplers import DualProposalNetworkSampler, ReconfigurationalProposalNetworkSampler
 
 
 @dataclass
@@ -337,6 +338,15 @@ class ReplaceNeRFModel(NerfactoModel):
             initial_sampler=initial_sampler,
         )
 
+        self.reconfigurational_proposal_sampler = ReconfigurationalProposalNetworkSampler(
+            num_nerf_samples_per_ray=self.config.num_nerf_samples_per_ray,
+            num_proposal_samples_per_ray=self.config.num_proposal_samples_per_ray,
+            num_proposal_network_iterations=self.config.num_proposal_iterations,
+            single_jitter=self.config.use_single_jitter,
+            update_sched=update_schedule,
+            initial_sampler=initial_sampler,
+        )
+
         # Collider
         self.collider = NearFarCollider(near_plane=self.config.near_plane, far_plane=self.config.far_plane)
 
@@ -393,9 +403,26 @@ class ReplaceNeRFModel(NerfactoModel):
 
             gt_densities = torch.where(masks, replace_field_outputs[FieldHeadNames.DENSITY], field_copy_outputs[FieldHeadNames.DENSITY])
             gt_rgbs = torch.where(masks, replace_field_outputs[FieldHeadNames.RGB], field_copy_outputs[FieldHeadNames.RGB])
-            gt_weights = dual_samples_copy.get_weights(gt_densities)
+
+            reconfigurational_samples, _, _ = self.reconfigurational_proposal_sampler(ray_bundle, density_fns=self.density_fns_copy, replace_density_fns=self.density_fns_copy, bboxes=self.bboxes, offset=(0.0, 0.0, 0.0))
+
+            masks = None
+            for bbox in self.bboxes:
+                mask = bbox.are_points_inside_reconfigured(reconfigurational_samples.frustums.get_positions(), offset=offset)
+
+                if masks is None:
+                    masks = mask
+                else:
+                    masks = torch.logical_or(masks, mask)
+            
+            reconfigurational_samples.frustums.origins = reconfigurational_samples.frustums.origins + (masks * torch.tensor([-0.3, 0.0, 0.0], device=masks.device))
+            shifted_outputs = self.field_copy.forward(reconfigurational_samples, compute_normals=self.config.predict_normals)
+            gt_densities = torch.where(masks, shifted_outputs[FieldHeadNames.DENSITY], gt_densities)
+            gt_rgbs = torch.where(masks, shifted_outputs[FieldHeadNames.RGB], gt_rgbs)
+
+            gt_weights = reconfigurational_samples.get_weights(gt_densities)
             gt_rgb = self.renderer_rgb(rgb=gt_rgbs, weights=gt_weights)
-            gt_depth = self.renderer_depth(weights=gt_weights, ray_samples=dual_samples_copy)
+            gt_depth = self.renderer_depth(weights=gt_weights, ray_samples=reconfigurational_samples)
 
 
         weights = ray_samples.get_weights(field_outputs[FieldHeadNames.DENSITY])
