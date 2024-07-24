@@ -179,7 +179,7 @@ class ReconfigurationalProposalNetworkSampler(ProposalNetworkSampler):
                     for bbox in bboxes:
                         mask_copy_old = bbox.are_points_inside(ray_positions, offset=offset)
                         mask_copy = bbox.are_points_inside_reconfigured(ray_positions, offset=offset)
-                        masks_copy = torch.logical_or(mask_copy_old, mask_copy)
+                        mask_copy = torch.logical_or(mask_copy_old, mask_copy)
 
                         if masks_copy is None:
                             masks_copy = mask_copy

@@ -217,7 +217,7 @@ def render_preview_image(model: Model, cameras: Cameras, random_image: List[int]
     with torch.no_grad():
         outputs = model.get_outputs_for_camera(cameras[image_idx])
 
-    rgb_preview = (outputs['rgb_preview'].cpu().detach().numpy() * 255).astype(np.uint8)
+    rgb_preview = (outputs['rgb_rm_preview'].cpu().detach().numpy() * 255).astype(np.uint8)
     
     return rgb_preview
 

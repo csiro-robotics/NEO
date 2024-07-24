@@ -7,6 +7,7 @@ import numpy as np
 import torch
 
 from dataclasses import dataclass, field
+from copy import deepcopy
 from collections import defaultdict
 from typing import Type, Optional, Tuple, List, Union, Dict
 from scipy.spatial.transform import Rotation
@@ -188,36 +189,43 @@ class NeoModel(NerfactoModel):
         expected_depth = self.renderer_expected_depth(weights=weights, ray_samples=ray_samples)
         accumulation = self.renderer_accumulation(weights=weights)
 
-        if not self.training and ray_masks is not None:
-            with torch.no_grad():
-
-                masks = None
-                for viser_bbox in self.bbox_vis:
-                    bbox = BoundingBox(viser_bbox.data.nerfstudio_format())
-                    reconfigurational_samples, _, _ = self.reconfigurational_proposal_sampler(ray_bundle, density_fns=self.density_fns, replace_density_fns=self.density_fns, bboxes=[bbox], offset=(0.0, 0.0, 0.0))
-                    mask = bbox.are_points_inside_reconfigured(reconfigurational_samples.frustums.get_positions(), offset=(0.0, 0.0, 0.0))
-
-                    if masks is None:
-                        masks = mask
-                    else:
-                        masks = torch.logical_or(masks, mask)
-                
-                reconfigurational_samples.frustums.origins = reconfigurational_samples.frustums.origins + torch.tensor([-0.3, 0.0, 0.0], device=masks.device)
-                shifted_outputs = self.field.forward(reconfigurational_samples, compute_normals=self.config.predict_normals)
-                densities = torch.where(masks, shifted_outputs[FieldHeadNames.DENSITY], field_outputs[FieldHeadNames.DENSITY])
-                rgbs = torch.where(masks, shifted_outputs[FieldHeadNames.RGB], field_outputs[FieldHeadNames.RGB])
-
-                weights = reconfigurational_samples.get_weights(densities)
-                rgb = self.renderer_rgb(rgb=rgbs, weights=weights)
-                depth = self.renderer_depth(weights=weights, ray_samples=reconfigurational_samples)
-
-
         outputs = {
             "rgb": rgb,
             "accumulation": accumulation,
             "depth": depth,
             "expected_depth": expected_depth,
         }
+
+        if not self.training and ray_masks is not None and len(self.bbox_vis) > 0:
+            outputs["rgb_rm"] = rgb
+            outputs["depth_rm"] = depth
+
+            with torch.no_grad():
+                bboxes = []
+                for viser_bbox in self.bbox_vis:
+                    bboxes.append(BoundingBox(viser_bbox.data.nerfstudio_format()))
+
+                reconfigurational_samples, _, _ = self.reconfigurational_proposal_sampler(ray_bundle, density_fns=self.density_fns, replace_density_fns=self.density_fns, bboxes=bboxes, offset=(0.0, 0.0, 0.0))
+                original_samples = deepcopy(reconfigurational_samples)
+
+                densities = field_outputs[FieldHeadNames.DENSITY]
+                rgbs = field_outputs[FieldHeadNames.RGB]
+                
+                for bbox in bboxes:
+                    mask = bbox.are_points_inside_reconfigured(original_samples.frustums.get_positions(), offset=(0.0, 0.0, 0.0))
+                
+                    reconfigurational_samples.frustums.origins = reconfigurational_samples.frustums.origins + (mask * torch.tensor([-0.3, 0.0, 0.0], device=mask.device))
+                    shifted_outputs = self.field.forward(reconfigurational_samples, compute_normals=self.config.predict_normals)
+
+                    densities = torch.where(mask, shifted_outputs[FieldHeadNames.DENSITY], densities)
+                    rgbs = torch.where(mask, shifted_outputs[FieldHeadNames.RGB], rgbs)
+
+                weights = reconfigurational_samples.get_weights(densities)
+                rgb = self.renderer_rgb(rgb=rgbs, weights=weights)
+                depth = self.renderer_depth(weights=weights, ray_samples=reconfigurational_samples)
+
+                outputs["rgb"] = rgb
+                outputs["depth"] = depth
 
         if self.config.predict_normals:
             normals = self.renderer_normals(normals=field_outputs[FieldHeadNames.NORMALS], weights=weights)
