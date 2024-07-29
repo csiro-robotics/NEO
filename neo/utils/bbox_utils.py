@@ -9,7 +9,7 @@ import trimesh.creation
 
 from scipy.spatial.transform import Rotation
 from dataclasses import dataclass
-from typing import Tuple, List, Callable, Any
+from typing import Tuple, List, Callable, Any, Optional
 
 from nerfstudio.viewer.viewer_elements import ViewerElement
 from viser import (
@@ -33,6 +33,12 @@ class BBoxData:
     """Rotation of the bounding box in wxyz format"""
     position: List[float, float, float]
     """Position of the bounding box"""
+    is_reconfigured: Optional[bool] = False
+    """If content of the bbox is moved to another place"""
+    offset_position: Optional[List[float, float, float]] = (0.0, 0.0, 0.0)
+    """Positon offset for reconfigured bounding box"""
+    offset_euler: Optional[List[float, float, float]] = (0.0, 0.0, 0.0)
+    """Angle offset for reconfigured bounding box"""
 
     def viser_format(self) -> BBoxData:
 
@@ -42,7 +48,10 @@ class BBoxData:
         quaternion = R.as_quat(False)
         position = np.array(self.position) * 10
 
-        return BBoxData(self.idx, dimensions, euler, quaternion, position)
+        offset_position =  np.array(self.offset_position) * 10
+        offset_euler = np.round(np.rad2deg(self.offset_euler)[::-1] * np.array([1, -1, 1]))
+
+        return BBoxData(self.idx, dimensions, euler, quaternion, position, self.is_reconfigured, offset_position, offset_euler)
     
     def nerfstudio_format(self) -> BBoxData:
 
@@ -52,7 +61,10 @@ class BBoxData:
         quaternion = R.as_quat(True)
         position = np.array(self.position) / 10
 
-        return BBoxData(self.idx, dimensions, euler, quaternion, position)
+        offset_position = np.array(self.offset_position) / 10
+        offset_euler = np.deg2rad(self.offset_euler[::-1] * np.array([1, -1, 1]))
+
+        return BBoxData(self.idx, dimensions, euler, quaternion, position, self.is_reconfigured, offset_position, offset_euler)
     
     def get_json_data(self):
 
@@ -89,7 +101,9 @@ class BoundingBoxToolbox(ViewerElement[bool]):
                  name: str, 
                  bbox_data: BBoxData,
                  move_hook: Callable[[BoundingBoxToolbox], Any], 
+                 offset_box_hook: Callable[[BoundingBoxToolbox], Any], 
                  resize_hook: Callable[[BoundingBoxToolbox], Any], 
+                 reconfigure_hook: Callable[[BoundingBoxToolbox], Any], 
                  bbox_selector_hook: Callable[[BoundingBoxToolbox], Any], 
                  add_box_hook: Callable[[BoundingBoxToolbox], Any], 
                  apply_changes_hook: Callable[[BoundingBoxToolbox], Any], 
@@ -102,6 +116,8 @@ class BoundingBoxToolbox(ViewerElement[bool]):
 
         self.resize_hook = resize_hook
         self.move_hook = move_hook
+        self.offset_box_hook = offset_box_hook
+        self.reconfigure_hook = reconfigure_hook
         self.bbox_selector_hook = bbox_selector_hook
         self.add_box_hook = add_box_hook
         self.apply_changes_hook = apply_changes_hook
@@ -118,6 +134,16 @@ class BoundingBoxToolbox(ViewerElement[bool]):
         self.dimensions_handle = viser_server.add_gui_vector3(
             "Size", tuple(self.bbox_data.dimensions), step=0.1, disabled=self.disabled, visible=self.visible, hint="Provide size in meters"
         )
+
+        self.reconfigure_handle = viser_server.add_gui_checkbox("Reconfigure", False)
+
+        self.offset_position_handle = viser_server.add_gui_vector3(
+            "Offset Position", (0.0, 0.0, 0.0), step=0.1, disabled=self.disabled, visible=False, hint="Provide position in meters"
+        )
+        self.offset_rotation_handle = viser_server.add_gui_vector3(
+            "Offset Rotation", (0.0, 0.0, 0.0), step=1.0, disabled=self.disabled, visible=False, hint="Provide rotation in degrees"
+        )
+
         self.bbox_selector_handle = viser_server.add_gui_number("Selected box", self.bbox_data.idx, 0, step=1)
         self.add_box_handle = viser_server.add_gui_button("Add Bbox", color='gray', icon=Icon.BOX)
         self.apply_changes_handle = viser_server.add_gui_button("Apply changes", color='gray', icon=Icon.DEVICE_FLOPPY)
@@ -127,10 +153,13 @@ class BoundingBoxToolbox(ViewerElement[bool]):
 
         self.viser_server = viser_server
 
-        assert self.position_handle is not None and self.rotation_handle is not None and self.dimensions_handle is not None and self.apply_changes_handle is not None
+        assert self.position_handle is not None and self.rotation_handle is not None and self.dimensions_handle is not None and self.reconfigure_handle is not None and self.apply_changes_handle is not None
         self.position_handle.on_update(lambda _: self.move_hook(self))
         self.rotation_handle.on_update(lambda _: self.move_hook(self))
         self.dimensions_handle.on_update(lambda _: self.resize_hook(self))
+        self.reconfigure_handle.on_update(lambda _:self.reconfigure_hook(self))
+        self.offset_position_handle.on_update(lambda _: self.offset_box_hook(self))
+        self.offset_rotation_handle.on_update(lambda _: self.offset_box_hook(self))
         self.bbox_selector_handle.on_update(lambda _: self.bbox_selector_hook(self))
         self.add_box_handle.on_click(lambda _: self.add_box_hook(self))
         self.apply_changes_handle.on_click(lambda _: self.apply_changes_hook(self))
@@ -139,22 +168,31 @@ class BoundingBoxToolbox(ViewerElement[bool]):
 
         dimensions = tuple(np.array(self.dimensions_handle.value) / 10)
         euler = tuple(np.deg2rad(self.rotation_handle.value[::-1] * np.array([1, -1, 1])))
+        offset_euler = tuple(np.deg2rad(self.offset_rotation_handle.value[::-1] * np.array([1, -1, 1])))
         R = Rotation.from_euler('xyz', euler)
         quaternion = tuple(R.as_quat(True))
         position = tuple(np.array(self.position_handle.value) / 10)
+        offset_position = tuple(np.array(self.offset_position_handle.value) / 10)
 
-        return BBoxData(self.bbox_selector_handle.value, dimensions, euler, quaternion, position)
+        return BBoxData(self.bbox_selector_handle.value, dimensions, euler, quaternion, position, is_reconfigured=self.reconfigure_handle.value, offset_position=offset_position, offset_euler=offset_euler)
     
     def update(self, data: BBoxData) -> None:
 
         self.bbox_data = data
 
+        # WARNING! Order oe execution matters!
+        self.reconfigure_handle.value = data.is_reconfigured
+        time.sleep(0.1) # Not ideal solution
         self.position_handle.value = data.position
         self.rotation_handle.value = data.euler
         time.sleep(0.1) # Not ideal solution
         # Above lines of the code trigger callback functions which run in separate threads
-        # This causes issue with the line below because it should wait until the code above finished execution
+        # This causes issue with the line below because it should wait until the code above finishes execution
         self.dimensions_handle.value = data.dimensions
+
+        if data.is_reconfigured:
+            self.offset_position_handle.value = data.offset_position
+            self.offset_rotation_handle.value = data.offset_euler
 
 
 class ViserBoundingBox(ViewerElement[bool]):
@@ -169,13 +207,20 @@ class ViserBoundingBox(ViewerElement[bool]):
 
     box_handle: MeshHandle
 
-    def __init__(self, data: BBoxData, cb_hook: Callable[[ViserBoundingBox], Any], disabled: bool = False, visible: bool = True, wireframe: bool = False):
+    def __init__(self, data: BBoxData, cb_hook: Callable[[ViserBoundingBox], Any] = None, disabled: bool = False, visible: bool = True, wireframe: bool = False, color: Tuple[int, int, int] = (255, 0, 0)):
+        
+        # TODO This function is bad because is_reconfigured can be True wehn we want to create basic Box not RecBox
+        if data.is_reconfigured:
+            name = f"RecBox_{data.idx}"
+        else:
+            name = f"Box_{data.idx}"
 
-        name = f"Box_{data.idx}"
+        print(f"Create {name}")
         super().__init__(name, disabled=disabled, visible=visible, cb_hook=cb_hook)
 
         self.data = data
         self.wireframe = wireframe
+        self._color = color
 
     def _create_gui_handle(self, viser_server: ViserServer) -> None:
 
@@ -187,7 +232,7 @@ class ViserBoundingBox(ViewerElement[bool]):
                           name=self.name,
                           vertices=mesh.vertices,
                           faces=mesh.faces,
-                          color=(255, 0, 0),
+                          color=self._color,
                           wireframe=self.wireframe,
                           flat_shading=flat_shading,
                           position=tuple(self.data.position),
@@ -198,14 +243,23 @@ class ViserBoundingBox(ViewerElement[bool]):
     def install(self, viser_server: ViserServer) -> None:
         self._create_gui_handle(viser_server)
 
-        assert self.box_handle is not None
-        self.box_handle.on_click(lambda _: self.cb_hook(self))
+        if self.box_handle is not None:
+            self.box_handle.on_click(lambda _: self.cb_hook(self))
 
-    def update(self, data: BBoxData) -> None:
+    def update(self, data: BBoxData, offset: bool = False) -> None:
 
         self.data = data
 
-        self.box_handle.position = data.position
-        R = Rotation.from_euler('xyz', data.euler, degrees=True)
-        quaternion = R.as_quat(False)
-        self.box_handle.wxyz = quaternion
+        if not offset:
+            self.box_handle.position = data.position
+            R = Rotation.from_euler('xyz', data.euler, degrees=True)
+            quaternion = R.as_quat(False)
+            self.box_handle.wxyz = quaternion
+
+        else:
+            self.box_handle.position = data.position + data.offset_position
+            R1 = Rotation.from_euler('xyz', data.euler, degrees=True)
+            R2 = Rotation.from_euler('xyz', data.offset_euler, degrees=True)
+            R = R2 * R1
+            quaternion = R.as_quat(False)
+            self.box_handle.wxyz = quaternion
