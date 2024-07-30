@@ -60,7 +60,6 @@ class NeoModel(NerfactoModel):
         self.apply_changes_hook = self.kwargs['apply_changes_hook']
 
         # Load bbox data
-        self.bbox = None
         self.bboxes = {"bboxes": []}
         self.bbox_vis: List[ViserBoundingBox] = []
         self.rec_bbox_vis: Dict[int, ViserBoundingBox] = {}
@@ -162,40 +161,43 @@ class NeoModel(NerfactoModel):
         self.bbox.update(self.bbox_tool.get_bbox_data().viser_format())
 
     def offset_box_hook(self, element):
+
+                    
+        # Initialize bbox
+        if getattr(self, "bbox", False):
+            self.bbox.install(self.bbox_tool.viser_server)
+        else:
+            self.bbox = None
+
+
         idx = self.bbox.data.idx
         bbox_data = self.bbox_tool.get_bbox_data().viser_format()
         self.bbox.update(bbox_data)
 
-        # TODO this function is True when switching between bboxes
         if bbox_data.is_reconfigured:
             self.rec_bbox_vis[idx].update(bbox_data, offset = True)
 
     def resize_box(self, element):
         self.bbox.box_handle.remove()
         self.bbox = ViserBoundingBox(data=self.bbox_tool.get_bbox_data().viser_format(), cb_hook=self.display_wireframe, wireframe=self.bbox.wireframe)
-        self.bbox_vis[self.bbox_tool.bbox_selector_handle.value] = self.bbox
         self.bbox.install(self.bbox_tool.viser_server)
+        self.bbox_vis[self.bbox_tool.bbox_selector_handle.value] = self.bbox
 
     def reconfigure_hook(self, element):
         idx = self.bbox_tool.bbox_selector_handle.value
 
         bbox_data = self.bbox_vis[idx].data
         if self.bbox_tool.reconfigure_handle.value:
-            print("Prev:", bbox_data.is_reconfigured, idx)
-
             if not bbox_data.is_reconfigured:
                 bbox_data.is_reconfigured = True
-                bbox = ViserBoundingBox(data=bbox_data, wireframe=True, color=(0, 255, 0))
+                bbox = ViserBoundingBox(data=bbox_data, name_prefix="RecBox", wireframe=True, color=(0, 255, 0))
                 bbox.install(self.bbox_tool.viser_server)
                 self.rec_bbox_vis[idx] = bbox
 
             self.bbox_tool.offset_position_handle.visible = True
             self.bbox_tool.offset_rotation_handle.visible = True
 
-            print("Post:", bbox_data.is_reconfigured)
-
         else:
-            print("prev:", bbox_data.is_reconfigured, idx)
             if bbox_data.is_reconfigured:
                 bbox_data.is_reconfigured = False
                 self.rec_bbox_vis[idx].box_handle.remove()
@@ -203,15 +205,13 @@ class NeoModel(NerfactoModel):
             self.bbox_tool.offset_position_handle.visible = False
             self.bbox_tool.offset_rotation_handle.visible = False
 
-            print("post:", bbox_data.is_reconfigured)
-
     def display_wireframe(self, element):
         wireframe = not bool(self.bbox.wireframe)
 
         self.bbox.box_handle.remove()
         self.bbox = ViserBoundingBox(data=self.bbox.data, cb_hook=self.display_wireframe, wireframe=wireframe)
-        self.bbox_vis[self.bbox_tool.bbox_selector_handle.value] = self.bbox
         self.bbox.install(self.bbox_tool.viser_server)
+        self.bbox_vis[self.bbox_tool.bbox_selector_handle.value] = self.bbox
 
     def bbox_selector_hook(self, element):
         self.bbox = self.bbox_vis[self.bbox_tool.bbox_selector_handle.value]

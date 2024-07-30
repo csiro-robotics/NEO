@@ -189,10 +189,8 @@ class BoundingBoxToolbox(ViewerElement[bool]):
         # Above lines of the code trigger callback functions which run in separate threads
         # This causes issue with the line below because it should wait until the code above finishes execution
         self.dimensions_handle.value = data.dimensions
-
-        if data.is_reconfigured:
-            self.offset_position_handle.value = data.offset_position
-            self.offset_rotation_handle.value = data.offset_euler
+        self.offset_position_handle.value = data.offset_position
+        self.offset_rotation_handle.value = data.offset_euler
 
 
 class ViserBoundingBox(ViewerElement[bool]):
@@ -207,15 +205,9 @@ class ViserBoundingBox(ViewerElement[bool]):
 
     box_handle: MeshHandle
 
-    def __init__(self, data: BBoxData, cb_hook: Callable[[ViserBoundingBox], Any] = None, disabled: bool = False, visible: bool = True, wireframe: bool = False, color: Tuple[int, int, int] = (255, 0, 0)):
+    def __init__(self, data: BBoxData, name_prefix:str = "Box", cb_hook: Callable[[ViserBoundingBox], Any] = None, disabled: bool = False, visible: bool = True, wireframe: bool = False, color: Tuple[int, int, int] = (255, 0, 0)):
         
-        # TODO This function is bad because is_reconfigured can be True wehn we want to create basic Box not RecBox
-        if data.is_reconfigured:
-            name = f"RecBox_{data.idx}"
-        else:
-            name = f"Box_{data.idx}"
-
-        print(f"Create {name}")
+        name = f"{name_prefix}_{data.idx}"
         super().__init__(name, disabled=disabled, visible=visible, cb_hook=cb_hook)
 
         self.data = data
