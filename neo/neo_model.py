@@ -256,28 +256,41 @@ class NeoModel(NerfactoModel):
             outputs["depth_rm"] = depth
 
             with torch.no_grad():
-                bboxes = []
+                bboxes: List[BoundingBox] = []
                 for viser_bbox in self.bbox_vis:
                     bboxes.append(BoundingBox(viser_bbox.data.nerfstudio_format()))
 
-                reconfigurational_samples, _, _ = self.reconfigurational_proposal_sampler(ray_bundle, density_fns=self.density_fns, replace_density_fns=self.density_fns, bboxes=bboxes, offset=(0.0, 0.0, 0.0))
+                reconfigurational_samples, _, _ = self.reconfigurational_proposal_sampler(ray_bundle, density_fns=self.density_fns, replace_density_fns=self.density_fns, bboxes=bboxes, offset_size=(0.0, 0.0, 0.0))
                 original_samples = deepcopy(reconfigurational_samples)
 
                 densities = field_outputs[FieldHeadNames.DENSITY]
                 rgbs = field_outputs[FieldHeadNames.RGB]
 
+                rec_mask = None
                 for bbox in bboxes:
-                    mask = bbox.are_points_inside_reconfigured(original_samples.frustums.get_positions(), offset=(0.0, 0.0, 0.0))
-                
-                    reconfigurational_samples.frustums.origins = reconfigurational_samples.frustums.origins + (mask * torch.tensor([-0.3, 0.0, 0.0], device=mask.device))
+                    if bbox.is_reconfigured:
+                        mask = bbox.are_points_inside_reconfigured(original_samples.frustums.get_positions(), offset_size=(0.0, 0.0, 0.0), offset_position=bbox.offset_position)
+
+                    else:
+                        mask = torch.zeros_like(densities, dtype=torch.bool)
+
+                    if rec_mask == None:
+                        rec_mask = torch.any(mask, dim=1).squeeze(-1)
+
+                    else:
+                        rec_mask = torch.logical_or(torch.any(mask, dim=1).squeeze(-1), rec_mask)
+
+                    reconfigurational_samples.frustums.origins = reconfigurational_samples.frustums.origins - (mask * bbox.offset_position)
                     shifted_outputs = self.field.forward(reconfigurational_samples, compute_normals=self.config.predict_normals)
 
                     densities = torch.where(mask, shifted_outputs[FieldHeadNames.DENSITY], densities)
                     rgbs = torch.where(mask, shifted_outputs[FieldHeadNames.RGB], rgbs)
 
-                weights = reconfigurational_samples.get_weights(densities)
+                weights = ray_samples.get_weights(densities)
+                weights[rec_mask] = reconfigurational_samples.get_weights(densities)[rec_mask]
                 rgb = self.renderer_rgb(rgb=rgbs, weights=weights)
-                depth = self.renderer_depth(weights=weights, ray_samples=reconfigurational_samples)
+                depth = self.renderer_depth(weights=weights, ray_samples=ray_samples)
+                depth[rec_mask] = self.renderer_depth(weights=weights, ray_samples=reconfigurational_samples)[rec_mask]
 
                 outputs["rgb"] = rgb
                 outputs["depth"] = depth
