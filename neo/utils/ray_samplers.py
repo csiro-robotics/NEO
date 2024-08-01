@@ -1,4 +1,6 @@
 import torch
+
+from copy import deepcopy
 from typing import Optional, Callable, Tuple, List, Any
 from jaxtyping import Float
 
@@ -153,6 +155,7 @@ class ReconfigurationalProposalNetworkSampler(ProposalNetworkSampler):
         n = self.num_proposal_network_iterations
         weights = None
         ray_samples = None
+        reconfigured_ray_samples = None
         updated = self._steps_since_update > self.update_sched(self._step) or self._step < 10
         for i_level in range(n + 1):
             is_prop = i_level < n
@@ -160,6 +163,7 @@ class ReconfigurationalProposalNetworkSampler(ProposalNetworkSampler):
             if i_level == 0:
                 # Uniform sampling because we need to start with some samples
                 ray_samples = self.initial_sampler(ray_bundle, num_samples=num_samples)
+                reconfigured_ray_samples = deepcopy(ray_samples)
 
             else:
                 # PDF sampling based on the last samples and their weights
@@ -167,6 +171,8 @@ class ReconfigurationalProposalNetworkSampler(ProposalNetworkSampler):
                 assert weights is not None
                 annealed_weights = torch.pow(weights, self._anneal)
                 ray_samples = self.pdf_sampler(ray_bundle, ray_samples, annealed_weights, num_samples=num_samples)
+                reconfigured_ray_samples = deepcopy(ray_samples)
+       
             if is_prop:
                 if updated:
                     # always update on the first step or the inf check in grad scaling crashes
@@ -178,9 +184,14 @@ class ReconfigurationalProposalNetworkSampler(ProposalNetworkSampler):
                     replace_densities = None
                     for bbox in bboxes:
                         if bbox.is_reconfigured:
-                            replace_density = replace_density_fns[i_level](ray_positions - bbox.offset_position)
+                            reconfigured_ray_samples.frustums.origins = ((reconfigured_ray_samples.frustums.origins - bbox.translation) @ bbox.offset_orientation.T) + bbox.translation
+                            reconfigured_ray_samples.frustums.directions = reconfigured_ray_samples.frustums.directions @ bbox.offset_orientation.T
+                            # reconfigured_ray_samples.frustums.origins = reconfigured_ray_samples.frustums.origins - bbox.offset_position
+                            reconfigured_ray_positions = reconfigured_ray_samples.frustums.get_positions()
+
+                            replace_density = replace_density_fns[i_level](reconfigured_ray_positions)
                             mask_copy_old = bbox.are_points_inside(ray_positions, offset_size=offset_size)
-                            mask_copy = bbox.are_points_inside_reconfigured(ray_positions, offset_size=offset_size, offset_position=bbox.offset_position)
+                            mask_copy = bbox.are_points_inside_reconfigured(ray_positions, offset_size=offset_size)
                             mask_copy = torch.logical_or(mask_copy_old, mask_copy)
 
                             if masks_copy is None:
@@ -210,9 +221,14 @@ class ReconfigurationalProposalNetworkSampler(ProposalNetworkSampler):
                         replace_densities = None
                         for bbox in bboxes:
                             if bbox.is_reconfigured:
-                                replace_density = replace_density_fns[i_level](ray_positions - bbox.offset_position)
+                                reconfigured_ray_samples.frustums.origins = ((reconfigured_ray_samples.frustums.origins - bbox.translation) @ bbox.offset_orientation.T) + bbox.translation
+                                reconfigured_ray_samples.frustums.directions = reconfigured_ray_samples.frustums.directions @ bbox.offset_orientation.T
+                                # reconfigured_ray_samples.frustums.origins = reconfigured_ray_samples.frustums.origins - bbox.offset_position
+                                reconfigured_ray_positions = reconfigured_ray_samples.frustums.get_positions()
+
+                                replace_density = replace_density_fns[i_level](reconfigured_ray_positions)
                                 mask_copy_old = bbox.are_points_inside(ray_positions, offset_size=offset_size)
-                                mask_copy = bbox.are_points_inside_reconfigured(ray_positions, offset_size=offset_size, offset_position=bbox.offset_position)
+                                mask_copy = bbox.are_points_inside_reconfigured(ray_positions, offset_size=offset_size)
                                 masks_copy = torch.logical_or(mask_copy_old, mask_copy)
 
                                 if masks_copy is None:

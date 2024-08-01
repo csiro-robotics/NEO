@@ -269,18 +269,18 @@ class NeoModel(NerfactoModel):
                 rec_mask = None
                 for bbox in bboxes:
                     if bbox.is_reconfigured:
-                        mask = bbox.are_points_inside_reconfigured(original_samples.frustums.get_positions(), offset_size=(0.0, 0.0, 0.0), offset_position=bbox.offset_position)
-
+                        mask = bbox.are_points_inside_reconfigured(original_samples.frustums.get_positions(), offset_size=(0.0, 0.0, 0.0))
                     else:
                         mask = torch.zeros_like(densities, dtype=torch.bool)
 
                     if rec_mask == None:
                         rec_mask = torch.any(mask, dim=1).squeeze(-1)
-
                     else:
                         rec_mask = torch.logical_or(torch.any(mask, dim=1).squeeze(-1), rec_mask)
 
-                    reconfigurational_samples.frustums.origins = reconfigurational_samples.frustums.origins - (mask * bbox.offset_position)
+                    reconfigurational_samples.frustums.origins = ((reconfigurational_samples.frustums.origins - bbox.translation) @ bbox.offset_orientation.T) + bbox.translation
+                    reconfigurational_samples.frustums.directions = reconfigurational_samples.frustums.directions @ bbox.offset_orientation.T
+                    # reconfigurational_samples.frustums.origins = reconfigurational_samples.frustums.origins - bbox.offset_position
                     shifted_outputs = self.field.forward(reconfigurational_samples, compute_normals=self.config.predict_normals)
 
                     densities = torch.where(mask, shifted_outputs[FieldHeadNames.DENSITY], densities)

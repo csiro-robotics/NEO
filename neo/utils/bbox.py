@@ -23,22 +23,10 @@ class BoundingBox():
         self.rotation = torch.Tensor(data.euler).to(self.device)
         self.offset_position = torch.Tensor(data.offset_position).to(self.device)
         self.offset_euler = torch.Tensor(data.offset_euler).to(self.device)
-
-        alpha, beta, gamma = self.rotation
-
-        rot_roll = torch.Tensor([[1, 0, 0],
-                                 [0, torch.cos(alpha), -torch.sin(alpha)],
-                                 [0, torch.sin(alpha), torch.cos(alpha)]]).to(self.device)
         
-        rot_pitch = torch.Tensor([[torch.cos(beta), 0, torch.sin(beta)],
-                                  [0, 1, 0],
-                                  [-torch.sin(beta), 0, torch.cos(beta)]]).to(self.device)
-        
-        rot_yaw = torch.Tensor([[torch.cos(gamma), -torch.sin(gamma), 0],
-                                [torch.sin(gamma), torch.cos(gamma), 0],
-                                [0, 0, 1]]).to(self.device)
-        
-        self.orientation = rot_roll @ rot_pitch @ rot_yaw
+        self.orientation = self.calculate_orientation(self.rotation)
+        self.offset_orientation = self.calculate_orientation(self.offset_euler)
+        self.orientation_with_offset = self.calculate_orientation(self.rotation + self.offset_euler)
 
         x, y, z = data.dimensions
         x, y, z = x / 2, y / 2, z / 2
@@ -80,6 +68,24 @@ class BoundingBox():
         self.w_x = (torch.max(cube[:, 0]) - torch.min(cube[:, 0])) / 2
         self.w_y = (torch.max(cube[:, 1]) - torch.min(cube[:, 1])) / 2
         self.w_z = (torch.max(cube[:, 2]) - torch.min(cube[:, 2])) / 2
+
+    def calculate_orientation(self, euler_angles) -> torch.Tensor:
+
+        alpha, beta, gamma = euler_angles
+
+        rot_roll = torch.Tensor([[1, 0, 0],
+                                 [0, torch.cos(alpha), -torch.sin(alpha)],
+                                 [0, torch.sin(alpha), torch.cos(alpha)]]).to(self.device)
+        
+        rot_pitch = torch.Tensor([[torch.cos(beta), 0, torch.sin(beta)],
+                                  [0, 1, 0],
+                                  [-torch.sin(beta), 0, torch.cos(beta)]]).to(self.device)
+        
+        rot_yaw = torch.Tensor([[torch.cos(gamma), -torch.sin(gamma), 0],
+                                [torch.sin(gamma), torch.cos(gamma), 0],
+                                [0, 0, 1]]).to(self.device)
+        
+        return rot_roll @ rot_pitch @ rot_yaw
 
     def calculate_distances(self, ray_origins, ray_directions) -> torch.Tensor:
         """
@@ -155,13 +161,13 @@ class BoundingBox():
         
         return inside
     
-    def are_points_inside_reconfigured(self, points: torch.Tensor, offset_size: Tuple[float, float, float] = (0, 0, 0), offset_position: torch.Tensor = torch.tensor([0, 0, 0])) -> torch.Tensor:
+    def are_points_inside_reconfigured(self, points: torch.Tensor, offset_size: Tuple[float, float, float] = (0, 0, 0)) -> torch.Tensor:
 
         points_shape = points.shape
         points = points.reshape((-1, 3))
 
         # Transform the points into the local coordinate system of the OOBB
-        local_points = torch.matmul(points - (self.translation + offset_position), self.orientation.T)
+        local_points = torch.matmul(points - (self.translation + self.offset_position), self.orientation_with_offset.T)
         
         # Perform containment check for each point
         inside_x = torch.abs(local_points[:, 0]) <= self.w_x + offset_size[0]
