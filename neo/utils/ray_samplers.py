@@ -184,9 +184,9 @@ class ReconfigurationalProposalNetworkSampler(ProposalNetworkSampler):
                     replace_densities = None
                     for bbox in bboxes:
                         if bbox.is_reconfigured:
+                            reconfigured_ray_samples.frustums.origins = reconfigured_ray_samples.frustums.origins - bbox.offset_position
                             reconfigured_ray_samples.frustums.origins = ((reconfigured_ray_samples.frustums.origins - bbox.translation) @ bbox.offset_orientation.T) + bbox.translation
                             reconfigured_ray_samples.frustums.directions = reconfigured_ray_samples.frustums.directions @ bbox.offset_orientation.T
-                            # reconfigured_ray_samples.frustums.origins = reconfigured_ray_samples.frustums.origins - bbox.offset_position
                             reconfigured_ray_positions = reconfigured_ray_samples.frustums.get_positions()
 
                             replace_density = replace_density_fns[i_level](reconfigured_ray_positions)
@@ -221,9 +221,9 @@ class ReconfigurationalProposalNetworkSampler(ProposalNetworkSampler):
                         replace_densities = None
                         for bbox in bboxes:
                             if bbox.is_reconfigured:
+                                reconfigured_ray_samples.frustums.origins = reconfigured_ray_samples.frustums.origins - bbox.offset_position
                                 reconfigured_ray_samples.frustums.origins = ((reconfigured_ray_samples.frustums.origins - bbox.translation) @ bbox.offset_orientation.T) + bbox.translation
                                 reconfigured_ray_samples.frustums.directions = reconfigured_ray_samples.frustums.directions @ bbox.offset_orientation.T
-                                # reconfigured_ray_samples.frustums.origins = reconfigured_ray_samples.frustums.origins - bbox.offset_position
                                 reconfigured_ray_positions = reconfigured_ray_samples.frustums.get_positions()
 
                                 replace_density = replace_density_fns[i_level](reconfigured_ray_positions)
