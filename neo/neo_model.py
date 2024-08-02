@@ -60,6 +60,7 @@ class NeoModel(NerfactoModel):
         self.apply_changes_hook = self.kwargs['apply_changes_hook']
 
         # Load bbox data
+        self.bbox = None
         self.bboxes = {"bboxes": []}
         self.bbox_vis: List[ViserBoundingBox] = []
         self.rec_bbox_vis: Dict[int, ViserBoundingBox] = {}
@@ -83,13 +84,23 @@ class NeoModel(NerfactoModel):
                                      dimensions=data['dimensions'], 
                                      euler=data['euler'], 
                                      quaternion=data['quaternion'], 
-                                     position=data['position'])
+                                     position=data['position'],
+                                     is_reconfigured=data['is_reconfigured'],
+                                     offset_position=data['offset_position'],
+                                     offset_euler=data['offset_euler'])
 
                 self.bbox = ViserBoundingBox(data=bbox_data.viser_format(), cb_hook=self.display_wireframe)
                 self.bbox_vis.append(self.bbox)
 
                 # Register loaded bounding boxes
                 setattr(self, f"temp_bbox_{i}", self.bbox)
+
+                if data['is_reconfigured']:
+                    rec_bbox = ViserBoundingBox(data=bbox_data.viser_format(), name_prefix="RecBox", wireframe=True, color=(0, 255, 0), offset=True)
+                    self.rec_bbox_vis[bbox['idx']] = rec_bbox
+
+                    # Register loaded bounding boxes
+                    setattr(self, f"temp_rec_bbox_{i}", rec_bbox)
                 
             self.bbox_tool = BoundingBoxToolbox("Boxes", 
                                                 self.bbox_vis[-1].data, 
@@ -151,7 +162,7 @@ class NeoModel(NerfactoModel):
         idx = len(self.bbox_vis)
         bbox_data = BBoxData(idx, [0.1, 0.1, 0.1], [0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
 
-        self.bbox = ViserBoundingBox(data=bbox_data.viser_format(), cb_hook=self.display_wireframe)
+        self.bbox = ViserBoundingBox(data=bbox_data.viser_format(), cb_hook=self.display_wireframe, offset=True)
         self.bbox.install(self.bbox_tool.viser_server)
 
         self.bbox_vis.append(self.bbox)
@@ -162,20 +173,18 @@ class NeoModel(NerfactoModel):
 
     def offset_box_hook(self, element):
 
-                    
         # Initialize bbox
         if getattr(self, "bbox", False):
             self.bbox.install(self.bbox_tool.viser_server)
         else:
             self.bbox = None
 
-
         idx = self.bbox.data.idx
         bbox_data = self.bbox_tool.get_bbox_data().viser_format()
         self.bbox.update(bbox_data)
 
         if bbox_data.is_reconfigured:
-            self.rec_bbox_vis[idx].update(bbox_data, offset = True)
+            self.rec_bbox_vis[idx].update(bbox_data)
 
     def resize_box(self, element):
         self.bbox.box_handle.remove()

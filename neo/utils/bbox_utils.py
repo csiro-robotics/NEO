@@ -74,11 +74,17 @@ class BBoxData:
         quaternion = tuple(R.as_quat(True))
         position = (np.array(self.position) / 10).tolist()
 
+        offset_position = (np.array(self.offset_position) / 10).tolist()
+        offset_euler = (np.deg2rad(self.offset_euler[::-1] * np.array([1, -1, 1]))).tolist()
+
         return {"idx": self.idx, 
                 "data": {"dimensions": dimensions, 
                          "euler": list(euler), 
                          "quaternion": list(quaternion), 
-                         "position": position
+                         "position": position,
+                         "is_reconfigured": self.is_reconfigured,
+                         "offset_position": offset_position,
+                         "offset_euler": offset_euler
                          }
                 }
 
@@ -205,7 +211,7 @@ class ViserBoundingBox(ViewerElement[bool]):
 
     box_handle: MeshHandle
 
-    def __init__(self, data: BBoxData, name_prefix:str = "Box", cb_hook: Callable[[ViserBoundingBox], Any] = None, disabled: bool = False, visible: bool = True, wireframe: bool = False, color: Tuple[int, int, int] = (255, 0, 0)):
+    def __init__(self, data: BBoxData, name_prefix:str = "Box", cb_hook: Callable[[ViserBoundingBox], Any] = None, disabled: bool = False, visible: bool = True, wireframe: bool = False, color: Tuple[int, int, int] = (255, 0, 0), offset=False):
         
         name = f"{name_prefix}_{data.idx}"
         super().__init__(name, disabled=disabled, visible=visible, cb_hook=cb_hook)
@@ -213,6 +219,7 @@ class ViserBoundingBox(ViewerElement[bool]):
         self.data = data
         self.wireframe = wireframe
         self._color = color
+        self.offset = offset
 
     def _create_gui_handle(self, viser_server: ViserServer) -> None:
 
@@ -220,17 +227,35 @@ class ViserBoundingBox(ViewerElement[bool]):
 
         flat_shading = False if self.wireframe else True
 
-        self.box_handle = viser_server.add_mesh_simple(
-                          name=self.name,
-                          vertices=mesh.vertices,
-                          faces=mesh.faces,
-                          color=self._color,
-                          wireframe=self.wireframe,
-                          flat_shading=flat_shading,
-                          position=tuple(self.data.position),
-                          wxyz=tuple(self.data.quaternion),
-                          visible=True,
-                          )
+        if not self.offset:
+            self.box_handle = viser_server.add_mesh_simple(
+                            name=self.name,
+                            vertices=mesh.vertices,
+                            faces=mesh.faces,
+                            color=self._color,
+                            wireframe=self.wireframe,
+                            flat_shading=flat_shading,
+                            position=tuple(self.data.position),
+                            wxyz=tuple(self.data.quaternion),
+                            visible=True,
+                            )
+        else:
+            R1 = Rotation.from_euler('xyz', self.data.euler, degrees=True)
+            R2 = Rotation.from_euler('xyz', self.data.offset_euler, degrees=True)
+            R = R2 * R1
+            quaternion = R.as_quat(False)
+
+            self.box_handle = viser_server.add_mesh_simple(
+                            name=self.name,
+                            vertices=mesh.vertices,
+                            faces=mesh.faces,
+                            color=self._color,
+                            wireframe=self.wireframe,
+                            flat_shading=flat_shading,
+                            position=tuple(self.data.position + self.data.offset_position),
+                            wxyz=tuple(quaternion),
+                            visible=True,
+                            )
 
     def install(self, viser_server: ViserServer) -> None:
         self._create_gui_handle(viser_server)
@@ -238,11 +263,11 @@ class ViserBoundingBox(ViewerElement[bool]):
         if self.box_handle is not None:
             self.box_handle.on_click(lambda _: self.cb_hook(self))
 
-    def update(self, data: BBoxData, offset: bool = False) -> None:
+    def update(self, data: BBoxData) -> None:
 
         self.data = data
 
-        if not offset:
+        if not self.offset:
             self.box_handle.position = data.position
             R = Rotation.from_euler('xyz', data.euler, degrees=True)
             quaternion = R.as_quat(False)

@@ -62,7 +62,10 @@ class SparseGuidedNeRFModel(NerfactoModel):
                                  dimensions=data['dimensions'], 
                                  euler=data['euler'], 
                                  quaternion=data['quaternion'], 
-                                 position=data['position'])
+                                 position=data['position'],
+                                 is_reconfigured=data['is_reconfigured'],
+                                 offset_position=data['offset_position'],
+                                 offset_euler=data['offset_euler'])
 
             self.bboxes.append(BoundingBox(bbox_data))
         
@@ -84,7 +87,7 @@ class SparseGuidedNeRFModel(NerfactoModel):
         with torch.no_grad():
             masks = None
             for bbox in self.bboxes:
-                mask = bbox.are_points_inside(ray_samples.frustums.get_positions(), offset=(0.01, 0.01, -0.01))
+                mask = bbox.are_points_inside(ray_samples.frustums.get_positions(), offset_size=(0.01, 0.01, -0.01))
 
                 if masks is None:
                     masks = mask
