@@ -162,7 +162,7 @@ class NeoModel(NerfactoModel):
         idx = len(self.bbox_vis)
         bbox_data = BBoxData(idx, [0.1, 0.1, 0.1], [0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
 
-        self.bbox = ViserBoundingBox(data=bbox_data.viser_format(), cb_hook=self.display_wireframe, offset=True)
+        self.bbox = ViserBoundingBox(data=bbox_data.viser_format(), cb_hook=self.display_wireframe)
         self.bbox.install(self.bbox_tool.viser_server)
 
         self.bbox_vis.append(self.bbox)
@@ -199,7 +199,7 @@ class NeoModel(NerfactoModel):
         if self.bbox_tool.reconfigure_handle.value:
             if not bbox_data.is_reconfigured:
                 bbox_data.is_reconfigured = True
-                bbox = ViserBoundingBox(data=bbox_data, name_prefix="RecBox", wireframe=True, color=(0, 255, 0))
+                bbox = ViserBoundingBox(data=bbox_data, name_prefix="RecBox", wireframe=True, color=(0, 255, 0), offset=True)
                 bbox.install(self.bbox_tool.viser_server)
                 self.rec_bbox_vis[idx] = bbox
 

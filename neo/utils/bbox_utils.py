@@ -141,13 +141,13 @@ class BoundingBoxToolbox(ViewerElement[bool]):
             "Size", tuple(self.bbox_data.dimensions), step=0.1, disabled=self.disabled, visible=self.visible, hint="Provide size in meters"
         )
 
-        self.reconfigure_handle = viser_server.add_gui_checkbox("Reconfigure", False)
+        self.reconfigure_handle = viser_server.add_gui_checkbox("Reconfigure", self.bbox_data.is_reconfigured)
 
         self.offset_position_handle = viser_server.add_gui_vector3(
-            "Offset Position", (0.0, 0.0, 0.0), step=0.1, disabled=self.disabled, visible=False, hint="Provide position in meters"
+            "Offset Position", tuple(self.bbox_data.offset_position), step=0.1, disabled=self.disabled, visible=self.bbox_data.is_reconfigured, hint="Provide position in meters"
         )
         self.offset_rotation_handle = viser_server.add_gui_vector3(
-            "Offset Rotation", (0.0, 0.0, 0.0), step=1.0, disabled=self.disabled, visible=False, hint="Provide rotation in degrees"
+            "Offset Rotation", tuple(self.bbox_data.offset_euler), step=1.0, disabled=self.disabled, visible=self.bbox_data.is_reconfigured, hint="Provide rotation in degrees"
         )
 
         self.bbox_selector_handle = viser_server.add_gui_number("Selected box", self.bbox_data.idx, 0, step=1)
