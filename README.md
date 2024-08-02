@@ -10,22 +10,22 @@ pip install -e .
 ns-install-cli
 ```
 
-```bash
-neo --data data/bouquet --timestamp "" --pipeline.datamanager.pixel-sampler.ignore-mask True
+You have to download [SAM ViT-H](https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth) model weights and put them in ``ckpts`` folder. So the folder structure should look like this
+
+```
+Neo/
+├── ckpts/
+│ └── sam_vit_h_4b8939.pth
+├── neo/
+│ └── ...
+├── tests/
+├── pyproject.toml
+└── README.md
 ```
 
-```bash
-pip install git+https://github.com/facebookresearch/segment-anything.git
-pip install transformers diffusers accelerate
-```
-
-If running inside docker container or remote server you need to run
+If you are running Neo inside docker container or remote server you need to run
 ```bash
 sudo apt-get install -y xvfb
 Xvfb :99 -screen 0 1024x768x24 &
 export DISPLAY=:99
-```
-
-```bash
-ns-train sparse-guided-nerf --data cache/outputs/bouquet/neo --neo-model-path outputs/bouquet/neo/nerfstudio_models/step-000029999.ckpt --pipeline.model.bbox-path outputs/bouquet/neo/bbox.json
 ```
