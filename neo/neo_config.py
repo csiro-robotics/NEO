@@ -22,7 +22,8 @@ from neo.neo_model import NeoModelConfig
 from neo.neo_pipeline import NeoPipelineConfig
 from neo.sparse_guided_nerf_model import SparseGuidedNeRFModelConfig
 from neo.sparse_guided_nerf_trainer import SparseGuidedNeRFTrainerConfig
-from neo.replace_nerf import ReplaceNeRFModelConfig
+from neo.replace_nerf_model import ReplaceNeRFModelConfig
+from neo.replace_nerf_pipeline import ReplaceNeRFPipelineConfig
 
 
 neo_method = MethodSpecification(
@@ -109,7 +110,7 @@ replace_nerf_method = MethodSpecification(
         steps_per_save=2000,
         max_num_iterations=2000,
         mixed_precision=True,
-        pipeline=VanillaPipelineConfig(
+        pipeline=ReplaceNeRFPipelineConfig(
             datamanager=ParallelDataManagerConfig(
                 dataparser=NerfstudioDataParserConfig(),
                 train_num_rays_per_batch=4096,

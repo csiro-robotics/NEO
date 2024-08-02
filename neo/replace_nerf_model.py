@@ -20,7 +20,9 @@ from nerfstudio.field_components.spatial_distortions import SceneContraction
 from nerfstudio.fields.density_fields import HashMLPDensityField
 from nerfstudio.fields.nerfacto_field import NerfactoField
 from nerfstudio.model_components.losses import (
+    L1Loss,
     MSELoss,
+    distortion_loss,
     interlevel_loss,
     orientation_loss,
     pred_normal_loss,
@@ -365,6 +367,8 @@ class ReplaceNeRFModel(NerfactoModel):
         # losses
         self.rgb_loss = MSELoss()
         self.depth_loss = MSELoss()
+        self.color_loss = L1Loss()
+        self.density_loss = L1Loss()
         self.step = 0
         # metrics
         from torchmetrics.functional import structural_similarity_index_measure
@@ -375,6 +379,7 @@ class ReplaceNeRFModel(NerfactoModel):
         self.ssim = structural_similarity_index_measure
         self.lpips = LearnedPerceptualImagePatchSimilarity(normalize=True)
         self.step = 0
+        self.frozen = False
 
     def get_outputs(self, ray_bundle: RayBundle):
         # apply the camera optimizer pose tweaks
@@ -446,6 +451,10 @@ class ReplaceNeRFModel(NerfactoModel):
             "depth": depth,
             "gt_depth": gt_depth,
             "expected_depth": expected_depth,
+            "gt_rgbs": gt_rgbs,
+            "gt_densities": gt_densities,
+            "rgbs": field_outputs[FieldHeadNames.RGB],
+            "densities": field_outputs[FieldHeadNames.DENSITY]
         }
 
         if self.config.predict_normals:
@@ -472,11 +481,23 @@ class ReplaceNeRFModel(NerfactoModel):
         for i in range(self.config.num_proposal_iterations):
             outputs[f"prop_depth_{i}"] = self.renderer_depth(weights=weights_list[i], ray_samples=ray_samples_list[i])
         return outputs
+    
+    def get_metrics_dict(self, outputs):
+        metrics_dict = {}
+        gt_rgb = outputs["gt_rgb"]
+        gt_rgb = self.renderer_rgb.blend_background(gt_rgb)  # Blend if RGBA
+        predicted_rgb = outputs["rgb"]
+        metrics_dict["psnr"] = self.psnr(predicted_rgb, gt_rgb)
 
-    def get_loss_dict(self, outputs, batch, metrics_dict=None):
+        if self.training:
+            metrics_dict["distortion"] = distortion_loss(outputs["weights_list"], outputs["ray_samples_list"])
+
+        # self.camera_optimizer.get_metrics_dict(metrics_dict)
+        return metrics_dict
+
+    def get_loss_dict(self, outputs, step, metrics_dict=None):
         loss_dict = {}
-
-        # image = batch["image"].to(self.device)
+        
         image = outputs["gt_rgb"]
 
         pred_rgb, gt_rgb = self.renderer_rgb.blend_background_for_loss_computation(
@@ -484,25 +505,48 @@ class ReplaceNeRFModel(NerfactoModel):
             pred_accumulation=outputs["accumulation"],
             gt_image=image,
         )
+        
+        if step < 500:
+            print(f"Sigma loss: {step}")
+            
+            if not self.frozen:
+                self.frozen = True
+                for name, param in self.field.named_parameters():
+                    if 'mlp' in name:
+                        param.requires_grad = False
+                        print(f'Frozen {name}')
 
-        loss_dict["rgb_loss"] = self.rgb_loss(gt_rgb, pred_rgb)
-        loss_dict["depth"] = self.depth_loss(outputs["gt_depth"], outputs["depth"])
-        if self.training:
-            loss_dict["interlevel_loss"] = self.config.interlevel_loss_mult * interlevel_loss(
-                outputs["weights_list"], outputs["ray_samples_list"]
-            )
-            assert metrics_dict is not None and "distortion" in metrics_dict
-            loss_dict["distortion_loss"] = self.config.distortion_loss_mult * metrics_dict["distortion"]
-            if self.config.predict_normals:
-                # orientation loss for computed normals
-                loss_dict["orientation_loss"] = self.config.orientation_loss_mult * torch.mean(
-                    outputs["rendered_orientation_loss"]
-                )
+            loss_dict["rgbs_loss"] = self.color_loss(outputs["gt_rgbs"], outputs["rgbs"])
+            loss_dict["densities_loss"] = self.density_loss(outputs["gt_densities"], outputs["densities"])
 
-                # ground truth supervision for normals
-                loss_dict["pred_normal_loss"] = self.config.pred_normal_loss_mult * torch.mean(
-                    outputs["rendered_pred_normal_loss"]
+        else:
+            print(f"Fotometric: {step}")
+            
+            if self.frozen:
+                self.frozen = False
+                for name, param in self.field.named_parameters():
+                    if 'mlp' in name:
+                        param.requires_grad = True
+                        print(f'Unfrozen {name}')
+            
+            loss_dict["rgb_loss"] = self.rgb_loss(gt_rgb, pred_rgb)
+            loss_dict["depth"] = self.depth_loss(outputs["gt_depth"], outputs["depth"])
+            if self.training:
+                loss_dict["interlevel_loss"] = self.config.interlevel_loss_mult * interlevel_loss(
+                    outputs["weights_list"], outputs["ray_samples_list"]
                 )
-            # Add loss from camera optimizer
-            self.camera_optimizer.get_loss_dict(loss_dict)
+                assert metrics_dict is not None and "distortion" in metrics_dict
+                loss_dict["distortion_loss"] = self.config.distortion_loss_mult * metrics_dict["distortion"]
+                if self.config.predict_normals:
+                    # orientation loss for computed normals
+                    loss_dict["orientation_loss"] = self.config.orientation_loss_mult * torch.mean(
+                        outputs["rendered_orientation_loss"]
+                    )
+
+                    # ground truth supervision for normals
+                    loss_dict["pred_normal_loss"] = self.config.pred_normal_loss_mult * torch.mean(
+                        outputs["rendered_pred_normal_loss"]
+                    )
+                # Add loss from camera optimizer
+                # self.camera_optimizer.get_loss_dict(loss_dict)
         return loss_dict
