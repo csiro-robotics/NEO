@@ -28,3 +28,11 @@ sudo apt-get install -y xvfb
 Xvfb :99 -screen 0 1024x768x24 &
 export DISPLAY=:99
 ```
+
+## Using pretrained Nerfacto-based models
+
+If you want to use different Nerfacto based model just convert the config file with command
+```bash
+ns-convert --input CONFIG_INPUT_PATH
+```
+Converted config will be saved at previous output location in neo folder
