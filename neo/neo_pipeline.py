@@ -146,6 +146,7 @@ class NeoPipeline(VanillaPipeline):
         train_sparse_guided_nerf_cmd = [
             "ns-train sparse-guided-nerf",
             f"--data cache/{path}",
+            "--experiment_name neo",
             "--timestamp ''",
             f"--neo-model-path {checkpoint_filenames[0]}",
             f"--pipeline.model.bbox-path {path}/bbox.json",
@@ -160,6 +161,7 @@ class NeoPipeline(VanillaPipeline):
         train_replace_nerf_cmd = [
             "ns-train replace-nerf",
             f"--data cache/{path}",
+            "--experiment_name neo",
             "--timestamp ''",
             f"--pipeline.model.field-path {checkpoint_filenames[0]}",
             f"--pipeline.model.replace-field-path cache/neo/sparse-guided-nerf/nerfstudio_models/step-000001999.ckpt",

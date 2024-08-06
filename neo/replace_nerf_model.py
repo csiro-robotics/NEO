@@ -5,6 +5,7 @@ Replace NeRF for replacing objects from two NeRF models. Used by Neo pipeline.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Dict, List, Literal, Tuple, Type
 
 import numpy as np
@@ -45,11 +46,11 @@ class ReplaceNeRFModelConfig(NerfactoModelConfig):
 
     _target: Type = field(default_factory=lambda: ReplaceNeRFModel)
 
-    field_path: str = ""
+    field_path: Path = ""
     """Path to the main NeRF"""
-    replace_field_path: str = ""
+    replace_field_path: Path = ""
     """Path to the NeRF with reconstructed region"""
-    bbox_path: str = ""
+    bbox_path: Path = ""
     """Path to the bounding box"""
 
 

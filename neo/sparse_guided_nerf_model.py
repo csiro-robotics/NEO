@@ -5,8 +5,10 @@ This model is utilized by Neo for editing purposes. It learns region reconstruct
 """
 import torch
 import json
+import yaml
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Type, List
 
 from nerfstudio.utils.rich_utils import CONSOLE
@@ -31,7 +33,7 @@ class SparseGuidedNeRFModelConfig(NerfactoModelConfig):
 
     _target: Type = field(default_factory=lambda: SparseGuidedNeRFModel)
 
-    bbox_path: str = None
+    bbox_path: Path = None
     """Path to the bounding box"""
 
 

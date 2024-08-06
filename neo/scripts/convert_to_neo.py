@@ -49,7 +49,8 @@ def main(
     # Copy datamanager settings
     datamanager_config = VanillaDataManagerConfig()
     for field in fields(VanillaDataManagerConfig):
-        setattr(datamanager_config, field.name, getattr(nerfacto_config.pipeline.datamanager, field.name))
+        if field.name != '_target':
+            setattr(datamanager_config, field.name, getattr(nerfacto_config.pipeline.datamanager, field.name))
 
     # Copy model settings
     neo_model_config = NeoModelConfig()
