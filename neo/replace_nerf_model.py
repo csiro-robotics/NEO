@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from copy import deepcopy
 from typing import Dict, List, Literal, Tuple, Type
 
 import numpy as np
@@ -413,19 +414,23 @@ class ReplaceNeRFModel(NerfactoModel):
             gt_rgbs = torch.where(masks, replace_field_outputs[FieldHeadNames.RGB], field_copy_outputs[FieldHeadNames.RGB])
 
             reconfigurational_samples, _, _ = self.reconfigurational_proposal_sampler(ray_bundle, density_fns=self.density_fns_copy, replace_density_fns=self.density_fns_copy, bboxes=self.bboxes, offset_size=(0.0, 0.0, 0.0))
+            original_samples = deepcopy(reconfigurational_samples)
 
             masks = None
             for bbox in self.bboxes:
-                mask = bbox.are_points_inside_reconfigured(reconfigurational_samples.frustums.get_positions(), offset_size=(0.0, 0.0, 0.0))
+                if bbox.is_reconfigured:
+                    mask = bbox.are_points_inside_reconfigured(original_samples.frustums.get_positions(), offset_size=(0.0, 0.0, 0.0))
+                else:
+                    mask = torch.zeros_like(shifted_outputs[FieldHeadNames.DENSITY], dtype=torch.bool)
 
                 if masks is None:
                     masks = mask
                 else:
                     masks = torch.logical_or(masks, mask)
             
-                reconfigurational_samples.frustums.origins = reconfigurational_samples.frustums.origins - bbox.offset_position
+                reconfigurational_samples.frustums.origins = original_samples.frustums.origins - bbox.offset_position
                 reconfigurational_samples.frustums.origins = ((reconfigurational_samples.frustums.origins - bbox.translation) @ bbox.offset_orientation.T) + bbox.translation
-                reconfigurational_samples.frustums.directions = reconfigurational_samples.frustums.directions @ bbox.offset_orientation.T
+                reconfigurational_samples.frustums.directions = original_samples.frustums.directions @ bbox.offset_orientation.T
                 shifted_outputs = self.field_copy.forward(reconfigurational_samples, compute_normals=self.config.predict_normals)
                 gt_densities = torch.where(mask, shifted_outputs[FieldHeadNames.DENSITY], gt_densities)
                 gt_rgbs = torch.where(mask, shifted_outputs[FieldHeadNames.RGB], gt_rgbs)
@@ -433,7 +438,6 @@ class ReplaceNeRFModel(NerfactoModel):
             gt_weights = reconfigurational_samples.get_weights(gt_densities)
             gt_rgb = self.renderer_rgb(rgb=gt_rgbs, weights=gt_weights)
             gt_depth = self.renderer_depth(weights=gt_weights, ray_samples=reconfigurational_samples)
-
 
         weights = ray_samples.get_weights(field_outputs[FieldHeadNames.DENSITY])
         weights_list.append(weights)
