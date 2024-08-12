@@ -112,6 +112,7 @@ class BoundingBoxToolbox(ViewerElement[bool]):
                  reconfigure_hook: Callable[[BoundingBoxToolbox], Any], 
                  bbox_selector_hook: Callable[[BoundingBoxToolbox], Any], 
                  add_box_hook: Callable[[BoundingBoxToolbox], Any], 
+                 remove_box_hook: Callable[[BoundingBoxToolbox], Any], 
                  apply_changes_hook: Callable[[BoundingBoxToolbox], Any], 
                  disabled: bool = False, 
                  visible: bool = True, 
@@ -126,6 +127,7 @@ class BoundingBoxToolbox(ViewerElement[bool]):
         self.reconfigure_hook = reconfigure_hook
         self.bbox_selector_hook = bbox_selector_hook
         self.add_box_hook = add_box_hook
+        self.remove_box_hook = remove_box_hook
         self.apply_changes_hook = apply_changes_hook
 
         self.bbox_data = bbox_data
@@ -152,6 +154,7 @@ class BoundingBoxToolbox(ViewerElement[bool]):
 
         self.bbox_selector_handle = viser_server.add_gui_number("Selected box", self.bbox_data.idx, 0, step=1)
         self.add_box_handle = viser_server.add_gui_button("Add Bbox", color='gray', icon=Icon.BOX)
+        self.remove_box_handle = viser_server.add_gui_button("Remove Bbox", color='gray', icon=Icon.TRASH)
         self.apply_changes_handle = viser_server.add_gui_button("Apply changes", color='gray', icon=Icon.DEVICE_FLOPPY)
 
     def install(self, viser_server: ViserServer) -> None:
@@ -160,15 +163,16 @@ class BoundingBoxToolbox(ViewerElement[bool]):
         self.viser_server = viser_server
 
         assert self.position_handle is not None and self.rotation_handle is not None and self.dimensions_handle is not None and self.reconfigure_handle is not None and self.apply_changes_handle is not None
-        self.position_handle.on_update(lambda _: self.move_hook(self))
-        self.rotation_handle.on_update(lambda _: self.move_hook(self))
-        self.dimensions_handle.on_update(lambda _: self.resize_hook(self))
-        self.reconfigure_handle.on_update(lambda _:self.reconfigure_hook(self))
-        self.offset_position_handle.on_update(lambda _: self.offset_box_hook(self))
-        self.offset_rotation_handle.on_update(lambda _: self.offset_box_hook(self))
-        self.bbox_selector_handle.on_update(lambda _: self.bbox_selector_hook(self))
-        self.add_box_handle.on_click(lambda _: self.add_box_hook(self))
-        self.apply_changes_handle.on_click(lambda _: self.apply_changes_hook(self))
+        self.position_handle.on_update(lambda _: self.move_hook())
+        self.rotation_handle.on_update(lambda _: self.move_hook())
+        self.dimensions_handle.on_update(lambda _: self.resize_hook())
+        self.reconfigure_handle.on_update(lambda _:self.reconfigure_hook())
+        self.offset_position_handle.on_update(lambda _: self.offset_box_hook())
+        self.offset_rotation_handle.on_update(lambda _: self.offset_box_hook())
+        self.bbox_selector_handle.on_update(lambda _: self.bbox_selector_hook())
+        self.add_box_handle.on_click(lambda _: self.add_box_hook())
+        self.remove_box_handle.on_click(lambda _: self.remove_box_hook())
+        self.apply_changes_handle.on_click(lambda _: self.apply_changes_hook())
 
     def get_bbox_data(self) -> BBoxData:
 
@@ -211,9 +215,9 @@ class ViserBoundingBox(ViewerElement[bool]):
 
     box_handle: MeshHandle
 
-    def __init__(self, data: BBoxData, name_prefix:str = "Box", cb_hook: Callable[[ViserBoundingBox], Any] = None, disabled: bool = False, visible: bool = True, wireframe: bool = False, color: Tuple[int, int, int] = (255, 0, 0), offset=False):
+    def __init__(self, data: BBoxData, name_prefix: str = "Box", cb_hook: Callable[[ViserBoundingBox], Any] = None, disabled: bool = False, visible: bool = True, wireframe: bool = False, color: Tuple[int, int, int] = (255, 0, 0), offset=False):
         
-        name = f"{name_prefix}_{data.idx}"
+        name = f"{name_prefix}_{data.idx}_{time.time()}"
         super().__init__(name, disabled=disabled, visible=visible, cb_hook=cb_hook)
 
         self.data = data

@@ -110,6 +110,7 @@ class NeoModel(NerfactoModel):
                                                 reconfigure_hook=self.reconfigure_hook, 
                                                 bbox_selector_hook=self.bbox_selector_hook, 
                                                 add_box_hook=self.add_box_hook, 
+                                                remove_box_hook=self.remove_box_hook, 
                                                 apply_changes_hook=self.apply_changes_hook)
 
         else:
@@ -122,6 +123,7 @@ class NeoModel(NerfactoModel):
                                                 reconfigure_hook=self.reconfigure_hook, 
                                                 bbox_selector_hook=self.bbox_selector_hook, 
                                                 add_box_hook=self.add_box_hook, 
+                                                remove_box_hook=self.remove_box_hook, 
                                                 apply_changes_hook=self.apply_changes_hook)
 
         # Samplers
@@ -157,7 +159,7 @@ class NeoModel(NerfactoModel):
             initial_sampler=initial_sampler,
         )
 
-    def add_box_hook(self, element):
+    def add_box_hook(self):
         
         idx = len(self.bbox_vis)
         bbox_data = BBoxData(idx, [0.1, 0.1, 0.1], [0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
@@ -168,10 +170,40 @@ class NeoModel(NerfactoModel):
         self.bbox_vis.append(self.bbox)
         self.bbox_tool.bbox_selector_handle.value = idx
 
-    def move_box(self, element):
+    def remove_box_hook(self):
+        
+        cur_idx = self.bbox.data.idx
+        idx_to_del = None
+        for bbox in self.bbox_vis:
+            idx = bbox.data.idx
+            if idx == cur_idx:
+                print(f"Remove bbox: {cur_idx}")
+                self.bbox.box_handle.remove()
+                idx_to_del = idx
+                if bbox.data.is_reconfigured:
+                    self.rec_bbox_vis[idx].box_handle.remove()
+
+            if idx > cur_idx:
+                print(f"Change index from: {idx} to {idx - 1}")
+                bbox.data.idx -= 1
+                if bbox.data.is_reconfigured:
+                    print(f"Change index of rec_bbox_vis from: {idx} to {idx - 1}")
+                    self.rec_bbox_vis[idx - 1] = self.rec_bbox_vis[idx]
+
+        assert idx_to_del is not None, "No more boxes to remove!"
+        del self.bbox_vis[idx_to_del]
+
+        if self.bbox_tool.bbox_selector_handle.value != 0 and idx_to_del == len(self.bbox_vis):
+            print(f"Change selector to {self.bbox_tool.bbox_selector_handle.value - 1}")
+            self.bbox_tool.bbox_selector_handle.value -= 1
+
+        elif len(self.bbox_vis) != 0:
+            self.bbox_tool.bbox_selector_handle.value = self.bbox_tool.bbox_selector_handle.value
+
+    def move_box(self):
         self.bbox.update(self.bbox_tool.get_bbox_data().viser_format())
 
-    def offset_box_hook(self, element):
+    def offset_box_hook(self):
 
         # Initialize bbox
         if getattr(self, "bbox", False):
@@ -186,13 +218,13 @@ class NeoModel(NerfactoModel):
         if bbox_data.is_reconfigured:
             self.rec_bbox_vis[idx].update(bbox_data)
 
-    def resize_box(self, element):
+    def resize_box(self):
         self.bbox.box_handle.remove()
         self.bbox = ViserBoundingBox(data=self.bbox_tool.get_bbox_data().viser_format(), cb_hook=self.display_wireframe, wireframe=self.bbox.wireframe)
         self.bbox.install(self.bbox_tool.viser_server)
         self.bbox_vis[self.bbox_tool.bbox_selector_handle.value] = self.bbox
 
-    def reconfigure_hook(self, element):
+    def reconfigure_hook(self):
         idx = self.bbox_tool.bbox_selector_handle.value
 
         bbox_data = self.bbox_vis[idx].data
@@ -222,7 +254,7 @@ class NeoModel(NerfactoModel):
         self.bbox.install(self.bbox_tool.viser_server)
         self.bbox_vis[self.bbox_tool.bbox_selector_handle.value] = self.bbox
 
-    def bbox_selector_hook(self, element):
+    def bbox_selector_hook(self):
         self.bbox = self.bbox_vis[self.bbox_tool.bbox_selector_handle.value]
         self.bbox_tool.update(self.bbox.data)
 
@@ -327,13 +359,12 @@ class NeoModel(NerfactoModel):
 
         # Update json file
         if self.bbox is not None:
-
             self.bboxes["bboxes"] = []
             for bbox in self.bbox_vis:
                 self.bboxes["bboxes"].append(bbox.data.get_json_data())
 
             with open(self.bbox_dir, 'w') as f:
-                    json.dump(self.bboxes, f, indent=2)
+                json.dump(self.bboxes, f, indent=2)
 
         # Generate ray masks
         new_ray_masks = torch.zeros_like(ray_samples.frustums.starts)
