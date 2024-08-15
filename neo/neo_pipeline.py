@@ -123,7 +123,7 @@ class NeoPipeline(VanillaPipeline):
         os.makedirs("logs", exist_ok=True)
         os.makedirs("cache", exist_ok=True)
 
-    def apply_changes_hook(self, element):
+    def apply_changes_hook(self):
 
         self.model.eval()
         generate_sparse_dataset(model=self.model, 

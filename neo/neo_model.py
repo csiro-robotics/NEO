@@ -5,12 +5,13 @@ import json
 import os
 import numpy as np
 import torch
+import time
 
 from dataclasses import dataclass, field
 from copy import deepcopy
 from collections import defaultdict
-from typing import Type, Optional, Tuple, List, Union, Dict
 from scipy.spatial.transform import Rotation
+from typing import Type, Optional, Tuple, List, Union, Dict, Any
 from pathlib import Path
 
 from neo.utils.bbox import BoundingBox
@@ -125,6 +126,8 @@ class NeoModel(NerfactoModel):
                                                 add_box_hook=self.add_box_hook, 
                                                 remove_box_hook=self.remove_box_hook, 
                                                 apply_changes_hook=self.apply_changes_hook)
+            
+        self.old_bboxes = self.bboxes
 
         # Samplers
         def update_schedule(step):
@@ -160,7 +163,6 @@ class NeoModel(NerfactoModel):
         )
 
     def add_box_hook(self):
-        
         idx = len(self.bbox_vis)
         bbox_data = BBoxData(idx, [0.1, 0.1, 0.1], [0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0])
 
@@ -171,45 +173,49 @@ class NeoModel(NerfactoModel):
         self.bbox_tool.bbox_selector_handle.value = idx
 
     def remove_box_hook(self):
-        
         cur_idx = self.bbox.data.idx
         idx_to_del = None
         for bbox in self.bbox_vis:
             idx = bbox.data.idx
             if idx == cur_idx:
-                print(f"Remove bbox: {cur_idx}")
                 self.bbox.box_handle.remove()
                 idx_to_del = idx
                 if bbox.data.is_reconfigured:
                     self.rec_bbox_vis[idx].box_handle.remove()
 
             if idx > cur_idx:
-                print(f"Change index from: {idx} to {idx - 1}")
                 bbox.data.idx -= 1
                 if bbox.data.is_reconfigured:
-                    print(f"Change index of rec_bbox_vis from: {idx} to {idx - 1}")
                     self.rec_bbox_vis[idx - 1] = self.rec_bbox_vis[idx]
 
         assert idx_to_del is not None, "No more boxes to remove!"
         del self.bbox_vis[idx_to_del]
 
         if self.bbox_tool.bbox_selector_handle.value != 0 and idx_to_del == len(self.bbox_vis):
-            print(f"Change selector to {self.bbox_tool.bbox_selector_handle.value - 1}")
             self.bbox_tool.bbox_selector_handle.value -= 1
 
         elif len(self.bbox_vis) != 0:
             self.bbox_tool.bbox_selector_handle.value = self.bbox_tool.bbox_selector_handle.value
 
+    def remove_all_boxes(self):
+        self.bbox_tool.bbox_selector_handle.value = 0
+        time.sleep(0.3)
+        
+        self.bbox = None
+        for idx, bbox in enumerate(self.bbox_vis):
+            bbox.box_handle.remove()
+            if bbox.data.is_reconfigured:
+                self.rec_bbox_vis[idx].box_handle.remove()
+        
+        self.bbox_vis = []
+
     def move_box(self):
         self.bbox.update(self.bbox_tool.get_bbox_data().viser_format())
 
     def offset_box_hook(self):
-
         # Initialize bbox
-        if getattr(self, "bbox", False):
+        if not self.bbox.is_installed:
             self.bbox.install(self.bbox_tool.viser_server)
-        else:
-            self.bbox = None
 
         idx = self.bbox.data.idx
         bbox_data = self.bbox_tool.get_bbox_data().viser_format()
@@ -357,7 +363,18 @@ class NeoModel(NerfactoModel):
                 field_outputs[FieldHeadNames.PRED_NORMALS],
             )
 
-        # Update json file
+        # Update json file and check for a changes
+        with open(self.bbox_dir, 'r') as f:
+            self.bboxes = json.load(f)
+
+        if not str(self.bboxes) == str(self.old_bboxes):
+            # self.old_bboxes = self.bboxes
+            print("Refreshing boxes from the file!")
+
+            self.remove_all_boxes()
+
+            print(a)
+
         if self.bbox is not None:
             self.bboxes["bboxes"] = []
             for bbox in self.bbox_vis:
@@ -365,6 +382,8 @@ class NeoModel(NerfactoModel):
 
             with open(self.bbox_dir, 'w') as f:
                 json.dump(self.bboxes, f, indent=2)
+
+            self.old_bboxes = self.bboxes
 
         # Generate ray masks
         new_ray_masks = torch.zeros_like(ray_samples.frustums.starts)

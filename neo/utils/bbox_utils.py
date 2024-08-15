@@ -224,6 +224,7 @@ class ViserBoundingBox(ViewerElement[bool]):
         self.wireframe = wireframe
         self._color = color
         self.offset = offset
+        self.is_installed = False
 
     def _create_gui_handle(self, viser_server: ViserServer) -> None:
 
@@ -266,6 +267,8 @@ class ViserBoundingBox(ViewerElement[bool]):
 
         if self.box_handle is not None:
             self.box_handle.on_click(lambda _: self.cb_hook(self))
+
+        self.is_installed = True
 
     def update(self, data: BBoxData) -> None:
 
