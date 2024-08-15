@@ -393,8 +393,6 @@ class NeoModel(NerfactoModel):
                     rec_bbox.install(self.bbox_tool.viser_server)
                     self.rec_bbox_vis[bbox['idx']] = rec_bbox
 
-            print(a)
-
         if self.bbox is not None:
             self.bboxes["bboxes"] = []
             for bbox in self.bbox_vis:
