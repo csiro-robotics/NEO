@@ -368,10 +368,30 @@ class NeoModel(NerfactoModel):
             self.bboxes = json.load(f)
 
         if not str(self.bboxes) == str(self.old_bboxes):
-            # self.old_bboxes = self.bboxes
-            print("Refreshing boxes from the file!")
+            self.old_bboxes = self.bboxes
 
             self.remove_all_boxes()
+
+            # Add new boxes
+            for i, bbox in enumerate(self.bboxes['bboxes']):
+                data = bbox['data']
+                bbox_data = BBoxData(bbox['idx'], 
+                                     dimensions=data['dimensions'], 
+                                     euler=data['euler'], 
+                                     quaternion=data['quaternion'], 
+                                     position=data['position'],
+                                     is_reconfigured=data['is_reconfigured'],
+                                     offset_position=data['offset_position'],
+                                     offset_euler=data['offset_euler'])
+
+                self.bbox = ViserBoundingBox(data=bbox_data.viser_format(), cb_hook=self.display_wireframe)
+                self.bbox.install(self.bbox_tool.viser_server)
+                self.bbox_vis.append(self.bbox)
+
+                if data['is_reconfigured']:
+                    rec_bbox = ViserBoundingBox(data=bbox_data.viser_format(), name_prefix="RecBox", wireframe=True, color=(0, 255, 0), offset=True)
+                    rec_bbox.install(self.bbox_tool.viser_server)
+                    self.rec_bbox_vis[bbox['idx']] = rec_bbox
 
             print(a)
 
