@@ -60,9 +60,22 @@ def generate_sparse_dataset(model: Model,
     shutil.copy(bboxes_path / "bbox.json", cache_path / "bbox.json")
 
     # Load camera data and generate masks
-    with open(data_path / "transforms.json", "r") as file:
+    with open(cache_path / "transforms.json", "r") as file:
         camera_data = json.load(file)
-    
+
+    # Sort frames data by image name
+    filepaths = []
+    for frame in camera_data["frames"]:
+        filename = Path(frame["file_path"]).name
+        filepaths.append(filename)
+        frame["mask_path"] = f"masks/{filename}"
+    inds = np.argsort(filepaths)
+    camera_data["frames"] = [camera_data["frames"][ind] for ind in inds]
+
+    # Add masks paths to the teansforms file
+    with open(cache_path / "transforms.json", "w") as file:
+        json.dump(camera_data, file, indent=4)
+
     cameras, image_names = get_cameras(dataparser_config)
     collision_groups, masks_metadata = generate_masks(camera_data=camera_data, 
                                                       image_names=image_names, 
@@ -243,6 +256,12 @@ def generate_masks(camera_data: Dict[str, float],
     cy = camera_data["cy"]
     width = camera_data["w"]
     height = camera_data["h"]
+    
+    if "applied_transform" in camera_data:
+        dataparser_transform = dataparser_transform.cpu().detach().numpy() @ np.linalg.inv(np.concatenate([np.array(camera_data["applied_transform"]), np.array([[0, 0, 0, 1]])], axis=0))
+
+    else:
+        dataparser_transform = dataparser_transform.cpu().detach().numpy()
 
     # Create PinholeCameraIntrinsic object
     intrinsic = o3d.camera.PinholeCameraIntrinsic(width, height, fl_x, fl_y, cx, cy)
@@ -271,8 +290,7 @@ def generate_masks(camera_data: Dict[str, float],
         color = (idx + 10) / 255
         mesh_box.paint_uniform_color((color, color, color))
 
-        position = (np.array(bbox_data['position']) / dataparser_scale) - dataparser_transform[:, 3].cpu().detach().numpy()
-
+        position = np.array(bbox_data['position'])
         mesh_box.translate(position)
 
         alpha, beta, gamma = bbox_data['euler']
@@ -352,6 +370,8 @@ def generate_masks(camera_data: Dict[str, float],
 
         # Extract transformation matrix
         transform_matrix = np.array(frame["transform_matrix"])
+        transform_matrix = np.concatenate([dataparser_transform, np.array([[0, 0, 0, 1]])], axis=0) @ transform_matrix
+        transform_matrix[:3, 3] = transform_matrix[:3, 3] * dataparser_scale
 
         # Convert transformation matrix to camera extrinsic parameters
         extrinsic = np.linalg.inv(transform_matrix)
