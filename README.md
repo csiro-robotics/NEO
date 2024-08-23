@@ -36,3 +36,5 @@ If you want to use different Nerfacto based model just convert the config file w
 ns-convert --input CONFIG_INPUT_PATH
 ```
 Converted config will be saved at previous output location in neo folder
+
+ns-render camera-path --load-config outputs/figurines/neo/2024-08-04_225712/config.yml --camera-path-filename /workspace/Neo/data/figurines/camera_paths/2024-08-15-02-21-06.json --output-path renders/figurines/2024-08-15-02-21-06.mp4

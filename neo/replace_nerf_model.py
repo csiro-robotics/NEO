@@ -514,7 +514,7 @@ class ReplaceNeRFModel(NerfactoModel):
             gt_image=image,
         )
         
-        if step < 500:
+        if step < 100:
             print(f"Sigma loss: {step}")
             
             if not self.frozen:

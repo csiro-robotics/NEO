@@ -89,7 +89,7 @@ class SparseGuidedNeRFModel(NerfactoModel):
         with torch.no_grad():
             masks = None
             for bbox in self.bboxes:
-                mask = bbox.are_points_inside(ray_samples.frustums.get_positions(), offset_size=(0.01, 0.01, -0.01))
+                mask = bbox.are_points_inside(ray_samples.frustums.get_positions(), offset_size=(0.01, 0.01, 0.0))
 
                 if masks is None:
                     masks = mask
