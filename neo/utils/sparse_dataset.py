@@ -254,8 +254,8 @@ def generate_masks(camera_data: Dict[str, float],
     fl_y = camera_data["fl_y"]
     cx = camera_data["cx"]
     cy = camera_data["cy"]
-    width = camera_data["w"]
-    height = camera_data["h"]
+    width = camera_data["w"] * 2
+    height = camera_data["h"] * 2
     
     if "applied_transform" in camera_data:
         dataparser_transform = dataparser_transform.cpu().detach().numpy() @ np.linalg.inv(np.concatenate([np.array(camera_data["applied_transform"]), np.array([[0, 0, 0, 1]])], axis=0))
@@ -384,12 +384,21 @@ def generate_masks(camera_data: Dict[str, float],
         vis.poll_events()
         vis.update_renderer()
 
-        # Save images
+        # Render image
         img = vis.capture_screen_float_buffer(do_render=True)
         img = (255.0 * np.asarray(img)).astype(np.uint8)
+
+        # Crop image according to the principal point
+        width = camera_data["w"]
+        height = camera_data["h"]
+
+        img = img[round((height / 2) + (height / 2) - cy):round(((height / 2) + (height / 2) - cy) + height), round((width / 2) + (width / 2) - cx):round(((width / 2) + (width / 2) - cx) + width)]
+
+        # Apply binary thresholding
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         _, thr = cv2.threshold(gray, 5, 255, cv2.THRESH_BINARY)
 
+        # Save images
         cv2.imwrite(f"{output_path}/temp_masks/{Path(frame['file_path']).name}", thr)
 
         kernel = np.ones((3, 3), np.uint8)
