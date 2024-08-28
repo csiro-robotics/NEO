@@ -72,7 +72,7 @@ def generate_sparse_dataset(model: Model,
     inds = np.argsort(filepaths)
     camera_data["frames"] = [camera_data["frames"][ind] for ind in inds]
 
-    # Add masks paths to the teansforms file
+    # Add masks paths to the transforms file
     with open(cache_path / "transforms.json", "w") as file:
         json.dump(camera_data, file, indent=4)
 
@@ -121,12 +121,16 @@ def generate_sparse_dataset(model: Model,
         for random_image in track(images_group, description=f"Rendering images for group {idx + 1}", transient=False):
             image = render_preview_image(model, cameras, random_image)
             mask = cv2.imread(str(cache_path / f"temp_masks/{random_image[0]}"), cv2.IMREAD_GRAYSCALE)
+            downscale_factor = mask.shape[0] / image.shape[0]
+            mask = cv2.resize(mask, (int(mask.shape[1] / downscale_factor), int(mask.shape[0] / downscale_factor)), cv2.INTER_MAX)
             refined_mask = refine_mask(mask, image, sam_predictor)
 
             images.append(image)
             masks.append(refined_mask)
             image_names.append(random_image[0])
 
+            mask = cv2.resize(mask, (int(mask.shape[1] * downscale_factor), int(mask.shape[0] * downscale_factor)), cv2.INTER_MAX)
+            refined_mask = cv2.resize(refined_mask, (int(refined_mask.shape[1] * downscale_factor), int(refined_mask.shape[0] * downscale_factor)), cv2.INTER_MAX)
             cv2.imwrite(str(cache_path / f"masks/{random_image[0]}"), mask)
 
             if log_inpaint_images:
@@ -137,7 +141,7 @@ def generate_sparse_dataset(model: Model,
         images_grid = get_image_grid(images)
         masks_grid = get_image_grid(masks)
 
-        img_old_size = (images_grid.shape[1], images_grid.shape[0])
+        img_old_size = (int(images_grid.shape[1] * downscale_factor), int(images_grid.shape[0] * downscale_factor))
         img_new_size = (1024, 1024)
         images_grid = Image.fromarray(images_grid)
         images_grid = images_grid.resize(img_new_size)
