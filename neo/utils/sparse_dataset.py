@@ -121,6 +121,8 @@ def generate_sparse_dataset(model: Model,
         for random_image in track(images_group, description=f"Rendering images for group {idx + 1}", transient=False):
             image = render_preview_image(model, cameras, random_image)
             mask = cv2.imread(str(cache_path / f"temp_masks/{random_image[0]}"), cv2.IMREAD_GRAYSCALE)
+            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+            mask = cv2.dilate(mask, kernel, iterations=2)
             downscale_factor = mask.shape[0] / image.shape[0]
             mask = cv2.resize(mask, (int(mask.shape[1] / downscale_factor), int(mask.shape[0] / downscale_factor)), cv2.INTER_MAX)
             refined_mask = refine_mask(mask, image, sam_predictor)

@@ -151,7 +151,8 @@ class NeoPipeline(VanillaPipeline):
             f"--neo-model-path {checkpoint_filenames[0]}",
             f"--pipeline.model.bbox-path {path}/bbox.json",
             "--viewer.quit-on-train-completion True",
-            f"--output-dir cache"
+            f"--output-dir cache",
+            f"--pipeline.model.camera-optimizer.mode {self.config.model.camera_optimizer.mode}"
         ]
         train_sparse_guided_nerf_cmd = " ".join(train_sparse_guided_nerf_cmd)
 
@@ -168,7 +169,8 @@ class NeoPipeline(VanillaPipeline):
             f"--pipeline.model.bbox-path {path}/bbox.json",
             "--pipeline.datamanager.pixel-sampler.ignore-mask True",
             "--viewer.quit-on-train-completion True",
-            f"--output-dir cache"
+            f"--output-dir cache",
+            f"--pipeline.model.camera-optimizer.mode {self.config.model.camera_optimizer.mode}"
         ]
 
         train_replace_nerf_cmd = " ".join(train_replace_nerf_cmd)
