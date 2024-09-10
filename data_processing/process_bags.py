@@ -86,12 +86,16 @@ def get_marker_pose(corners, camera_matrix, dist_coeffs):
     return rvec, tvec
 
 def get_arucos(images, transforms_dict):
+    # Define ArUco dictionary and parameters
+    dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_100)
+    parameters = cv2.aruco.DetectorParameters()
+    detector = cv2.aruco.ArucoDetector(dictionary, parameters)
     arucos = []
     camera_matrix = np.array([[transforms_dict["fl_x"], 0, transforms_dict["cx"]], 
                         [0, transforms_dict["fl_y"], transforms_dict["cy"]], 
                         [0, 0, 1]])
     dist_coeffs = np.zeros((4, 1))
-    for image, frame in zip(images, transforms_dict):
+    for image, frame in zip(images, transforms_dict["frames"]):
         corners, ids, _ = detector.detectMarkers(image)
         for i in range(len(corners)):
             # Compute poses
@@ -228,11 +232,11 @@ for stage in ["before", "after"]:
     read_realsense_bag(bag_file_path, output_path /stage, True, frames[stage], args.skip_frames)
     print(f"NUMBER OF FRAMES: {len(frames[stage])}")    
     # Use COLMAP to get initial positions
-    subprocess.run(f"ns-process-data images --data {output_path / stage / 'rgb'} --output-dir {output_path}", shell=True)
+    subprocess.run(f"ns-process-data images --data {output_path / stage / 'rgb'} --output-dir {output_path / stage}", shell=True)
     subprocess.run(f"rm -rf {output_path / stage /'rgb'}", shell=True)
     subprocess.run(f"cp {output_path / stage / 'transforms.json'} {output_path / stage / 'raw_transforms.json'}", shell=True)
 
-
+print("LOADING TRANSFORMATION FILES")
 # Load transformation
 with open(output_path / "before" / 'transforms.json', 'r') as file:
     transform_dicts["before"] = json.load(file)
@@ -240,24 +244,21 @@ with open(output_path / "before" / 'transforms.json', 'r') as file:
 with open(output_path / "after" / 'transforms.json', 'r') as file:
     transform_dicts["after"] = json.load(file)
 
-# Define ArUco dictionary and parameters
-dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_100)
-parameters = cv2.aruco.DetectorParameters()
-detector = cv2.aruco.ArucoDetector(dictionary, parameters)
-
 # Define camera parameters for world before
-
+print("DETECTING ARUCOS")
 # Detect Aruco markers
 arucos["before"] = get_arucos(frames["before"], transform_dicts["before"])
 arucos["after"] = get_arucos(frames["after"], transform_dicts["after"])
 
 # Optimize for best scale
+print("OPTIMIZING SCALE")
 scale_min, scale_max = 0, 20
 rand_start = scale_min + np.random.rand(1) * (scale_max - scale_min)
 best_scale["before"] = minimize(aruco_objective, rand_start, arucos["before"], method='nelder-mead')['x']
 rand_start = scale_min + np.random.rand(1) * (scale_max - scale_min)
 best_scale["after"] = minimize(aruco_objective, rand_start, arucos["after"], method='nelder-mead')['x']
 
+print("APPLYING SCALE")
 # Apply that scale to the transforms
 apply_scale(arucos["before"], best_scale["before"], transform_dicts["before"])
 apply_scale(arucos["after"], best_scale["after"], transform_dicts["after"])
