@@ -11,6 +11,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Type, List
 
+from nerfstudio.data.scene_box import SceneBox
+from nerfstudio.models.base_model import ModelConfig
 from nerfstudio.utils.rich_utils import CONSOLE
 from nerfstudio.models.nerfacto import NerfactoModel, NerfactoModelConfig
 from nerfstudio.cameras.rays import RayBundle, RaySamples
@@ -41,6 +43,10 @@ class SparseGuidedNeRFModel(NerfactoModel):
     """SparseGuidedNeRF Model."""
 
     config: SparseGuidedNeRFModelConfig
+
+    def __init__(self, config: ModelConfig, scene_box: SceneBox, num_train_data: int, **kwargs) -> None:
+        print(config)
+        super().__init__(config, scene_box, num_train_data, **kwargs)
 
     def populate_modules(self):
         super().populate_modules()

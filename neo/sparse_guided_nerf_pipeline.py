@@ -71,17 +71,17 @@ class SparseGuidedNeRFPipeline(VanillaPipeline):
             setattr(self.config.datamanager.dataparser, field.name, getattr(nerfacto_config.pipeline.datamanager.dataparser, field.name))
 
         for field in fields(NerfactoModelConfig):
-            if field.name != '_target':
+            if field.name != '_target' and field.name != 'near_plane' and field.name != 'far_plane':
                 setattr(self.config.model, field.name, getattr(nerfacto_config.pipeline.model, field.name))
 
         self.test_mode = test_mode
-        self.datamanager: DataManager = config.datamanager.setup(
+        self.datamanager: DataManager = self.config.datamanager.setup(
             device=device, test_mode=test_mode, world_size=world_size, local_rank=local_rank
         )
         self.datamanager.to(device)
 
         assert self.datamanager.train_dataset is not None, "Missing input dataset"
-        self._model = config.model.setup(
+        self._model = self.config.model.setup(
             scene_box=self.datamanager.train_dataset.scene_box,
             num_train_data=len(self.datamanager.train_dataset),
             metadata=self.datamanager.train_dataset.metadata,

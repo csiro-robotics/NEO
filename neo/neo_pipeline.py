@@ -159,6 +159,11 @@ class NeoPipeline(VanillaPipeline):
         with status(msg="[bold green]Training Sparse Guided NeRF", spinner="moon", verbose=verbose):
             run_command(train_sparse_guided_nerf_cmd, verbose=verbose)
 
+        # print("----------------------------------------------------------------------------------------------------------------")
+        # print("Train command:")
+        # print(train_sparse_guided_nerf_cmd)
+        # print("----------------------------------------------------------------------------------------------------------------")
+
         train_replace_nerf_cmd = [
             "ns-train replace-nerf",
             f"--data cache/{path}",
@@ -174,6 +179,11 @@ class NeoPipeline(VanillaPipeline):
         ]
 
         train_replace_nerf_cmd = " ".join(train_replace_nerf_cmd)
+
+        # print("----------------------------------------------------------------------------------------------------------------")
+        # print("Train command:")
+        # print(train_replace_nerf_cmd)
+        # print("----------------------------------------------------------------------------------------------------------------")
 
         with status(msg="[bold green]Replacing objects", spinner="moon", verbose=verbose):
             run_command(train_replace_nerf_cmd, verbose=verbose)

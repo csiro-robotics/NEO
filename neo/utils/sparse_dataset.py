@@ -32,7 +32,8 @@ def generate_sparse_dataset(model: Model,
                             dataparser_config: Dict[str, Any],
                             dataparser_transform: torch.Tensor, 
                             dataparser_scale: torch.Tensor,
-                            log_inpaint_images: bool = False) -> None:
+                            log_inpaint_images: bool = False,
+                            full_random: bool = False) -> None:
 
     CONSOLE.rule("[bold green]Editing NeRF!")
     CONSOLE.print("[bold green]Generating Sparse Dataset")
@@ -76,31 +77,90 @@ def generate_sparse_dataset(model: Model,
     with open(cache_path / "transforms.json", "w") as file:
         json.dump(camera_data, file, indent=4)
 
+    all_image_names = [Path(frame['file_path']).name for frame in camera_data["frames"]]
     cameras, image_names = get_cameras(dataparser_config)
-    collision_groups, masks_metadata = generate_masks(camera_data=camera_data, 
+    print("IMAGE NAMES")
+    print(image_names)
+    invalid_cameras = [idx for idx, img_name in enumerate(all_image_names) 
+                       if img_name not in image_names]
+    
+    collision_groups, masks_metadata, cam_to_meta = generate_masks(camera_data=camera_data, 
                                                       image_names=image_names, 
                                                       bboxes_path=bboxes_path, 
                                                       output_path=cache_path, 
                                                       dataparser_transform=dataparser_transform, 
                                                       dataparser_scale=dataparser_scale)
 
+    # Find the centre of the bbox and points 5 units (arbitrary) in each direction
+    with open(bboxes_path / "bbox.json", "r") as file:
+        bboxes = json.load(file)['bboxes']
+    
     # Select random frames for inpainting
     random_images = []
     for group in collision_groups:
         frames = []
         threshold = 0
-        while len(frames) < 4 and threshold < 1000:
-            random_frame = random.choice(list(masks_metadata.items()))
+        if not full_random:
+            # Take mean of all bboxes present in the file. Best of worlds
+            boxes_centre = np.mean(np.vstack([box["data"]["position"] for box in bboxes if box['idx'] in group]), axis=0)
+
+            # Define axes we want cameras to be near
+            # TODO remove hard coding
+            forward = boxes_centre + [0,5,0]
+            top = boxes_centre + [0,0,5]
+            left = boxes_centre + [10,5,5]
+            right = boxes_centre + [-10,5,5]
+
+            # Calculate distances of all frames to all axes
+            # TODO check sign of cam_positions (should be negative what is here?)
+            # TODO should replace with cameras not camera_data?
+            cam_positions = np.vstack([np.array(frame["transform_matrix"])[:3,3].flatten() for frame in camera_data["frames"]])
+            print(cam_positions.shape)
+            # TODO validate this
+            forward_diffs = np.linalg.norm(np.cross(forward - boxes_centre, boxes_centre - cam_positions), axis=1)/np.linalg.norm(forward - boxes_centre)
+            forward_diffs[invalid_cameras] = 1000
+            best_forwards = np.argsort(forward_diffs)
+            top_diffs = np.linalg.norm(np.cross(top - boxes_centre, boxes_centre - cam_positions), axis=1)/np.linalg.norm(top - boxes_centre)
+            top_diffs[invalid_cameras] = 1000
+            best_tops = np.argsort(top_diffs)
+            left_diffs = np.linalg.norm(np.cross(left - boxes_centre, boxes_centre - cam_positions), axis=1)/np.linalg.norm(left - boxes_centre)
+            left_diffs[invalid_cameras] = 1000
+            best_lefts = np.argsort(left_diffs)
+            right_diffs = np.linalg.norm(np.cross(right - boxes_centre, boxes_centre - cam_positions), axis=1)/np.linalg.norm(right - boxes_centre)
+            right_diffs[invalid_cameras] = 1000
+            best_rights = np.argsort(right_diffs)
             
-            visible_boxes = random_frame[1]
+            bests_lists = [best_forwards, best_tops, best_lefts, best_rights]
+            print("BESTS LISTS")
+            print(bests_lists)
+            current_bests_idxs = [0,0,0,0]
+        print("MASKED METADATA")
+        print(list(masks_metadata.items()))
+        print(len(list(masks_metadata.items())))
+        while len(frames) < 4 and threshold < 1000:
+            if full_random:
+                chosen_frame = random.choice(list(masks_metadata.items()))
+                print(f"chosen_frame: {chosen_frame}")
+            else:
+                # Get the idx of the closest frame to the current considered viewing direction
+                numf = len(frames)
+                best_camera_data_idx = bests_lists[numf][current_bests_idxs[numf]]
+                best_meta_idx = cam_to_meta[best_camera_data_idx]
+                print("BEST CAMERA DATA IDX")
+                print(best_camera_data_idx)
+                chosen_frame = list(masks_metadata.items())[best_meta_idx]
+                print(f"chosen_frame: {chosen_frame}")
+                current_bests_idxs[numf] += 1
+
+            visible_boxes = chosen_frame[1]
             if len(visible_boxes) > 0:
                 random.shuffle(visible_boxes)
             else:
                 continue
 
             for box in visible_boxes:
-                if box in group and random_frame[0] not in frames:
-                    frames.append((random_frame[0], image_names.index(random_frame[0])))
+                if box in group and chosen_frame[0] not in frames:
+                    frames.append((chosen_frame[0], image_names.index(chosen_frame[0])))
                     break
 
             threshold += 1
@@ -246,7 +306,7 @@ def generate_masks(camera_data: Dict[str, float],
                    output_path: Path,
                    dataparser_transform: torch.Tensor, 
                    dataparser_scale: torch.Tensor) -> None:
-    
+    cam_data_to_meta_idx = {}
     # Load bbox data
     with open(bboxes_path / "bbox.json", "r") as file:
         bboxes = json.load(file)
@@ -415,9 +475,13 @@ def generate_masks(camera_data: Dict[str, float],
 
         if Path(frame['file_path']).name not in image_names:
             continue
-
+        cam_data_to_meta_idx[i] = len(masks_metadata.keys())
         masks_metadata[Path(frame['file_path']).name] = (np.array(np.unique(gray)[1:]) - 10).tolist()
 
     vis.destroy_window()
 
-    return collision_groups, masks_metadata
+    print("MASKS METADATA")
+    print(masks_metadata)
+
+    # TODO VERY BAD PRACTICE FOR CAM DATA TO META IDX
+    return collision_groups, masks_metadata, cam_data_to_meta_idx
