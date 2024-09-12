@@ -195,11 +195,13 @@ parser.add_argument("--root_bag", default="data/raw_bagfiles",
 parser.add_argument("--skip_frames", default=6, type=int, 
                     help="number of frames to be skipped from original video")
 parser.add_argument("--action", choices=["remove", "translate", 
-                                       "rotate", "translate_and_rotate"])
+                                       "rotate", "translate_and_rotate",
+                                       "mix"])
 parser.add_argument("--scene_type", choices=["single", "multiple_one", 
                                              "multiple_sequential", 
                                              "multiple_simultaneous"])
 parser.add_argument("--sequence_num", type=int)
+parser.add_argument("--object_name", type=str)
 parser.add_argument("--root_output", default="data/neo_dataset",
                     help="absolute path of output for dataset")
 args=parser.parse_args()
@@ -213,7 +215,11 @@ action_type = "remove" if args.action == 'remove' else "reconfigure"
 scene_name = args.scene_name if args.scene_type != "multiple_simultaneous" \
     else f"{args.scene_name}-{args.sequence_num:04}"
 if args.scene_type == "single":
-    output_path = Path(args.root_output) / "real" / args.scene_type / scene_name
+    output_path = Path(args.root_output) / "real" / args.action /args.scene_type / scene_name
+elif args.scene_type == "multiple_one":
+    if not args.object_name:
+        raise ValueError("Cannot have action on multiple object scene without defining object")
+    output_path = Path(args.root_output) / "real" / args.action /args.scene_type / scene_name / args.object_name
 else:
     # TODO need to implement this and think about folder structure further
     raise NotImplementedError("Currently only working for single object scenarios")
