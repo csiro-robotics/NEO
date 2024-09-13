@@ -201,7 +201,7 @@ parser.add_argument("--scene_type", choices=["single", "multiple_one",
                                              "multiple_sequential", 
                                              "multiple_simultaneous"])
 parser.add_argument("--sequence_num", type=int)
-parser.add_argument("--object_name", type=str)
+parser.add_argument("--object_name", type=str, nargs="+")
 parser.add_argument("--root_output", default="data/neo_dataset",
                     help="absolute path of output for dataset")
 args=parser.parse_args()
@@ -212,17 +212,16 @@ action_type = "remove" if args.action == 'remove' else "reconfigure"
 # Should find out best practice to avoid this
 # subprocess.run(f"chmod -R 777 {args.root_output}", shell=True)
 # subprocess.run(f"chmod -R 777 {args.root_bag}", shell=True)
-scene_name = args.scene_name if args.scene_type != "multiple_simultaneous" \
+scene_name = args.scene_name if args.scene_type != "multiple_sequential" \
     else f"{args.scene_name}-{args.sequence_num:04}"
 if args.scene_type == "single":
-    output_path = Path(args.root_output) / "real" / args.action /args.scene_type / scene_name
-elif args.scene_type == "multiple_one":
-    if not args.object_name:
-        raise ValueError("Cannot have action on multiple object scene without defining object")
-    output_path = Path(args.root_output) / "real" / args.action /args.scene_type / scene_name / args.object_name
+    object_name = args.scene_name
+elif not args.object_name:
+    raise ValueError("Cannot have action on multiple object scene without defining object being acted upon")
 else:
-    # TODO need to implement this and think about folder structure further
-    raise NotImplementedError("Currently only working for single object scenarios")
+    object_name = "-".join([obj for obj in args.object_name])
+output_path = Path(args.root_output) / "real" / args.action /args.scene_type / scene_name / object_name
+
 # Need both before and after to be present in order to perform final alignment
 frames ={"before": [], "after": []}
 transform_dicts = {}
