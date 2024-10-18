@@ -207,7 +207,8 @@ parser.add_argument("--root_output", default="data/neo_dataset",
 args=parser.parse_args()
 
 
-action_type = "remove" if args.action == 'remove' else "reconfigure"
+# action_type = "remove" if args.action == 'remove' else "reconfigure"
+action_type = args.action
 # HACK!!! we ran into issues with COLMAP within the docker. 
 # Should find out best practice to avoid this
 # subprocess.run(f"chmod -R 777 {args.root_output}", shell=True)
@@ -237,9 +238,10 @@ for stage in ["before", "after"]:
     read_realsense_bag(bag_file_path, output_path /stage, True, frames[stage], args.skip_frames)
     print(f"NUMBER OF FRAMES: {len(frames[stage])}")    
     # Use COLMAP to get initial positions
-    subprocess.run(f"ns-process-data images --data {output_path / stage / 'rgb'} --output-dir {output_path / stage}", shell=True)
-    subprocess.run(f"rm -rf {output_path / stage /'rgb'}", shell=True)
-    subprocess.run(f"cp {output_path / stage / 'transforms.json'} {output_path / stage / 'raw_transforms.json'}", shell=True)
+    if object_name != "temp":
+        subprocess.run(f"ns-process-data images --data {output_path / stage / 'rgb'} --output-dir {output_path / stage}", shell=True)
+        subprocess.run(f"rm -rf {output_path / stage /'rgb'}", shell=True)
+        subprocess.run(f"cp {output_path / stage / 'transforms.json'} {output_path / stage / 'raw_transforms.json'}", shell=True)
 
 print("LOADING TRANSFORMATION FILES")
 # Load transformation
@@ -248,6 +250,13 @@ with open(output_path / "before" / 'transforms.json', 'r') as file:
 
 with open(output_path / "after" / 'transforms.json', 'r') as file:
     transform_dicts["after"] = json.load(file)
+
+# TODO for some reason reading from file is better? TO BE CONFIRMED
+frames ={"before": [], "after": []}
+for frame in transform_dicts["before"]["frames"]:
+    frames["before"].append(cv2.imread(str(output_path / "before" / frame["file_path"])))
+for frame in transform_dicts["after"]["frames"]:
+    frames["after"].append(cv2.imread(str(output_path / "after" / frame["file_path"])))
 
 # Define camera parameters for world before
 print("DETECTING ARUCOS")
