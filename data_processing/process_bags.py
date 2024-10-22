@@ -199,7 +199,7 @@ parser.add_argument("--action", choices=["remove", "translate",
                                        "mix"])
 parser.add_argument("--scene_type", choices=["single", "multiple_one", 
                                              "multiple_sequential", 
-                                             "multiple_simultaneous"])
+                                             "multiple_multiaction"])
 parser.add_argument("--sequence_num", type=int)
 parser.add_argument("--object_name", type=str, nargs="+")
 parser.add_argument("--root_output", default="data/neo_dataset",
@@ -213,7 +213,7 @@ action_type = args.action
 # Should find out best practice to avoid this
 # subprocess.run(f"chmod -R 777 {args.root_output}", shell=True)
 # subprocess.run(f"chmod -R 777 {args.root_bag}", shell=True)
-scene_name = args.scene_name if args.scene_type != "multiple_sequential" \
+scene_name = args.scene_name if args.scene_type not in ["multiple_sequential", "multiple_multiaction"] \
     else f"{args.scene_name}-{args.sequence_num:04}"
 if args.scene_type == "single":
     object_name = args.scene_name
