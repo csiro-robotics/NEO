@@ -152,7 +152,8 @@ class NeoPipeline(VanillaPipeline):
             f"--pipeline.model.bbox-path {path}/bbox.json",
             "--viewer.quit-on-train-completion True",
             f"--output-dir cache",
-            f"--pipeline.model.camera-optimizer.mode {self.config.model.camera_optimizer.mode}"
+            f"--pipeline.model.camera-optimizer.mode {self.config.model.camera_optimizer.mode}",
+            "--viewer.websocket-port 7008"
         ]
         train_sparse_guided_nerf_cmd = " ".join(train_sparse_guided_nerf_cmd)
 
@@ -170,12 +171,13 @@ class NeoPipeline(VanillaPipeline):
             "--experiment_name neo",
             "--timestamp ''",
             f"--pipeline.model.field-path {checkpoint_filenames[0]}",
-            f"--pipeline.model.replace-field-path cache/neo/sparse-guided-nerf/nerfstudio_models/step-000001999.ckpt",
+            f"--pipeline.model.replace-field-path cache/neo/sparse-guided-nerf/nerfstudio_models/step-000029999.ckpt",
             f"--pipeline.model.bbox-path {path}/bbox.json",
             "--pipeline.datamanager.pixel-sampler.ignore-mask True",
             "--viewer.quit-on-train-completion True",
             f"--output-dir cache",
-            f"--pipeline.model.camera-optimizer.mode {self.config.model.camera_optimizer.mode}"
+            f"--pipeline.model.camera-optimizer.mode {self.config.model.camera_optimizer.mode}",
+            "--viewer.websocket-port 7009"
         ]
 
         train_replace_nerf_cmd = " ".join(train_replace_nerf_cmd)
