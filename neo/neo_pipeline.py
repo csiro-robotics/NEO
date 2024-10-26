@@ -125,20 +125,25 @@ class NeoPipeline(VanillaPipeline):
 
     def apply_changes_hook(self):
 
-        self.model.eval()
-        generate_sparse_dataset(model=self.model, 
-                                sam_predictor=self.sam_predictor,
-                                inpainting_pipeline=self.inpainting_pipeline,
-                                data_path=self.config.datamanager.data, 
-                                bboxes_path=self.config.bbox_data_path, 
-                                dataparser_config=self.config.datamanager.dataparser, 
-                                dataparser_transform=self.dataparser_output.dataparser_transform, 
-                                dataparser_scale=self.dataparser_output.dataparser_scale,
-                                log_inpaint_images=self.config.log_inpaint_images,
-                                )
-        self.model.train()
+        verbose = False # If set to True prints training progress of separate models
+        dry_run = False
 
-        verbose = False
+        if not dry_run:
+            self.model.eval()
+            generate_sparse_dataset(model=self.model, 
+                                    sam_predictor=self.sam_predictor,
+                                    inpainting_pipeline=self.inpainting_pipeline,
+                                    data_path=self.config.datamanager.data, 
+                                    bboxes_path=self.config.bbox_data_path, 
+                                    dataparser_config=self.config.datamanager.dataparser, 
+                                    dataparser_transform=self.dataparser_output.dataparser_transform, 
+                                    dataparser_scale=self.dataparser_output.dataparser_scale,
+                                    log_inpaint_images=self.config.log_inpaint_images,
+                                    )
+            self.model.train()
+
+        print(a)
+
         path = self.config.bbox_data_path
         checkpoint_paths = (path / "nerfstudio_models").glob('*.ckpt')
         checkpoint_filenames = [path for path in checkpoint_paths if path.is_file()]
@@ -157,13 +162,15 @@ class NeoPipeline(VanillaPipeline):
         ]
         train_sparse_guided_nerf_cmd = " ".join(train_sparse_guided_nerf_cmd)
 
-        with status(msg="[bold green]Training Sparse Guided NeRF", spinner="moon", verbose=verbose):
-            run_command(train_sparse_guided_nerf_cmd, verbose=verbose)
+        if not dry_run:
+            with status(msg="[bold green]Training Sparse Guided NeRF", spinner="moon", verbose=verbose):
+                run_command(train_sparse_guided_nerf_cmd, verbose=verbose)
 
-        # print("----------------------------------------------------------------------------------------------------------------")
-        # print("Train command:")
-        # print(train_sparse_guided_nerf_cmd)
-        # print("----------------------------------------------------------------------------------------------------------------")
+        else:
+            print("----------------------------------------------------------------------------------------------------------------")
+            print("Train command:")
+            print(train_sparse_guided_nerf_cmd)
+            print("----------------------------------------------------------------------------------------------------------------")
 
         train_replace_nerf_cmd = [
             "ns-train replace-nerf",
@@ -182,12 +189,15 @@ class NeoPipeline(VanillaPipeline):
 
         train_replace_nerf_cmd = " ".join(train_replace_nerf_cmd)
 
-        # print("----------------------------------------------------------------------------------------------------------------")
-        # print("Train command:")
-        # print(train_replace_nerf_cmd)
-        # print("----------------------------------------------------------------------------------------------------------------")
 
-        with status(msg="[bold green]Replacing objects", spinner="moon", verbose=verbose):
-            run_command(train_replace_nerf_cmd, verbose=verbose)
+        if not dry_run:
+            with status(msg="[bold green]Replacing objects", spinner="moon", verbose=verbose):
+                run_command(train_replace_nerf_cmd, verbose=verbose)
+
+        else:
+            print("----------------------------------------------------------------------------------------------------------------")
+            print("Train command:")
+            print(train_replace_nerf_cmd)
+            print("----------------------------------------------------------------------------------------------------------------")
 
         CONSOLE.print("[bold green]Editing finished!")

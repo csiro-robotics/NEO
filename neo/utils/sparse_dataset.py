@@ -15,6 +15,7 @@ from collections import defaultdict
 from pathlib import Path
 from rich.progress import track
 from segment_anything import SamPredictor
+from scipy.spatial.transform import Rotation
 
 from nerfstudio.models.base_model import Model
 from nerfstudio.cameras.cameras import Cameras
@@ -77,101 +78,122 @@ def generate_sparse_dataset(model: Model,
     with open(cache_path / "transforms.json", "w") as file:
         json.dump(camera_data, file, indent=4)
 
-    all_image_names = [Path(frame['file_path']).name for frame in camera_data["frames"]]
     cameras, image_names = get_cameras(dataparser_config)
     print("IMAGE NAMES")
     print(image_names)
-    invalid_cameras = [idx for idx, img_name in enumerate(all_image_names) 
-                       if img_name not in image_names]
     
-    collision_groups, masks_metadata, cam_to_meta = generate_masks(camera_data=camera_data, 
-                                                      image_names=image_names, 
-                                                      bboxes_path=bboxes_path, 
-                                                      output_path=cache_path, 
-                                                      dataparser_transform=dataparser_transform, 
-                                                      dataparser_scale=dataparser_scale)
-
     # Find the centre of the bbox and points 5 units (arbitrary) in each direction
     with open(bboxes_path / "bbox.json", "r") as file:
         bboxes = json.load(file)['bboxes']
+
+    collision_groups = get_collision_groups(bboxes)
     
     # Select random frames for inpainting
-    random_images = []
-    for group in collision_groups:
-        frames = []
-        threshold = 0
-        if not full_random:
-            # Take mean of all bboxes present in the file. Best of worlds
-            boxes_centre = np.mean(np.vstack([box["data"]["position"] for box in bboxes if box['idx'] in group]), axis=0)
+    selected_views = []
+    for i, group in enumerate(collision_groups):
+        boxes_centre = np.mean(np.vstack([box["data"]["position"] for box in bboxes if box['idx'] in group]), axis=0)
 
-            # Define axes we want cameras to be near
-            # TODO remove hard coding
-            forward = boxes_centre + [0,5,0]
-            top = boxes_centre + [0,0,5]
-            left = boxes_centre + [10,5,5]
-            right = boxes_centre + [-10,5,5]
+        radius = 0.5
+        num_layers = 1
 
-            # Calculate distances of all frames to all axes
-            # TODO check sign of cam_positions (should be negative what is here?)
-            # TODO should replace with cameras not camera_data?
-            cam_positions = np.vstack([np.array(frame["transform_matrix"])[:3,3].flatten() for frame in camera_data["frames"]])
-            print(cam_positions.shape)
-            # TODO validate this
-            forward_diffs = np.linalg.norm(np.cross(forward - boxes_centre, boxes_centre - cam_positions), axis=1)/np.linalg.norm(forward - boxes_centre)
-            forward_diffs[invalid_cameras] = 1000
-            best_forwards = np.argsort(forward_diffs)
-            top_diffs = np.linalg.norm(np.cross(top - boxes_centre, boxes_centre - cam_positions), axis=1)/np.linalg.norm(top - boxes_centre)
-            top_diffs[invalid_cameras] = 1000
-            best_tops = np.argsort(top_diffs)
-            left_diffs = np.linalg.norm(np.cross(left - boxes_centre, boxes_centre - cam_positions), axis=1)/np.linalg.norm(left - boxes_centre)
-            left_diffs[invalid_cameras] = 1000
-            best_lefts = np.argsort(left_diffs)
-            right_diffs = np.linalg.norm(np.cross(right - boxes_centre, boxes_centre - cam_positions), axis=1)/np.linalg.norm(right - boxes_centre)
-            right_diffs[invalid_cameras] = 1000
-            best_rights = np.argsort(right_diffs)
-            
-            bests_lists = [best_forwards, best_tops, best_lefts, best_rights]
-            print("BESTS LISTS")
-            print(bests_lists)
-            current_bests_idxs = [0,0,0,0]
-        print("MASKED METADATA")
-        print(list(masks_metadata.items()))
-        print(len(list(masks_metadata.items())))
-        while len(frames) < 4 and threshold < 1000:
-            if full_random:
-                chosen_frame = random.choice(list(masks_metadata.items()))
-                print(f"chosen_frame: {chosen_frame}")
-            else:
-                # Get the idx of the closest frame to the current considered viewing direction
-                numf = len(frames)
-                best_camera_data_idx = bests_lists[numf][current_bests_idxs[numf]]
-                best_meta_idx = cam_to_meta[best_camera_data_idx]
-                print("BEST CAMERA DATA IDX")
-                print(best_camera_data_idx)
-                chosen_frame = list(masks_metadata.items())[best_meta_idx]
-                print(f"chosen_frame: {chosen_frame}")
-                current_bests_idxs[numf] += 1
+        dedicated_transforms = generate_hemisphere_vectors(radius, num_layers, boxes_centre)
 
-            visible_boxes = chosen_frame[1]
-            if len(visible_boxes) > 0:
-                random.shuffle(visible_boxes)
-            else:
-                continue
+        for j, dedicated_transform in enumerate(dedicated_transforms):
+            num = str((j + 1) + (len(dedicated_transforms) * i))
+            while len(num) < 4:
+                num = '0' + num 
 
-            for box in visible_boxes:
-                if box in group and chosen_frame[0] not in frames:
-                    frames.append((chosen_frame[0], image_names.index(chosen_frame[0])))
-                    break
+            frame = {}
+            frame["file_path"] = f"images/dedicated_{num}.png"
+            frame["mask_path"] = f"masks/dedicated_{num}.png"
+            frame["transform_matrix"] = dedicated_transform.tolist()
 
-            threshold += 1
+            camera_data["frames"].append(frame)
 
-        random_images.append(frames)
+    masks_metadata, cam_to_meta = generate_masks(camera_data=camera_data, 
+                                                 image_names=image_names, 
+                                                 bboxes=bboxes, 
+                                                 output_path=cache_path, 
+                                                 dataparser_transform=dataparser_transform, 
+                                                 dataparser_scale=dataparser_scale)
 
-        if threshold == 1000:
-            raise TimeoutError("Object designated for removal is not visible in at least four frames!")
+    print(camera_data)
     
+        # threshold = 0
+        # if not full_random:
+        #     # Take mean of all bboxes present in the file. Best of worlds
+        #     boxes_centre = np.mean(np.vstack([box["data"]["position"] for box in bboxes if box['idx'] in group]), axis=0)
+
+        #     # Define axes we want cameras to be near
+        #     # TODO remove hard coding
+        #     forward = boxes_centre + [0,5,0]
+        #     top = boxes_centre + [0,0,5]
+        #     left = boxes_centre + [10,5,5]
+        #     right = boxes_centre + [-10,5,5]
+
+        #     # Calculate distances of all frames to all axes
+        #     # TODO check sign of cam_positions (should be negative what is here?)
+        #     # TODO should replace with cameras not camera_data?
+        #     cam_positions = np.vstack([np.array(frame["transform_matrix"])[:3,3].flatten() for frame in camera_data["frames"]])
+        #     print(cam_positions.shape)
+        #     # TODO validate this
+        #     forward_diffs = np.linalg.norm(np.cross(forward - boxes_centre, boxes_centre - cam_positions), axis=1)/np.linalg.norm(forward - boxes_centre)
+        #     forward_diffs[invalid_cameras] = 1000
+        #     best_forwards = np.argsort(forward_diffs)
+        #     top_diffs = np.linalg.norm(np.cross(top - boxes_centre, boxes_centre - cam_positions), axis=1)/np.linalg.norm(top - boxes_centre)
+        #     top_diffs[invalid_cameras] = 1000
+        #     best_tops = np.argsort(top_diffs)
+        #     left_diffs = np.linalg.norm(np.cross(left - boxes_centre, boxes_centre - cam_positions), axis=1)/np.linalg.norm(left - boxes_centre)
+        #     left_diffs[invalid_cameras] = 1000
+        #     best_lefts = np.argsort(left_diffs)
+        #     right_diffs = np.linalg.norm(np.cross(right - boxes_centre, boxes_centre - cam_positions), axis=1)/np.linalg.norm(right - boxes_centre)
+        #     right_diffs[invalid_cameras] = 1000
+        #     best_rights = np.argsort(right_diffs)
+            
+        #     bests_lists = [best_forwards, best_tops, best_lefts, best_rights]
+        #     print("BESTS LISTS")
+        #     print(bests_lists)
+        #     current_bests_idxs = [0,0,0,0]
+        # print("MASKED METADATA")
+        # print(list(masks_metadata.items()))
+        # print(len(list(masks_metadata.items())))
+        # while len(frames) < 4 and threshold < 1000:
+        #     if full_random:
+        #         chosen_frame = random.choice(list(masks_metadata.items()))
+        #         print(f"chosen_frame: {chosen_frame}")
+        #     else:
+        #         # Get the idx of the closest frame to the current considered viewing direction
+        #         numf = len(frames)
+        #         best_camera_data_idx = bests_lists[numf][current_bests_idxs[numf]]
+        #         best_meta_idx = cam_to_meta[best_camera_data_idx]
+        #         print("BEST CAMERA DATA IDX")
+        #         print(best_camera_data_idx)
+        #         chosen_frame = list(masks_metadata.items())[best_meta_idx]
+        #         print(f"chosen_frame: {chosen_frame}")
+        #         current_bests_idxs[numf] += 1
+
+        #     visible_boxes = chosen_frame[1]
+        #     if len(visible_boxes) > 0:
+        #         random.shuffle(visible_boxes)
+        #     else:
+        #         continue
+
+        #     for box in visible_boxes:
+        #         if box in group and chosen_frame[0] not in frames:
+        #             frames.append((chosen_frame[0], image_names.index(chosen_frame[0])))
+        #             break
+
+        #     threshold += 1
+
+        # random_images.append(frames)
+
+        # if threshold == 1000:
+        #     raise TimeoutError("Object designated for removal is not visible in at least four frames!")
+    
+    print(a)
+
     # Inpaint selected images
-    for idx, images_group in enumerate(random_images):
+    for idx, images_group in enumerate(selected_views):
         if log_inpaint_images:
             group_logs_path = logs_path / f"{idx + 1}"
             os.makedirs(group_logs_path)
@@ -225,6 +247,33 @@ def generate_sparse_dataset(model: Model,
 
     # Remove temporary masks
     shutil.rmtree(cache_path / "temp_masks")
+
+
+def generate_hemisphere_vectors(radius: float, num_layers: int, origin: np.ndarray) -> List[npt.NDArray]:
+    transformation_matrices = []
+    
+    thetas = np.linspace(0.0, np.pi / 2, num_layers + 2)
+    phi_offsets = np.linspace(0.0, np.pi / 2, num_layers, endpoint=False)
+    for i, theta in enumerate(thetas[1:-1]):
+        for j in range(4):
+            
+            phi = ((np.pi / 2) * j) + phi_offsets[i] 
+
+            x = (np.cos(theta) * np.sin(-phi) * radius) + origin[0]
+            y = (np.cos(theta) * np.cos(-phi) * radius) + origin[1]
+            z = (np.sin(theta) * radius) + origin[2]
+
+            rot_1 = Rotation.from_euler('XYZ', [-np.pi / 2, -phi, 0.0], degrees=False)
+            rot_2 = Rotation.from_euler('XYZ', [theta, 0.0, 0.0], degrees=False)
+            R = (rot_1 * rot_2).as_matrix()
+
+            trans_mat = np.eye(4)
+            trans_mat[:3, 3:] = np.array([[x, y, z]]).T
+            trans_mat[:3, :3] = R
+
+            transformation_matrices.append(trans_mat)
+    
+    return transformation_matrices
 
 
 def get_images_from_grid(grid_image: npt.NDArray, size: Tuple[int, int]) -> List[npt.NDArray]:
@@ -300,64 +349,18 @@ def render_preview_image(model: Model, cameras: Cameras, random_image: List[int]
     
     return rgb_preview
 
-def generate_masks(camera_data: Dict[str, float], 
-                   image_names: List[str],
-                   bboxes_path: Path, 
-                   output_path: Path,
-                   dataparser_transform: torch.Tensor, 
-                   dataparser_scale: torch.Tensor) -> None:
-    cam_data_to_meta_idx = {}
-    # Load bbox data
-    with open(bboxes_path / "bbox.json", "r") as file:
-        bboxes = json.load(file)
 
-    # Create masks folder
-    os.makedirs(output_path / "masks", exist_ok=True)
-    os.makedirs(output_path / "temp_masks", exist_ok=True)
-
-    # Extract camera parameters
-    fl_x = camera_data["fl_x"]
-    fl_y = camera_data["fl_y"]
-    cx = camera_data["cx"]
-    cy = camera_data["cy"]
-    width = camera_data["w"] * 2
-    height = camera_data["h"] * 2
-    
-    if "applied_transform" in camera_data:
-        dataparser_transform = dataparser_transform.cpu().detach().numpy() @ np.linalg.inv(np.concatenate([np.array(camera_data["applied_transform"]), np.array([[0, 0, 0, 1]])], axis=0))
-
-    else:
-        dataparser_transform = dataparser_transform.cpu().detach().numpy()
-
-    # Create PinholeCameraIntrinsic object
-    intrinsic = o3d.camera.PinholeCameraIntrinsic(width, height, fl_x, fl_y, cx, cy)
-
-    # Create camera parameters
-    camera_params = o3d.camera.PinholeCameraParameters()
-    camera_params.intrinsic = intrinsic
-
-    # Create window
-    vis = o3d.visualization.Visualizer()
-    vis.create_window(width=width, height=height, visible=False)
-    vis.get_render_option().background_color = np.asarray([0, 0, 0])
+def get_collision_groups(bboxes: Dict[str, np.ndarray]):
 
     # Add boxes to visualization
     obbs = []
     CONSOLE.print("Reading bbox data")
-    for idx, bbox in enumerate(bboxes['bboxes']):
+    for bbox in bboxes:
         bbox_data = bbox['data']
         offset = 0.0
         bbox_w, bbox_h, bbox_d  = np.array(bbox_data['dimensions']) - offset
 
-        mesh_box = o3d.geometry.TriangleMesh.create_box(width=bbox_w,
-                                                        height=bbox_h,
-                                                        depth=bbox_d)
-        mesh_box.translate(np.array([-bbox_w / 2, -bbox_h / 2, -bbox_d / 2]))
-        color = (idx + 10) / 255
-        mesh_box.paint_uniform_color((color, color, color))
-
         position = np.array(bbox_data['position'])
-        mesh_box.translate(position)
 
         alpha, beta, gamma = bbox_data['euler']
 
@@ -375,11 +378,8 @@ def generate_masks(camera_data: Dict[str, float],
         
         R = rot_roll @ rot_pitch @ rot_yaw
         
-        mesh_box.rotate(R.T)
-
         obb = OBB(center=position, axes=R, half_sizes=np.array([-bbox_w / 2, -bbox_h / 2, -bbox_d / 2]))
         obbs.append(obb)
-        vis.add_geometry(mesh_box)
 
     # Detect collisions between bounding boxes
     combinations = list(itertools.combinations(np.arange(len(obbs)), 2))
@@ -425,6 +425,85 @@ def generate_masks(camera_data: Dict[str, float],
             collision_groups.append([bbox_idx])
     
     CONSOLE.print(f"Found {len(collision_groups)} groups of bounding boxes")
+
+    return collision_groups
+
+
+def generate_masks(camera_data: Dict[str, float], 
+                   image_names: List[str],
+                   bboxes: Dict[str, np.ndarray], 
+                   output_path: Path,
+                   dataparser_transform: torch.Tensor, 
+                   dataparser_scale: torch.Tensor):
+    
+    cam_data_to_meta_idx = {}
+
+    # Create masks folder
+    os.makedirs(output_path / "masks", exist_ok=True)
+    os.makedirs(output_path / "temp_masks", exist_ok=True)
+
+    # Extract camera parameters
+    fl_x = camera_data["fl_x"]
+    fl_y = camera_data["fl_y"]
+    cx = camera_data["cx"]
+    cy = camera_data["cy"]
+    width = camera_data["w"] * 2
+    height = camera_data["h"] * 2
+    
+    if "applied_transform" in camera_data:
+        dataparser_transform = dataparser_transform.cpu().detach().numpy() @ np.linalg.inv(np.concatenate([np.array(camera_data["applied_transform"]), np.array([[0, 0, 0, 1]])], axis=0))
+
+    else:
+        dataparser_transform = dataparser_transform.cpu().detach().numpy()
+
+    # Create PinholeCameraIntrinsic object
+    intrinsic = o3d.camera.PinholeCameraIntrinsic(width, height, fl_x, fl_y, cx, cy)
+
+    # Create camera parameters
+    camera_params = o3d.camera.PinholeCameraParameters()
+    camera_params.intrinsic = intrinsic
+
+    # Create window
+    vis = o3d.visualization.Visualizer()
+    vis.create_window(width=width, height=height, visible=False)
+    vis.get_render_option().background_color = np.asarray([0, 0, 0])
+
+    # Add boxes to visualization
+    CONSOLE.print("Reading bbox data")
+    for idx, bbox in enumerate(bboxes):
+        bbox_data = bbox['data']
+        offset = 0.0
+        bbox_w, bbox_h, bbox_d  = np.array(bbox_data['dimensions']) - offset
+
+        mesh_box = o3d.geometry.TriangleMesh.create_box(width=bbox_w,
+                                                        height=bbox_h,
+                                                        depth=bbox_d)
+        mesh_box.translate(np.array([-bbox_w / 2, -bbox_h / 2, -bbox_d / 2]))
+        color = (idx + 10) / 255
+        mesh_box.paint_uniform_color((color, color, color))
+
+        position = np.array(bbox_data['position'])
+        mesh_box.translate(position)
+
+        alpha, beta, gamma = bbox_data['euler']
+
+        rot_roll = np.array([[1, 0, 0],
+                            [0, np.cos(alpha), -np.sin(alpha)],
+                            [0, np.sin(alpha), np.cos(alpha)]])
+        
+        rot_pitch = np.array([[np.cos(beta), 0, np.sin(beta)],
+                            [0, 1, 0],
+                            [-np.sin(beta), 0, np.cos(beta)]])
+        
+        rot_yaw = np.array([[np.cos(gamma), -np.sin(gamma), 0],
+                            [np.sin(gamma), np.cos(gamma), 0],
+                            [0, 0, 1]])
+        
+        R = rot_roll @ rot_pitch @ rot_yaw
+        
+        mesh_box.rotate(R.T)
+
+        vis.add_geometry(mesh_box)
 
     # Iterate through frames
     masks_metadata = {}
@@ -484,4 +563,4 @@ def generate_masks(camera_data: Dict[str, float],
     print(masks_metadata)
 
     # TODO VERY BAD PRACTICE FOR CAM DATA TO META IDX
-    return collision_groups, masks_metadata, cam_data_to_meta_idx
+    return masks_metadata, cam_data_to_meta_idx
