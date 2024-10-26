@@ -117,8 +117,12 @@ def generate_sparse_dataset(model: Model,
                                                  dataparser_transform=dataparser_transform, 
                                                  dataparser_scale=dataparser_scale)
 
+    # Update transforms.json with dedicated frames for training the sparse NeRF network
+    with open(cache_path / "transforms.json", "w") as file:
+        json.dump(camera_data, file, indent=4)
+
     print(camera_data)
-    
+
         # threshold = 0
         # if not full_random:
         #     # Take mean of all bboxes present in the file. Best of worlds
@@ -543,19 +547,23 @@ def generate_masks(camera_data: Dict[str, float],
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         _, thr = cv2.threshold(gray, 5, 255, cv2.THRESH_BINARY)
 
+        img_name = Path(frame['file_path']).name
+
         # Save images
-        cv2.imwrite(f"{output_path}/temp_masks/{Path(frame['file_path']).name}", thr)
+        cv2.imwrite(f"{output_path}/temp_masks/{img_name}", thr)
 
-        kernel = np.ones((3, 3), np.uint8)
-        dilated_image = cv2.dilate(thr, kernel, iterations=1000)
-        dilated_image -= thr
+        if "dedicated" not in img_name:
+            inv_image = 255 - thr
+        
+        else:
+            inv_image = thr
 
-        cv2.imwrite(f"{output_path}/masks/{Path(frame['file_path']).name}", dilated_image)
+        cv2.imwrite(f"{output_path}/masks/{img_name}", inv_image)
 
-        if Path(frame['file_path']).name not in image_names:
+        if img_name not in image_names:
             continue
         cam_data_to_meta_idx[i] = len(masks_metadata.keys())
-        masks_metadata[Path(frame['file_path']).name] = (np.array(np.unique(gray)[1:]) - 10).tolist()
+        masks_metadata[img_name] = (np.array(np.unique(gray)[1:]) - 10).tolist()
 
     vis.destroy_window()
 
