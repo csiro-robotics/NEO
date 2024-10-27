@@ -3,8 +3,7 @@ import json
 import os
 import shutil
 import torch
-import random
-import itertools
+
 import open3d as o3d
 import numpy as np
 import numpy.typing as npt
@@ -22,7 +21,7 @@ from nerfstudio.cameras.cameras import Cameras
 from nerfstudio.utils.rich_utils import CONSOLE
 
 from neo.utils.cameras import get_cameras
-from neo.utils.collisions import OBB, check_obb_collision
+from neo.utils.collisions import get_collision_groups
 
 
 def generate_sparse_dataset(model: Model,
@@ -33,8 +32,7 @@ def generate_sparse_dataset(model: Model,
                             dataparser_config: Dict[str, Any],
                             dataparser_transform: torch.Tensor, 
                             dataparser_scale: torch.Tensor,
-                            log_inpaint_images: bool = False,
-                            full_random: bool = False) -> None:
+                            log_inpaint_images: bool = False) -> None:
 
     CONSOLE.rule("[bold green]Editing NeRF!")
     CONSOLE.print("[bold green]Generating Sparse Dataset")
@@ -77,18 +75,14 @@ def generate_sparse_dataset(model: Model,
     # Add masks paths to the transforms file
     with open(cache_path / "transforms.json", "w") as file:
         json.dump(camera_data, file, indent=4)
-
-    cameras, image_names = get_cameras(dataparser_config)
-    print("IMAGE NAMES")
-    print(image_names)
     
-    # Find the centre of the bbox and points 5 units (arbitrary) in each direction
+    # Load bboxes
     with open(bboxes_path / "bbox.json", "r") as file:
         bboxes = json.load(file)['bboxes']
 
     collision_groups = get_collision_groups(bboxes)
     
-    # Select random frames for inpainting
+    # Select views for inpainting
     selected_views = []
     for i, group in enumerate(collision_groups):
         boxes_centre = np.mean(np.vstack([box["data"]["position"] for box in bboxes if box['idx'] in group]), axis=0)
@@ -98,6 +92,7 @@ def generate_sparse_dataset(model: Model,
 
         dedicated_transforms = generate_hemisphere_vectors(radius, num_layers, boxes_centre)
 
+        group_views = []
         for j, dedicated_transform in enumerate(dedicated_transforms):
             num = str((j + 1) + (len(dedicated_transforms) * i))
             while len(num) < 4:
@@ -109,95 +104,36 @@ def generate_sparse_dataset(model: Model,
             frame["transform_matrix"] = dedicated_transform.tolist()
 
             camera_data["frames"].append(frame)
+            group_views.append(f"dedicated_{num}.png")
 
-    masks_metadata, cam_to_meta = generate_masks(camera_data=camera_data, 
-                                                 image_names=image_names, 
-                                                 bboxes=bboxes, 
-                                                 output_path=cache_path, 
-                                                 dataparser_transform=dataparser_transform, 
-                                                 dataparser_scale=dataparser_scale)
+        selected_views.append(group_views)
+
+
+    generate_masks(camera_data=camera_data, 
+                #    image_names=image_names, 
+                   bboxes=bboxes, 
+                   output_path=cache_path, 
+                   dataparser_transform=dataparser_transform, 
+                   dataparser_scale=dataparser_scale)
 
     # Update transforms.json with dedicated frames for training the sparse NeRF network
     with open(cache_path / "transforms.json", "w") as file:
         json.dump(camera_data, file, indent=4)
 
-    print(camera_data)
+    # Get cameras for rendering
+    dataparser_config.data = cache_path
+    cameras, image_names = get_cameras(dataparser_config)
 
-        # threshold = 0
-        # if not full_random:
-        #     # Take mean of all bboxes present in the file. Best of worlds
-        #     boxes_centre = np.mean(np.vstack([box["data"]["position"] for box in bboxes if box['idx'] in group]), axis=0)
-
-        #     # Define axes we want cameras to be near
-        #     # TODO remove hard coding
-        #     forward = boxes_centre + [0,5,0]
-        #     top = boxes_centre + [0,0,5]
-        #     left = boxes_centre + [10,5,5]
-        #     right = boxes_centre + [-10,5,5]
-
-        #     # Calculate distances of all frames to all axes
-        #     # TODO check sign of cam_positions (should be negative what is here?)
-        #     # TODO should replace with cameras not camera_data?
-        #     cam_positions = np.vstack([np.array(frame["transform_matrix"])[:3,3].flatten() for frame in camera_data["frames"]])
-        #     print(cam_positions.shape)
-        #     # TODO validate this
-        #     forward_diffs = np.linalg.norm(np.cross(forward - boxes_centre, boxes_centre - cam_positions), axis=1)/np.linalg.norm(forward - boxes_centre)
-        #     forward_diffs[invalid_cameras] = 1000
-        #     best_forwards = np.argsort(forward_diffs)
-        #     top_diffs = np.linalg.norm(np.cross(top - boxes_centre, boxes_centre - cam_positions), axis=1)/np.linalg.norm(top - boxes_centre)
-        #     top_diffs[invalid_cameras] = 1000
-        #     best_tops = np.argsort(top_diffs)
-        #     left_diffs = np.linalg.norm(np.cross(left - boxes_centre, boxes_centre - cam_positions), axis=1)/np.linalg.norm(left - boxes_centre)
-        #     left_diffs[invalid_cameras] = 1000
-        #     best_lefts = np.argsort(left_diffs)
-        #     right_diffs = np.linalg.norm(np.cross(right - boxes_centre, boxes_centre - cam_positions), axis=1)/np.linalg.norm(right - boxes_centre)
-        #     right_diffs[invalid_cameras] = 1000
-        #     best_rights = np.argsort(right_diffs)
-            
-        #     bests_lists = [best_forwards, best_tops, best_lefts, best_rights]
-        #     print("BESTS LISTS")
-        #     print(bests_lists)
-        #     current_bests_idxs = [0,0,0,0]
-        # print("MASKED METADATA")
-        # print(list(masks_metadata.items()))
-        # print(len(list(masks_metadata.items())))
-        # while len(frames) < 4 and threshold < 1000:
-        #     if full_random:
-        #         chosen_frame = random.choice(list(masks_metadata.items()))
-        #         print(f"chosen_frame: {chosen_frame}")
-        #     else:
-        #         # Get the idx of the closest frame to the current considered viewing direction
-        #         numf = len(frames)
-        #         best_camera_data_idx = bests_lists[numf][current_bests_idxs[numf]]
-        #         best_meta_idx = cam_to_meta[best_camera_data_idx]
-        #         print("BEST CAMERA DATA IDX")
-        #         print(best_camera_data_idx)
-        #         chosen_frame = list(masks_metadata.items())[best_meta_idx]
-        #         print(f"chosen_frame: {chosen_frame}")
-        #         current_bests_idxs[numf] += 1
-
-        #     visible_boxes = chosen_frame[1]
-        #     if len(visible_boxes) > 0:
-        #         random.shuffle(visible_boxes)
-        #     else:
-        #         continue
-
-        #     for box in visible_boxes:
-        #         if box in group and chosen_frame[0] not in frames:
-        #             frames.append((chosen_frame[0], image_names.index(chosen_frame[0])))
-        #             break
-
-        #     threshold += 1
-
-        # random_images.append(frames)
-
-        # if threshold == 1000:
-        #     raise TimeoutError("Object designated for removal is not visible in at least four frames!")
-    
-    print(a)
+    # Pair cameras with appriopriate indices
+    selected_frames = []
+    for view_group in selected_views:
+        frames = []
+        for view in view_group:
+            frames.append((view, image_names.index(view)))
+        selected_frames.append(frames)
 
     # Inpaint selected images
-    for idx, images_group in enumerate(selected_views):
+    for idx, images_group in enumerate(selected_frames):
         if log_inpaint_images:
             group_logs_path = logs_path / f"{idx + 1}"
             os.makedirs(group_logs_path)
@@ -269,7 +205,8 @@ def generate_hemisphere_vectors(radius: float, num_layers: int, origin: np.ndarr
 
             rot_1 = Rotation.from_euler('XYZ', [-np.pi / 2, -phi, 0.0], degrees=False)
             rot_2 = Rotation.from_euler('XYZ', [theta, 0.0, 0.0], degrees=False)
-            R = (rot_1 * rot_2).as_matrix()
+            rot_3 = Rotation.from_euler('XYZ', [0.0, 0.0, np.pi], degrees=False)
+            R = (rot_1 * rot_2 * rot_3).as_matrix()
 
             trans_mat = np.eye(4)
             trans_mat[:3, 3:] = np.array([[x, y, z]]).T
@@ -354,93 +291,14 @@ def render_preview_image(model: Model, cameras: Cameras, random_image: List[int]
     return rgb_preview
 
 
-def get_collision_groups(bboxes: Dict[str, np.ndarray]):
-
-    # Add boxes to visualization
-    obbs = []
-    CONSOLE.print("Reading bbox data")
-    for bbox in bboxes:
-        bbox_data = bbox['data']
-        offset = 0.0
-        bbox_w, bbox_h, bbox_d  = np.array(bbox_data['dimensions']) - offset
-
-        position = np.array(bbox_data['position'])
-
-        alpha, beta, gamma = bbox_data['euler']
-
-        rot_roll = np.array([[1, 0, 0],
-                            [0, np.cos(alpha), -np.sin(alpha)],
-                            [0, np.sin(alpha), np.cos(alpha)]])
-        
-        rot_pitch = np.array([[np.cos(beta), 0, np.sin(beta)],
-                            [0, 1, 0],
-                            [-np.sin(beta), 0, np.cos(beta)]])
-        
-        rot_yaw = np.array([[np.cos(gamma), -np.sin(gamma), 0],
-                            [np.sin(gamma), np.cos(gamma), 0],
-                            [0, 0, 1]])
-        
-        R = rot_roll @ rot_pitch @ rot_yaw
-        
-        obb = OBB(center=position, axes=R, half_sizes=np.array([-bbox_w / 2, -bbox_h / 2, -bbox_d / 2]))
-        obbs.append(obb)
-
-    # Detect collisions between bounding boxes
-    combinations = list(itertools.combinations(np.arange(len(obbs)), 2))
-
-    collision_graph = defaultdict(set)
-    for comb in combinations:
-        collision = check_obb_collision(obbs[comb[0]], obbs[comb[1]])
-        if collision:
-            collision_graph[comb[0]].add(comb[1])
-            collision_graph[comb[1]].add(comb[0])
-
-    def find_connected_components(graph):
-        visited = set()
-        components = []
-
-        def dfs(node, component):
-            stack = [node]
-            while stack:
-                current = stack.pop()
-                if current not in visited:
-                    visited.add(current)
-                    component.append(current)
-                    stack.extend(graph[current] - visited)
-
-        for node in graph:
-            if node not in visited:
-                component = []
-                dfs(node, component)
-                components.append(component)
-
-        return components
-
-    # Get the groups of colliding bounding boxes
-    collision_groups = find_connected_components(collision_graph)
-
-    for bbox_idx in range(len(obbs)):
-        skip = False
-        for group in collision_groups:
-            if bbox_idx in group:
-                skip = True
-
-        if not skip:
-            collision_groups.append([bbox_idx])
-    
-    CONSOLE.print(f"Found {len(collision_groups)} groups of bounding boxes")
-
-    return collision_groups
-
-
 def generate_masks(camera_data: Dict[str, float], 
-                   image_names: List[str],
+                #    image_names: List[str],
                    bboxes: Dict[str, np.ndarray], 
                    output_path: Path,
                    dataparser_transform: torch.Tensor, 
                    dataparser_scale: torch.Tensor):
     
-    cam_data_to_meta_idx = {}
+    # cam_data_to_meta_idx = {}
 
     # Create masks folder
     os.makedirs(output_path / "masks", exist_ok=True)
@@ -510,7 +368,7 @@ def generate_masks(camera_data: Dict[str, float],
         vis.add_geometry(mesh_box)
 
     # Iterate through frames
-    masks_metadata = {}
+    # masks_metadata = {}
     for i, frame in enumerate(track(camera_data["frames"], description="Generating masks", transient=False)):
 
         num = str(i)
@@ -560,15 +418,15 @@ def generate_masks(camera_data: Dict[str, float],
 
         cv2.imwrite(f"{output_path}/masks/{img_name}", inv_image)
 
-        if img_name not in image_names:
-            continue
-        cam_data_to_meta_idx[i] = len(masks_metadata.keys())
-        masks_metadata[img_name] = (np.array(np.unique(gray)[1:]) - 10).tolist()
+        # if img_name not in image_names:
+        #     continue
+        # cam_data_to_meta_idx[i] = len(masks_metadata.keys())
+        # masks_metadata[img_name] = (np.array(np.unique(gray)[1:]) - 10).tolist()
 
     vis.destroy_window()
 
-    print("MASKS METADATA")
-    print(masks_metadata)
+    # print("MASKS METADATA")
+    # print(masks_metadata)
 
-    # TODO VERY BAD PRACTICE FOR CAM DATA TO META IDX
-    return masks_metadata, cam_data_to_meta_idx
+    # # TODO VERY BAD PRACTICE FOR CAM DATA TO META IDX
+    # return masks_metadata, cam_data_to_meta_idx
