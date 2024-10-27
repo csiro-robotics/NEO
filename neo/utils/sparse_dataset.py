@@ -110,7 +110,6 @@ def generate_sparse_dataset(model: Model,
 
 
     generate_masks(camera_data=camera_data, 
-                #    image_names=image_names, 
                    bboxes=bboxes, 
                    output_path=cache_path, 
                    dataparser_transform=dataparser_transform, 
@@ -292,14 +291,11 @@ def render_preview_image(model: Model, cameras: Cameras, random_image: List[int]
 
 
 def generate_masks(camera_data: Dict[str, float], 
-                #    image_names: List[str],
                    bboxes: Dict[str, np.ndarray], 
                    output_path: Path,
                    dataparser_transform: torch.Tensor, 
                    dataparser_scale: torch.Tensor):
     
-    # cam_data_to_meta_idx = {}
-
     # Create masks folder
     os.makedirs(output_path / "masks", exist_ok=True)
     os.makedirs(output_path / "temp_masks", exist_ok=True)
@@ -368,7 +364,6 @@ def generate_masks(camera_data: Dict[str, float],
         vis.add_geometry(mesh_box)
 
     # Iterate through frames
-    # masks_metadata = {}
     for i, frame in enumerate(track(camera_data["frames"], description="Generating masks", transient=False)):
 
         num = str(i)
@@ -418,15 +413,4 @@ def generate_masks(camera_data: Dict[str, float],
 
         cv2.imwrite(f"{output_path}/masks/{img_name}", inv_image)
 
-        # if img_name not in image_names:
-        #     continue
-        # cam_data_to_meta_idx[i] = len(masks_metadata.keys())
-        # masks_metadata[img_name] = (np.array(np.unique(gray)[1:]) - 10).tolist()
-
     vis.destroy_window()
-
-    # print("MASKS METADATA")
-    # print(masks_metadata)
-
-    # # TODO VERY BAD PRACTICE FOR CAM DATA TO META IDX
-    # return masks_metadata, cam_data_to_meta_idx
