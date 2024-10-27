@@ -81,15 +81,14 @@ def generate_sparse_dataset(model: Model,
         bboxes = json.load(file)['bboxes']
 
     collision_groups = get_collision_groups(bboxes)
-    
+
     # Select views for inpainting
+    radius = 0.5
+    num_layers = 8
+    
     selected_views = []
     for i, group in enumerate(collision_groups):
         boxes_centre = np.mean(np.vstack([box["data"]["position"] for box in bboxes if box['idx'] in group]), axis=0)
-
-        radius = 0.5
-        num_layers = 1
-
         dedicated_transforms = generate_hemisphere_vectors(radius, num_layers, boxes_centre)
 
         group_views = []
@@ -106,8 +105,7 @@ def generate_sparse_dataset(model: Model,
             camera_data["frames"].append(frame)
             group_views.append(f"dedicated_{num}.png")
 
-        selected_views.append(group_views)
-
+        selected_views.append(group_views) 
 
     generate_masks(camera_data=camera_data, 
                    bboxes=bboxes, 
@@ -161,28 +159,30 @@ def generate_sparse_dataset(model: Model,
                 cv2.imwrite(str(group_logs_path / f"mask_{random_image[0]}"), mask)
                 cv2.imwrite(str(group_logs_path / f"refined_mask_{random_image[0]}"), refined_mask)
 
-        images_grid = get_image_grid(images)
-        masks_grid = get_image_grid(masks)
+        image_grids = get_image_grid(images)
+        mask_grids = get_image_grid(masks)
+        image_names = np.array(image_names).reshape(len(image_names) // 4, -1)
 
-        img_old_size = (int(images_grid.shape[1] * downscale_factor), int(images_grid.shape[0] * downscale_factor))
-        img_new_size = (1024, 1024)
-        images_grid = Image.fromarray(images_grid)
-        images_grid = images_grid.resize(img_new_size)
-        masks_grid = Image.fromarray(masks_grid)
-        masks_grid = masks_grid.resize(img_new_size)
+        for images_grid, masks_grid, image_name in zip(image_grids, mask_grids, image_names):
+            img_old_size = (int(images_grid.shape[1] * downscale_factor), int(images_grid.shape[0] * downscale_factor))
+            img_new_size = (1024, 1024)
+            images_grid = Image.fromarray(images_grid)
+            images_grid = images_grid.resize(img_new_size)
+            masks_grid = Image.fromarray(masks_grid)
+            masks_grid = masks_grid.resize(img_new_size)
 
-        CONSOLE.print(f"Inpainting images in group {idx + 1}")
-        reconstructed_grid_image = inpainting_pipeline(prompt="background", image=images_grid, mask_image=masks_grid).images[0]
-        reconstructed_grid_image = reconstructed_grid_image.resize(img_old_size)
-        reconstructed_grid_image = np.array(reconstructed_grid_image)
-        reconstructed_images = get_images_from_grid(reconstructed_grid_image, img_old_size)
+            CONSOLE.print(f"Inpainting images in group {idx + 1}")
+            reconstructed_grid_image = inpainting_pipeline(prompt="background", image=images_grid, mask_image=masks_grid).images[0]
+            reconstructed_grid_image = reconstructed_grid_image.resize(img_old_size)
+            reconstructed_grid_image = np.array(reconstructed_grid_image)
+            reconstructed_images = get_images_from_grid(reconstructed_grid_image, img_old_size)
 
-        for image, name in zip(reconstructed_images, image_names):
-            cv2.imwrite(str(cache_path / f"images/{name}"), cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
-        
-        if log_inpaint_images:
-            for image, name in zip(reconstructed_images, image_names):
-                cv2.imwrite(str(group_logs_path / f"reconstructed_{name}"), cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+            for image, name in zip(reconstructed_images, image_name):
+                cv2.imwrite(str(cache_path / f"images/{name}"), cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+            
+            if log_inpaint_images:
+                for image, name in zip(reconstructed_images, image_name):
+                    cv2.imwrite(str(group_logs_path / f"reconstructed_{name}"), cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
     # Remove temporary masks
     shutil.rmtree(cache_path / "temp_masks")
@@ -230,18 +230,20 @@ def get_images_from_grid(grid_image: npt.NDArray, size: Tuple[int, int]) -> List
 
 def get_image_grid(images: List[npt.NDArray]) -> npt.NDArray:
 
+    batch_size = len(images) // 4
     width = images[0].shape[0]
     height = images[0].shape[1]
     if len(images[0].shape) > 2:
-        images_grid = np.zeros((2 * width, 2 * height, 3), dtype=np.uint8)
+        image_grids = np.zeros((batch_size, 2 * width, 2 * height, 3), dtype=np.uint8)
     else:
-        images_grid = np.zeros((2 * width, 2 * height), dtype=np.uint8)
+        image_grids = np.zeros((batch_size, 2 * width, 2 * height), dtype=np.uint8)
 
-    for i in range(2):
-        for j in range(2):
-            images_grid[i * width:(i+1) * width, j * height:(j + 1) * height] = images[i * 2 + j]
+    for bs in range(batch_size):
+        for i in range(2):
+            for j in range(2):
+                image_grids[bs, i * width:(i+1) * width, j * height:(j + 1) * height] = images[i * 2 + j + (bs * 4)]
 
-    return images_grid
+    return image_grids
 
 
 def refine_mask(input_mask: npt.NDArray, rendered_image: npt.NDArray, sam_predictor: SamPredictor) -> npt.NDArray:
