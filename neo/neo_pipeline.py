@@ -142,8 +142,6 @@ class NeoPipeline(VanillaPipeline):
                                     )
             self.model.train()
 
-        print(a)
-
         path = self.config.bbox_data_path
         checkpoint_paths = (path / "nerfstudio_models").glob('*.ckpt')
         checkpoint_filenames = [path for path in checkpoint_paths if path.is_file()]

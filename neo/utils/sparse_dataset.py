@@ -391,7 +391,7 @@ def generate_masks(camera_data: Dict[str, float],
         # Render image
         img = vis.capture_screen_float_buffer(do_render=True)
         img = (255.0 * np.asarray(img)).astype(np.uint8)
-
+ 
         # Crop image according to the principal point
         width = camera_data["w"]
         height = camera_data["h"]
