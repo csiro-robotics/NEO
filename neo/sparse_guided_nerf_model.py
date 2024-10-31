@@ -6,12 +6,15 @@ This model is utilized by Neo for editing purposes. It learns region reconstruct
 import torch
 import json
 import yaml
+import numpy as np
 
 from dataclasses import dataclass, field
+from rich.progress import track
 from pathlib import Path
-from typing import Type, List
+from typing import Type, List, Dict, Any
 
 from nerfstudio.data.scene_box import SceneBox
+from nerfstudio.engine.callbacks import TrainingCallback, TrainingCallbackAttributes, TrainingCallbackLocation
 from nerfstudio.models.base_model import ModelConfig
 from nerfstudio.utils.rich_utils import CONSOLE
 from nerfstudio.models.nerfacto import NerfactoModel, NerfactoModelConfig
@@ -27,6 +30,8 @@ from nerfstudio.model_components.losses import (
 
 from neo.utils.bbox import BoundingBox
 from neo.utils.bbox_utils import BBoxData
+from neo.utils.cameras import get_cameras
+from neo.utils.rendering import render_preview_image
 
 
 @dataclass
@@ -44,9 +49,16 @@ class SparseGuidedNeRFModel(NerfactoModel):
 
     config: SparseGuidedNeRFModelConfig
 
-    def __init__(self, config: ModelConfig, scene_box: SceneBox, num_train_data: int, **kwargs) -> None:
+    def __init__(self, 
+                 config: ModelConfig, 
+                 scene_box: SceneBox, 
+                 num_train_data: int, 
+                 dataparser_config: Dict[str, Any],
+                 **kwargs) -> None:
         print(config)
         super().__init__(config, scene_box, num_train_data, **kwargs)
+
+        self.dataparser_config = dataparser_config
 
     def populate_modules(self):
         super().populate_modules()
@@ -176,3 +188,91 @@ class SparseGuidedNeRFModel(NerfactoModel):
                     outputs["rendered_pred_normal_loss"]
                 )
         return loss_dict
+
+    def inpaint_images(self, step):
+
+        if step != 0:
+            print("_______________________________________________________________________________________________")
+            print(f"Iteration: {step}")
+            print()
+            print()
+            print()
+            print()
+            print()
+            print()
+            print()
+            print()
+            print()
+            print()
+            print()
+            print()
+            print()
+            print()
+            print()
+            print("_______________________________________________________________________________________________")
+            
+            # Get cameras for rendering
+            cameras, image_names = get_cameras(self.dataparser_config)
+
+            # Extract dedicated cameras
+            indices = []
+            for idx, image_name in enumerate(image_names):
+                if "dedicated" in image_name:
+                    indices.append(idx)
+            
+            print(np.array(image_names)[indices])
+
+            # Render images
+            for idx in track(indices, description=f"Rendering images for inpainting", transient=False):
+                image = render_preview_image(self, cameras, idx, output_name='rgb')
+
+            print(a)
+
+
+    def get_training_callbacks(
+        self, training_callback_attributes: TrainingCallbackAttributes
+    ) -> List[TrainingCallback]:
+        callbacks = []
+        if self.config.use_proposal_weight_anneal:
+            # anneal the weights of the proposal network before doing PDF sampling
+            N = self.config.proposal_weights_anneal_max_num_iters
+
+            def set_anneal(step):
+                # https://arxiv.org/pdf/2111.12077.pdf eq. 18
+                self.step = step
+                train_frac = np.clip(step / N, 0, 1)
+                self.step = step
+
+                def bias(x, b):
+                    return b * x / ((b - 1) * x + 1)
+
+                anneal = bias(train_frac, self.config.proposal_weights_anneal_slope)
+                self.proposal_sampler.set_anneal(anneal)
+
+
+            callbacks.append(
+                TrainingCallback(
+                    where_to_run=[TrainingCallbackLocation.BEFORE_TRAIN_ITERATION],
+                    update_every_num_iters=1,
+                    func=set_anneal,
+                )
+            )
+
+            callbacks.append(
+                TrainingCallback(
+                    where_to_run=[TrainingCallbackLocation.AFTER_TRAIN_ITERATION],
+                    update_every_num_iters=1,
+                    func=self.proposal_sampler.step_cb,
+                )
+            )
+
+            callbacks.append(
+                TrainingCallback(
+                    where_to_run=[TrainingCallbackLocation.AFTER_TRAIN_ITERATION],
+                    update_every_num_iters=100,
+                    func=self.inpaint_images,
+                )
+            )
+
+        return callbacks
+    

@@ -17,11 +17,11 @@ from segment_anything import SamPredictor
 from scipy.spatial.transform import Rotation
 
 from nerfstudio.models.base_model import Model
-from nerfstudio.cameras.cameras import Cameras
 from nerfstudio.utils.rich_utils import CONSOLE
 
 from neo.utils.cameras import get_cameras
 from neo.utils.collisions import get_collision_groups
+from neo.utils.rendering import render_preview_image
 
 
 def generate_sparse_dataset(model: Model,
@@ -138,7 +138,7 @@ def generate_sparse_dataset(model: Model,
         images, masks = [], []
         image_names = []
         for random_image in track(images_group, description=f"Rendering images for group {idx + 1}", transient=False):
-            image = render_preview_image(model, cameras, random_image)
+            image = render_preview_image(model, cameras, random_image[1])
             mask = cv2.imread(str(cache_path / f"temp_masks/{random_image[0]}"), cv2.IMREAD_GRAYSCALE)
             kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
             mask = cv2.dilate(mask, kernel, iterations=2)
@@ -279,17 +279,6 @@ def refine_mask(input_mask: npt.NDArray, rendered_image: npt.NDArray, sam_predic
     refined_mask = cv2.dilate(refined_mask, kernel)
 
     return refined_mask
-
-
-def render_preview_image(model: Model, cameras: Cameras, random_image: List[int]) -> npt.NDArray:
-
-    image_idx = random_image[1]
-    with torch.no_grad():
-        outputs = model.get_outputs_for_camera(cameras[image_idx])
-
-    rgb_preview = (outputs['rgb_rm_preview'].cpu().detach().numpy() * 255).astype(np.uint8)
-    
-    return rgb_preview
 
 
 def generate_masks(camera_data: Dict[str, float], 
