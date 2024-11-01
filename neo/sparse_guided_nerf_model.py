@@ -61,6 +61,7 @@ class SparseGuidedNeRFModel(NerfactoModel):
         self.dataparser_config = dataparser_config
         self.sam_predictor = kwargs['sam_predictor']
         self.inpainting_pipeline = kwargs['inpainting_pipeline']
+        self.reload_data_fn = kwargs['reload_data_fn']
 
     def populate_modules(self):
         super().populate_modules()
@@ -193,7 +194,7 @@ class SparseGuidedNeRFModel(NerfactoModel):
 
     def inpaint_images(self, step):
 
-        step_delay = 10000
+        step_delay = 5000
         inpaint_repeat = 2500
         if step >= step_delay and step % inpaint_repeat == 0:
             # Create paths for generating dataset
@@ -223,17 +224,24 @@ class SparseGuidedNeRFModel(NerfactoModel):
 
             # Render images
             strength = 0.8 - (0.1 * ((step - step_delay) // inpaint_repeat))
-            inpaint_images_in_grids(model=self,
-                                    sam_predictor=self.sam_predictor,
-                                    inpainting_pipeline=self.inpainting_pipeline,
-                                    selected_frames=selected_frames,
-                                    cameras=cameras,
-                                    cache_path=cache_path,
-                                    log_inpaint_images=True,
-                                    logs_path=logs_path / f"iteration_{step}_s_{strength}",
-                                    rendering_output_name='rgb',
-                                    strength=strength,
-                                    refine_masks=True)
+
+            if strength > 0:
+                self.eval()
+                inpaint_images_in_grids(model=self,
+                                        sam_predictor=self.sam_predictor,
+                                        inpainting_pipeline=self.inpainting_pipeline,
+                                        selected_frames=selected_frames,
+                                        cameras=cameras,
+                                        cache_path=cache_path,
+                                        log_inpaint_images=True,
+                                        logs_path=logs_path / f"iteration_{step}_s_{strength}",
+                                        rendering_output_name='rgb',
+                                        strength=strength,
+                                        refine_masks=False)
+                self.train()
+            
+            # Reload dataset
+            self.reload_data_fn()
 
     def get_training_callbacks(
         self, training_callback_attributes: TrainingCallbackAttributes

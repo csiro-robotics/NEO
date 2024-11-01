@@ -90,6 +90,8 @@ class SparseGuidedNeRFPipeline(VanillaPipeline):
             device=device, test_mode=test_mode, world_size=world_size, local_rank=local_rank
         )
         self.datamanager.to(device)
+        
+        assert self.datamanager.train_dataset is not None, "Missing input dataset"
 
         # Initialize SAM predictor
         sam_checkpoint = f"ckpts/{self.config.sam_checkpoint}"
@@ -107,7 +109,6 @@ class SparseGuidedNeRFPipeline(VanillaPipeline):
         # inpainting_pipeline.safety_checker = None
         # inpainting_pipeline.requires_safety_checker = False
 
-        assert self.datamanager.train_dataset is not None, "Missing input dataset"
         self._model = self.config.model.setup(
             scene_box=self.datamanager.train_dataset.scene_box,
             dataparser_config=self.config.datamanager.dataparser,
@@ -116,7 +117,8 @@ class SparseGuidedNeRFPipeline(VanillaPipeline):
             device=device,
             grad_scaler=grad_scaler,
             sam_predictor=sam_predictor,
-            inpainting_pipeline=inpainting_pipeline
+            inpainting_pipeline=inpainting_pipeline,
+            reload_data_fn=self.datamanager.setup_train
         )
         self.model.to(device)
 
