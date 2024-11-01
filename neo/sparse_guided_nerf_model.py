@@ -10,8 +10,6 @@ import numpy as np
 
 from dataclasses import dataclass, field
 from rich.progress import track
-from segment_anything import sam_model_registry, SamPredictor
-from diffusers import AutoPipelineForInpainting
 from pathlib import Path
 from typing import Type, List, Dict, Any
 
@@ -44,14 +42,6 @@ class SparseGuidedNeRFModelConfig(NerfactoModelConfig):
 
     bbox_path: Path = None
     """Path to the bounding box"""
-    sam_checkpoint: str = "sam_vit_h_4b8939.pth"
-    """name of the SAM checkpoint"""
-    sam_model_type: str = "vit_h"
-    """SAM model type, vit_h by default"""
-    log_inpaint_images: bool = True
-    """If set to True images used for inpainting will be logged."""
-    inpainting_model: str = "diffusers/stable-diffusion-xl-1.0-inpainting-0.1"
-    """Model used for inpainting"""
 
 
 class SparseGuidedNeRFModel(NerfactoModel):
@@ -69,22 +59,8 @@ class SparseGuidedNeRFModel(NerfactoModel):
         super().__init__(config, scene_box, num_train_data, **kwargs)
 
         self.dataparser_config = dataparser_config
-
-        # Initialize SAM predictor
-        sam_checkpoint = f"ckpts/{self.config.sam_checkpoint}"
-        sam = sam_model_registry[self.config.sam_model_type](checkpoint=sam_checkpoint)
-        sam.to(device=self.device)
-
-        self.sam_predictor = SamPredictor(sam)
-
-        # Initialize inpainting model
-        self.inpainting_pipeline = AutoPipelineForInpainting.from_pretrained(
-            self.config.inpainting_model, torch_dtype=torch.float16, variant="fp16"
-        )
-        self.inpainting_pipeline.enable_model_cpu_offload()
-        # If inpainted images are black uncomment below lines but it may produce NSFW content
-        # self.inpainting_pipeline.safety_checker = None
-        # self.inpainting_pipeline.requires_safety_checker = False
+        self.sam_predictor = kwargs['sam_predictor']
+        self.inpainting_pipeline = kwargs['inpainting_pipeline']
 
     def populate_modules(self):
         super().populate_modules()
@@ -217,7 +193,9 @@ class SparseGuidedNeRFModel(NerfactoModel):
 
     def inpaint_images(self, step):
 
-        if step != 0:
+        step_delay = 10000
+        inpaint_repeat = 2500
+        if step >= step_delay and step % inpaint_repeat == 0:
             # Create paths for generating dataset
             cache_path = Path("cache") / self.config.bbox_path.parent
             logs_path = Path("logs") / self.config.bbox_path.parent
@@ -244,6 +222,7 @@ class SparseGuidedNeRFModel(NerfactoModel):
                 selected_frames.append(frames)
 
             # Render images
+            strength = 0.8 - (0.1 * ((step - step_delay) // inpaint_repeat))
             inpaint_images_in_grids(model=self,
                                     sam_predictor=self.sam_predictor,
                                     inpainting_pipeline=self.inpainting_pipeline,
@@ -251,8 +230,10 @@ class SparseGuidedNeRFModel(NerfactoModel):
                                     cameras=cameras,
                                     cache_path=cache_path,
                                     log_inpaint_images=True,
-                                    logs_path=logs_path / f"iteration_{step}",
-                                    rendering_output_name='rgb')
+                                    logs_path=logs_path / f"iteration_{step}_s_{strength}",
+                                    rendering_output_name='rgb',
+                                    strength=strength,
+                                    refine_masks=True)
 
     def get_training_callbacks(
         self, training_callback_attributes: TrainingCallbackAttributes

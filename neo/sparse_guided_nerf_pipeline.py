@@ -3,12 +3,15 @@ Nerfstudio Sparse Guided NeRF Pipeline
 """
 
 import typing
+import torch
 import yaml
+import torch.distributed as dist
 
 from dataclasses import dataclass, field, fields
 from typing import Literal, Optional, Type
+from segment_anything import sam_model_registry, SamPredictor
+from diffusers import AutoPipelineForInpainting
 
-import torch.distributed as dist
 from torch.cuda.amp.grad_scaler import GradScaler
 from torch.nn.parallel import DistributedDataParallel as DDP
 
@@ -39,6 +42,14 @@ class SparseGuidedNeRFPipelineConfig(VanillaPipelineConfig):
     """specifies the datamanager config"""
     model: ModelConfig = SparseGuidedNeRFModelConfig()
     """specifies the model config"""
+    sam_checkpoint: str = "sam_vit_h_4b8939.pth"
+    """name of the SAM checkpoint"""
+    sam_model_type: str = "vit_h"
+    """SAM model type, vit_h by default"""
+    log_inpaint_images: bool = True
+    """If set to True images used for inpainting will be logged."""
+    inpainting_model: str = "diffusers/stable-diffusion-xl-1.0-inpainting-0.1"
+    """Model used for inpainting"""
 
 
 class SparseGuidedNeRFPipeline(VanillaPipeline):
@@ -80,6 +91,22 @@ class SparseGuidedNeRFPipeline(VanillaPipeline):
         )
         self.datamanager.to(device)
 
+        # Initialize SAM predictor
+        sam_checkpoint = f"ckpts/{self.config.sam_checkpoint}"
+        sam = sam_model_registry[self.config.sam_model_type](checkpoint=sam_checkpoint)
+        sam.to(device=device)
+
+        sam_predictor = SamPredictor(sam)
+
+        # Initialize inpainting model
+        inpainting_pipeline = AutoPipelineForInpainting.from_pretrained(
+            self.config.inpainting_model, torch_dtype=torch.float16, variant="fp16"
+        )
+        inpainting_pipeline.enable_model_cpu_offload()
+        # If inpainted images are black uncomment below lines but it may produce NSFW content
+        # inpainting_pipeline.safety_checker = None
+        # inpainting_pipeline.requires_safety_checker = False
+
         assert self.datamanager.train_dataset is not None, "Missing input dataset"
         self._model = self.config.model.setup(
             scene_box=self.datamanager.train_dataset.scene_box,
@@ -88,6 +115,8 @@ class SparseGuidedNeRFPipeline(VanillaPipeline):
             metadata=self.datamanager.train_dataset.metadata,
             device=device,
             grad_scaler=grad_scaler,
+            sam_predictor=sam_predictor,
+            inpainting_pipeline=inpainting_pipeline
         )
         self.model.to(device)
 

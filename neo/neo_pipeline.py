@@ -123,8 +123,6 @@ class NeoPipeline(VanillaPipeline):
         os.makedirs("logs", exist_ok=True)
         os.makedirs("cache", exist_ok=True)
 
-        self.apply_changes_hook()
-
     def apply_changes_hook(self):
 
         verbose = False # If set to True prints training progress of separate models

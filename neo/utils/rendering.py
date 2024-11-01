@@ -1,3 +1,4 @@
+import cv2
 import torch
 import numpy as np
 import numpy.typing as npt
@@ -12,6 +13,7 @@ def render_preview_image(model: Model, cameras: Cameras, image_idx: int, output_
     with torch.no_grad():
         outputs = model.get_outputs_for_camera(cameras[image_idx])
 
-    rgb_preview = (outputs[output_name].cpu().detach().numpy() * 255).astype(np.uint8)
+    rendered_image = (outputs[output_name].cpu().detach().numpy() * 255).astype(np.uint8)
+    rendered_image = cv2.cvtColor(rendered_image, cv2.COLOR_BGR2RGB)
     
-    return rgb_preview
+    return rendered_image

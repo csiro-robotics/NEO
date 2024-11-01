@@ -89,7 +89,9 @@ def inpaint_images_in_grids(model: Model,
                             cache_path: Path,
                             log_inpaint_images: bool = False, 
                             logs_path: Path = None,
-                            rendering_output_name: str = 'rgb_rm_preview'):
+                            rendering_output_name: str = 'rgb_rm_preview', 
+                            strength: int = 0.99,
+                            refine_masks: bool = True):
 
     # Inpaint selected images
     for idx, images_group in enumerate(selected_frames):
@@ -106,7 +108,11 @@ def inpaint_images_in_grids(model: Model,
             mask = cv2.dilate(mask, kernel, iterations=2)
             downscale_factor = mask.shape[0] / image.shape[0]
             mask = cv2.resize(mask, (int(mask.shape[1] / downscale_factor), int(mask.shape[0] / downscale_factor)), cv2.INTER_MAX)
-            refined_mask = refine_mask(mask, image, sam_predictor)
+
+            if refine_masks:
+                refined_mask = refine_mask(mask, image, sam_predictor)
+            else:
+                refined_mask = mask
 
             images.append(image)
             masks.append(refined_mask)
@@ -117,7 +123,7 @@ def inpaint_images_in_grids(model: Model,
             cv2.imwrite(str(cache_path / f"masks/{random_image[0]}"), mask)
 
             if log_inpaint_images:
-                cv2.imwrite(str(group_logs_path / random_image[0]), cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+                cv2.imwrite(str(group_logs_path / random_image[0]), image)
                 cv2.imwrite(str(group_logs_path / f"mask_{random_image[0]}"), mask)
                 cv2.imwrite(str(group_logs_path / f"refined_mask_{random_image[0]}"), refined_mask)
 
@@ -134,14 +140,14 @@ def inpaint_images_in_grids(model: Model,
             masks_grid = masks_grid.resize(img_new_size)
 
             CONSOLE.print(f"Inpainting images in group {idx + 1}")
-            reconstructed_grid_image = inpainting_pipeline(prompt="background", image=images_grid, mask_image=masks_grid).images[0]
+            reconstructed_grid_image = inpainting_pipeline(prompt="background", image=images_grid, mask_image=masks_grid, strength=strength).images[0]
             reconstructed_grid_image = reconstructed_grid_image.resize(img_old_size)
             reconstructed_grid_image = np.array(reconstructed_grid_image)
             reconstructed_images = get_images_from_grid(reconstructed_grid_image, img_old_size)
 
             for image, name in zip(reconstructed_images, image_name):
-                cv2.imwrite(str(cache_path / f"images/{name}"), cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+                cv2.imwrite(str(cache_path / f"images/{name}"), image)
             
             if log_inpaint_images:
                 for image, name in zip(reconstructed_images, image_name):
-                    cv2.imwrite(str(group_logs_path / f"reconstructed_{name}"), cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
+                    cv2.imwrite(str(group_logs_path / f"reconstructed_{name}"), image)
