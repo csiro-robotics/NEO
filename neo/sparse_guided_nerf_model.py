@@ -5,11 +5,13 @@ This model is utilized by Neo for editing purposes. It learns region reconstruct
 """
 import torch
 import json
-import yaml
+import cv2
 import numpy as np
 
 from dataclasses import dataclass, field
 from rich.progress import track
+from segment_anything import sam_model_registry, SamPredictor
+from diffusers import AutoPipelineForInpainting
 from pathlib import Path
 from typing import Type, List, Dict, Any
 
@@ -31,7 +33,7 @@ from nerfstudio.model_components.losses import (
 from neo.utils.bbox import BoundingBox
 from neo.utils.bbox_utils import BBoxData
 from neo.utils.cameras import get_cameras
-from neo.utils.rendering import render_preview_image
+from neo.utils.inpainting import inpaint_images_in_grids
 
 
 @dataclass
@@ -42,6 +44,14 @@ class SparseGuidedNeRFModelConfig(NerfactoModelConfig):
 
     bbox_path: Path = None
     """Path to the bounding box"""
+    sam_checkpoint: str = "sam_vit_h_4b8939.pth"
+    """name of the SAM checkpoint"""
+    sam_model_type: str = "vit_h"
+    """SAM model type, vit_h by default"""
+    log_inpaint_images: bool = True
+    """If set to True images used for inpainting will be logged."""
+    inpainting_model: str = "diffusers/stable-diffusion-xl-1.0-inpainting-0.1"
+    """Model used for inpainting"""
 
 
 class SparseGuidedNeRFModel(NerfactoModel):
@@ -59,6 +69,22 @@ class SparseGuidedNeRFModel(NerfactoModel):
         super().__init__(config, scene_box, num_train_data, **kwargs)
 
         self.dataparser_config = dataparser_config
+
+        # Initialize SAM predictor
+        sam_checkpoint = f"ckpts/{self.config.sam_checkpoint}"
+        sam = sam_model_registry[self.config.sam_model_type](checkpoint=sam_checkpoint)
+        sam.to(device=self.device)
+
+        self.sam_predictor = SamPredictor(sam)
+
+        # Initialize inpainting model
+        self.inpainting_pipeline = AutoPipelineForInpainting.from_pretrained(
+            self.config.inpainting_model, torch_dtype=torch.float16, variant="fp16"
+        )
+        self.inpainting_pipeline.enable_model_cpu_offload()
+        # If inpainted images are black uncomment below lines but it may produce NSFW content
+        # self.inpainting_pipeline.safety_checker = None
+        # self.inpainting_pipeline.requires_safety_checker = False
 
     def populate_modules(self):
         super().populate_modules()
@@ -192,25 +218,10 @@ class SparseGuidedNeRFModel(NerfactoModel):
     def inpaint_images(self, step):
 
         if step != 0:
-            print("_______________________________________________________________________________________________")
-            print(f"Iteration: {step}")
-            print()
-            print()
-            print()
-            print()
-            print()
-            print()
-            print()
-            print()
-            print()
-            print()
-            print()
-            print()
-            print()
-            print()
-            print()
-            print("_______________________________________________________________________________________________")
-            
+            # Create paths for generating dataset
+            cache_path = Path("cache") / self.config.bbox_path.parent
+            logs_path = Path("logs") / self.config.bbox_path.parent
+
             # Get cameras for rendering
             cameras, image_names = get_cameras(self.dataparser_config)
 
@@ -220,14 +231,28 @@ class SparseGuidedNeRFModel(NerfactoModel):
                 if "dedicated" in image_name:
                     indices.append(idx)
             
-            print(np.array(image_names)[indices])
+            image_names = np.array(image_names)[indices]
+
+            # Assign frames with names
+            selected_frames = []
+            num_images_in_group = 32
+            num_image_groups = len(image_names) // num_images_in_group
+            for num_group in range(num_image_groups):
+                frames = []
+                for image_name, idx in zip(image_names[num_group * num_images_in_group:(num_group + 1) * num_images_in_group], indices[num_group * num_images_in_group:(num_group + 1) * num_images_in_group]):
+                    frames.append((image_name, idx))
+                selected_frames.append(frames)
 
             # Render images
-            for idx in track(indices, description=f"Rendering images for inpainting", transient=False):
-                image = render_preview_image(self, cameras, idx, output_name='rgb')
-
-            print(a)
-
+            inpaint_images_in_grids(model=self,
+                                    sam_predictor=self.sam_predictor,
+                                    inpainting_pipeline=self.inpainting_pipeline,
+                                    selected_frames=selected_frames,
+                                    cameras=cameras,
+                                    cache_path=cache_path,
+                                    log_inpaint_images=True,
+                                    logs_path=logs_path / f"iteration_{step}",
+                                    rendering_output_name='rgb')
 
     def get_training_callbacks(
         self, training_callback_attributes: TrainingCallbackAttributes
