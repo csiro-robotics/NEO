@@ -233,7 +233,52 @@ def generate_masks(camera_data: Dict[str, float],
         
         mesh_box.rotate(R.T)
 
+        print(f"O3d mesh {idx}:")
+        print(np.asarray(mesh_box.vertices))
+        print("-------------------------------------------------------------------")
+
         vis.add_geometry(mesh_box)
+
+    for idx, bbox in enumerate(bboxes):
+        bbox_data = bbox['data']
+        offset = 0.0
+
+        # Define box vertices for each box
+        bbox_w, bbox_h, bbox_d  = np.array(bbox_data['dimensions']) - offset
+        mesh_box = np.array([[-bbox_w / 2, -bbox_h / 2, -bbox_d / 2],
+                             [bbox_w / 2, -bbox_h / 2, -bbox_d / 2],
+                             [-bbox_w / 2, -bbox_h / 2, bbox_d / 2],
+                             [bbox_w / 2, -bbox_h / 2, bbox_d / 2],
+                             [-bbox_w / 2, bbox_h / 2, -bbox_d / 2],
+                             [bbox_w / 2, bbox_h / 2, -bbox_d / 2],
+                             [-bbox_w / 2, bbox_h / 2, bbox_d / 2],
+                             [bbox_w / 2, bbox_h / 2, bbox_d / 2]])
+
+        # Rotate the box
+        alpha, beta, gamma = bbox_data['euler']
+
+        rot_roll = np.array([[1, 0, 0],
+                            [0, np.cos(alpha), -np.sin(alpha)],
+                            [0, np.sin(alpha), np.cos(alpha)]])
+        
+        rot_pitch = np.array([[np.cos(beta), 0, np.sin(beta)],
+                            [0, 1, 0],
+                            [-np.sin(beta), 0, np.cos(beta)]])
+        
+        rot_yaw = np.array([[np.cos(gamma), -np.sin(gamma), 0],
+                            [np.sin(gamma), np.cos(gamma), 0],
+                            [0, 0, 1]])
+        
+        R = rot_roll @ rot_pitch @ rot_yaw
+        mesh_box = mesh_box @ R
+        
+        # Translate the box
+        position = np.array(bbox_data['position'])
+        mesh_box += position
+
+        print(f"CV2 mesh {idx}:")
+        print(mesh_box)
+        print("-------------------------------------------------------------------")
 
     # Iterate through frames
     for i, frame in enumerate(track(camera_data["frames"], description="Generating masks", transient=False)):
