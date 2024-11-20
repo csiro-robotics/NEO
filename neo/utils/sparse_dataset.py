@@ -189,6 +189,11 @@ def generate_masks(camera_data: Dict[str, float],
     # Create PinholeCameraIntrinsic object
     intrinsic = o3d.camera.PinholeCameraIntrinsic(width, height, fl_x, fl_y, cx, cy)
 
+    # Camera matrix
+    camera_matrix = np.array([[fl_x, 0.0, cx],
+                              [0.0, fl_y, cy],
+                              [0.0, 0.0, 1.0]])
+
     # Create camera parameters
     camera_params = o3d.camera.PinholeCameraParameters()
     camera_params.intrinsic = intrinsic
@@ -239,6 +244,7 @@ def generate_masks(camera_data: Dict[str, float],
 
         vis.add_geometry(mesh_box)
 
+    boxes_points = []
     for idx, bbox in enumerate(bboxes):
         bbox_data = bbox['data']
         offset = 0.0
@@ -276,10 +282,13 @@ def generate_masks(camera_data: Dict[str, float],
         position = np.array(bbox_data['position'])
         mesh_box += position
 
+        boxes_points.append(mesh_box)
+
         print(f"CV2 mesh {idx}:")
         print(mesh_box)
         print("-------------------------------------------------------------------")
 
+    temp_img = []
     # Iterate through frames
     for i, frame in enumerate(track(camera_data["frames"], description="Generating masks", transient=False)):
 
@@ -328,6 +337,93 @@ def generate_masks(camera_data: Dict[str, float],
         else:
             inv_image = thr
 
+        temp_img.append(inv_image)
+
         cv2.imwrite(f"{output_path}/masks/{img_name}", inv_image)
 
+        print(f"Extrinsic CV2 {i}:")
+        print(extrinsic @ np.diag([-1, -1, -1, -1]))
+        print("-------------------------------------------------------------------")
+
     vis.destroy_window()
+
+    # Iterate through frames
+    for i, frame in enumerate(track(camera_data["frames"], description="Generating masks", transient=False)):
+
+        num = str(i)
+        while len(num) < 4:
+            num = '0' + num
+
+        # Extract transformation matrix
+        transform_matrix = np.array(frame["transform_matrix"])
+        transform_matrix = np.concatenate([dataparser_transform, np.array([[0, 0, 0, 1]])], axis=0) @ transform_matrix
+        transform_matrix[:3, 3] = transform_matrix[:3, 3] * dataparser_scale
+
+        # Convert transformation matrix to camera extrinsic parameters
+        extrinsic = np.linalg.inv(transform_matrix)
+        transform_matrix = extrinsic @ np.diag([-1, -1, -1, -1])
+
+        # print(f"Extrinsic CV2 {i}:")
+        # print(extrinsic)
+
+        # tvec = transform_matrix[:3, 3:]
+        # rvec, _ = cv2.Rodrigues(transform_matrix[:3, :3].T)
+
+        # dist_coeffs = np.zeros((5, 1), np.float32)
+        # projected_points, _ = cv2.projectPoints(boxes_points[0], rvec, tvec, camera_matrix, dist_coeffs)
+
+        # print(projected_points)
+
+        # for point in projected_points:
+
+        #     point = point[0]
+            # if point[0] <= height and point[0] >= 0 and point[1] <= width and point[1] >= 0:
+                # print("Point: ", (point - np.array([2.0, 2.0])).astype(np.uint64))
+                # point[0], point[1] = point[1], point[0]
+                # temp_img = cv2.rectangle(temp_img, (point - np.array([2.0, 2.0])).astype(np.uint64), (point + np.array([2.0, 2.0])).astype(np.uint64), color=(125, 125, 125), thickness=5)
+
+        print(transform_matrix)
+
+        uv_points = []
+        for world_point in boxes_points[0]:
+            
+            # print(f"Point in 3D World: {world_point}")
+
+            cam_point = transform_matrix[:3, :3] @ world_point[..., None] + transform_matrix[:3, 3:]
+
+            # print(f"Point in 3D Camera: {cam_point}")
+
+            uv_point = camera_matrix @ cam_point
+            uv_point = (uv_point[:2] / uv_point[2])[:, 0]
+            uv_point[0] = (2 * cx) - uv_point[0]
+
+            uv_points.append(uv_point)
+
+            # if uv_point[0] <= width and uv_point[0] >= 0 and uv_point[1] <= height and uv_point[1] >= 0:
+            #     uv_point[0] = (2 * cx) - uv_point[0]
+
+            #     if uv_point[0] < 0:
+            #         continue
+
+            #     print(f"Point in UV: {uv_point}")
+            #     temp_img[i] = cv2.rectangle(temp_img[i], (uv_point - np.array([2.0, 2.0])).astype(np.uint64), (uv_point + np.array([2.0, 2.0])).astype(np.uint64), color=(125, 125, 125), thickness=3)
+        
+
+        top = [uv_points[2], uv_points[3], uv_points[7], uv_points[6]]
+        bottom = [uv_points[0], uv_points[1], uv_points[5], uv_points[4]]
+        left = [uv_points[4], uv_points[5], uv_points[7], uv_points[6]]
+        right = [uv_points[0], uv_points[1], uv_points[3], uv_points[2]]
+        front = [uv_points[0], uv_points[2], uv_points[6], uv_points[4]]
+        back = [uv_points[1], uv_points[3], uv_points[7], uv_points[5]]
+
+        walls = [top, bottom, left, right, front, back]
+
+        for wall in walls:
+            cv2.drawContours(temp_img[i], np.int32([wall]), -1, (125, 125, 125), -1)
+
+
+        cv2.imwrite(f"{output_path}/masks/test_0000{i}.png", temp_img[i])
+
+        print("-------------------------------------------------------------------")
+
+    print(a)
