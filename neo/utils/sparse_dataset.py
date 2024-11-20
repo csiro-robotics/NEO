@@ -250,29 +250,29 @@ def generate_masks(camera_data: Dict[str, float],
         extrinsic = np.linalg.inv(transform_matrix)
         transform_matrix = extrinsic @ np.diag([-1, -1, -1, -1])
 
-        uv_points = []
-        for world_point in boxes_points[0]:
-
-            cam_point = transform_matrix[:3, :3] @ world_point[..., None] + transform_matrix[:3, 3:]
-
-            uv_point = camera_matrix @ cam_point
-            uv_point = (uv_point[:2] / uv_point[2])[:, 0]
-            uv_point[0] = (2 * cx) - uv_point[0]
-
-            uv_points.append(uv_point)
-
-        top = [uv_points[2], uv_points[3], uv_points[7], uv_points[6]]
-        bottom = [uv_points[0], uv_points[1], uv_points[5], uv_points[4]]
-        left = [uv_points[4], uv_points[5], uv_points[7], uv_points[6]]
-        right = [uv_points[0], uv_points[1], uv_points[3], uv_points[2]]
-        front = [uv_points[0], uv_points[2], uv_points[6], uv_points[4]]
-        back = [uv_points[1], uv_points[3], uv_points[7], uv_points[5]]
-
-        walls = [top, bottom, left, right, front, back]
-
         mask = np.zeros((height, width))
-        for wall in walls:
-            cv2.drawContours(mask, np.int32([wall]), -1, (255, 255, 255), -1)
+        for box_points in boxes_points:
+            uv_points = []
+            for world_point in box_points:
+
+                cam_point = transform_matrix[:3, :3] @ world_point[..., None] + transform_matrix[:3, 3:]
+
+                uv_point = camera_matrix @ cam_point
+                uv_point = (uv_point[:2] / uv_point[2])[:, 0]
+                uv_point[0] = (2 * cx) - uv_point[0]
+
+                uv_points.append(uv_point)
+
+            top = [uv_points[2], uv_points[3], uv_points[7], uv_points[6]]
+            bottom = [uv_points[0], uv_points[1], uv_points[5], uv_points[4]]
+            left = [uv_points[4], uv_points[5], uv_points[7], uv_points[6]]
+            right = [uv_points[0], uv_points[1], uv_points[3], uv_points[2]]
+            front = [uv_points[0], uv_points[2], uv_points[6], uv_points[4]]
+            back = [uv_points[1], uv_points[3], uv_points[7], uv_points[5]]
+
+            walls = [top, bottom, left, right, front, back]
+            for wall in walls:
+                cv2.drawContours(mask, np.int32([wall]), -1, (255, 255, 255), -1)
 
         # Save images
         img_name = Path(frame['file_path']).name
@@ -285,5 +285,3 @@ def generate_masks(camera_data: Dict[str, float],
             inv_mask = mask
 
         cv2.imwrite(f"{output_path}/masks/{img_name}", inv_mask)
-
-    print(a)
