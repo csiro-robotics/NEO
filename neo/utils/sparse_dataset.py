@@ -4,7 +4,7 @@ import os
 import shutil
 import torch
 
-import open3d as o3d
+# import open3d as o3d
 import numpy as np
 import numpy.typing as npt
 
@@ -177,8 +177,8 @@ def generate_masks(camera_data: Dict[str, float],
     fl_y = camera_data["fl_y"]
     cx = camera_data["cx"]
     cy = camera_data["cy"]
-    width = camera_data["w"] * 2
-    height = camera_data["h"] * 2
+    width = camera_data["w"]
+    height = camera_data["h"]
     
     if "applied_transform" in camera_data:
         dataparser_transform = dataparser_transform.cpu().detach().numpy() @ np.linalg.inv(np.concatenate([np.array(camera_data["applied_transform"]), np.array([[0, 0, 0, 1]])], axis=0))
@@ -186,63 +186,13 @@ def generate_masks(camera_data: Dict[str, float],
     else:
         dataparser_transform = dataparser_transform.cpu().detach().numpy()
 
-    # Create PinholeCameraIntrinsic object
-    intrinsic = o3d.camera.PinholeCameraIntrinsic(width, height, fl_x, fl_y, cx, cy)
-
     # Camera matrix
     camera_matrix = np.array([[fl_x, 0.0, cx],
                               [0.0, fl_y, cy],
                               [0.0, 0.0, 1.0]])
 
-    # Create camera parameters
-    camera_params = o3d.camera.PinholeCameraParameters()
-    camera_params.intrinsic = intrinsic
-
-    # Create window
-    vis = o3d.visualization.Visualizer()
-    vis.create_window(width=width, height=height, visible=False)
-    vis.get_render_option().background_color = np.asarray([0, 0, 0])
-
     # Add boxes to visualization
     CONSOLE.print("Reading bbox data")
-    for idx, bbox in enumerate(bboxes):
-        bbox_data = bbox['data']
-        offset = 0.0
-        bbox_w, bbox_h, bbox_d  = np.array(bbox_data['dimensions']) - offset
-
-        mesh_box = o3d.geometry.TriangleMesh.create_box(width=bbox_w,
-                                                        height=bbox_h,
-                                                        depth=bbox_d)
-        mesh_box.translate(np.array([-bbox_w / 2, -bbox_h / 2, -bbox_d / 2]))
-        color = (idx + 10) / 255
-        mesh_box.paint_uniform_color((color, color, color))
-
-        position = np.array(bbox_data['position'])
-        mesh_box.translate(position)
-
-        alpha, beta, gamma = bbox_data['euler']
-
-        rot_roll = np.array([[1, 0, 0],
-                            [0, np.cos(alpha), -np.sin(alpha)],
-                            [0, np.sin(alpha), np.cos(alpha)]])
-        
-        rot_pitch = np.array([[np.cos(beta), 0, np.sin(beta)],
-                            [0, 1, 0],
-                            [-np.sin(beta), 0, np.cos(beta)]])
-        
-        rot_yaw = np.array([[np.cos(gamma), -np.sin(gamma), 0],
-                            [np.sin(gamma), np.cos(gamma), 0],
-                            [0, 0, 1]])
-        
-        R = rot_roll @ rot_pitch @ rot_yaw
-        
-        mesh_box.rotate(R.T)
-
-        print(f"O3d mesh {idx}:")
-        print(np.asarray(mesh_box.vertices))
-        print("-------------------------------------------------------------------")
-
-        vis.add_geometry(mesh_box)
 
     boxes_points = []
     for idx, bbox in enumerate(bboxes):
@@ -284,69 +234,6 @@ def generate_masks(camera_data: Dict[str, float],
 
         boxes_points.append(mesh_box)
 
-        print(f"CV2 mesh {idx}:")
-        print(mesh_box)
-        print("-------------------------------------------------------------------")
-
-    temp_img = []
-    # Iterate through frames
-    for i, frame in enumerate(track(camera_data["frames"], description="Generating masks", transient=False)):
-
-        num = str(i)
-        while len(num) < 4:
-            num = '0' + num
-
-        # Extract transformation matrix
-        transform_matrix = np.array(frame["transform_matrix"])
-        transform_matrix = np.concatenate([dataparser_transform, np.array([[0, 0, 0, 1]])], axis=0) @ transform_matrix
-        transform_matrix[:3, 3] = transform_matrix[:3, 3] * dataparser_scale
-
-        # Convert transformation matrix to camera extrinsic parameters
-        extrinsic = np.linalg.inv(transform_matrix)
-        camera_params.extrinsic = extrinsic @ np.diag([-1, -1, -1, -1])
-
-        # Set camera parameters to view control of the visualizer
-        ctr = vis.get_view_control()
-        ctr.convert_from_pinhole_camera_parameters(camera_params, True)
-
-        vis.poll_events()
-        vis.update_renderer()
-
-        # Render image
-        img = vis.capture_screen_float_buffer(do_render=True)
-        img = (255.0 * np.asarray(img)).astype(np.uint8)
- 
-        # Crop image according to the principal point
-        width = camera_data["w"]
-        height = camera_data["h"]
-
-        img = img[round((height / 2) + (height / 2) - cy):round(((height / 2) + (height / 2) - cy) + height), round((width / 2) + (width / 2) - cx):round(((width / 2) + (width / 2) - cx) + width)]
-
-        # Apply binary thresholding
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        _, thr = cv2.threshold(gray, 5, 255, cv2.THRESH_BINARY)
-
-        img_name = Path(frame['file_path']).name
-
-        # Save images
-        cv2.imwrite(f"{output_path}/temp_masks/{img_name}", thr)
-
-        if "dedicated" not in img_name:
-            inv_image = 255 - thr
-        
-        else:
-            inv_image = thr
-
-        temp_img.append(inv_image)
-
-        cv2.imwrite(f"{output_path}/masks/{img_name}", inv_image)
-
-        print(f"Extrinsic CV2 {i}:")
-        print(extrinsic @ np.diag([-1, -1, -1, -1]))
-        print("-------------------------------------------------------------------")
-
-    vis.destroy_window()
-
     # Iterate through frames
     for i, frame in enumerate(track(camera_data["frames"], description="Generating masks", transient=False)):
 
@@ -363,51 +250,16 @@ def generate_masks(camera_data: Dict[str, float],
         extrinsic = np.linalg.inv(transform_matrix)
         transform_matrix = extrinsic @ np.diag([-1, -1, -1, -1])
 
-        # print(f"Extrinsic CV2 {i}:")
-        # print(extrinsic)
-
-        # tvec = transform_matrix[:3, 3:]
-        # rvec, _ = cv2.Rodrigues(transform_matrix[:3, :3].T)
-
-        # dist_coeffs = np.zeros((5, 1), np.float32)
-        # projected_points, _ = cv2.projectPoints(boxes_points[0], rvec, tvec, camera_matrix, dist_coeffs)
-
-        # print(projected_points)
-
-        # for point in projected_points:
-
-        #     point = point[0]
-            # if point[0] <= height and point[0] >= 0 and point[1] <= width and point[1] >= 0:
-                # print("Point: ", (point - np.array([2.0, 2.0])).astype(np.uint64))
-                # point[0], point[1] = point[1], point[0]
-                # temp_img = cv2.rectangle(temp_img, (point - np.array([2.0, 2.0])).astype(np.uint64), (point + np.array([2.0, 2.0])).astype(np.uint64), color=(125, 125, 125), thickness=5)
-
-        print(transform_matrix)
-
         uv_points = []
         for world_point in boxes_points[0]:
-            
-            # print(f"Point in 3D World: {world_point}")
 
             cam_point = transform_matrix[:3, :3] @ world_point[..., None] + transform_matrix[:3, 3:]
-
-            # print(f"Point in 3D Camera: {cam_point}")
 
             uv_point = camera_matrix @ cam_point
             uv_point = (uv_point[:2] / uv_point[2])[:, 0]
             uv_point[0] = (2 * cx) - uv_point[0]
 
             uv_points.append(uv_point)
-
-            # if uv_point[0] <= width and uv_point[0] >= 0 and uv_point[1] <= height and uv_point[1] >= 0:
-            #     uv_point[0] = (2 * cx) - uv_point[0]
-
-            #     if uv_point[0] < 0:
-            #         continue
-
-            #     print(f"Point in UV: {uv_point}")
-            #     temp_img[i] = cv2.rectangle(temp_img[i], (uv_point - np.array([2.0, 2.0])).astype(np.uint64), (uv_point + np.array([2.0, 2.0])).astype(np.uint64), color=(125, 125, 125), thickness=3)
-        
 
         top = [uv_points[2], uv_points[3], uv_points[7], uv_points[6]]
         bottom = [uv_points[0], uv_points[1], uv_points[5], uv_points[4]]
@@ -418,12 +270,20 @@ def generate_masks(camera_data: Dict[str, float],
 
         walls = [top, bottom, left, right, front, back]
 
+        mask = np.zeros((height, width))
         for wall in walls:
-            cv2.drawContours(temp_img[i], np.int32([wall]), -1, (125, 125, 125), -1)
+            cv2.drawContours(mask, np.int32([wall]), -1, (255, 255, 255), -1)
 
+        # Save images
+        img_name = Path(frame['file_path']).name
+        cv2.imwrite(f"{output_path}/temp_masks/{img_name}", mask)
 
-        cv2.imwrite(f"{output_path}/masks/test_0000{i}.png", temp_img[i])
+        if "dedicated" not in img_name:
+            inv_mask = 255 - mask
+        
+        else:
+            inv_mask = mask
 
-        print("-------------------------------------------------------------------")
+        cv2.imwrite(f"{output_path}/masks/{img_name}", inv_mask)
 
     print(a)
