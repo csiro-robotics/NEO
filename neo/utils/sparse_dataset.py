@@ -4,7 +4,6 @@ import os
 import shutil
 import torch
 
-# import open3d as o3d
 import numpy as np
 import numpy.typing as npt
 
@@ -37,28 +36,28 @@ def generate_sparse_dataset(model: Model,
 
     # Create log paths or replace existing logs
     if log_inpaint_images:
-        logs_path = Path("logs") / bboxes_path / "inpainting"
+        logs_path = bboxes_path / "logs/inpainting"
 
         if os.path.exists(logs_path):
             shutil.rmtree(logs_path)
 
         os.makedirs(logs_path)
 
-    # Create cache path for generating dataset
-    cache_path = Path("cache") / bboxes_path
+    # Create output path for generating dataset
+    output_path = bboxes_path / "cache"
 
-    if os.path.exists(cache_path):
-        shutil.rmtree(cache_path)
+    if os.path.exists(output_path):
+        shutil.rmtree(output_path)
 
-    os.makedirs(cache_path)
+    os.makedirs(output_path)
 
-    # Copy dataset to cache
-    shutil.copytree(data_path / "images", cache_path / "images")
-    shutil.copy(data_path / "transforms.json", cache_path / "transforms.json")
-    shutil.copy(bboxes_path / "bbox.json", cache_path / "bbox.json")
+    # Copy dataset to output
+    shutil.copytree(data_path / "images", output_path / "images")
+    shutil.copy(data_path / "transforms.json", output_path / "transforms.json")
+    shutil.copy(bboxes_path / "bbox.json", output_path / "bbox.json")
 
     # Load camera data and generate masks
-    with open(cache_path / "transforms.json", "r") as file:
+    with open(output_path / "transforms.json", "r") as file:
         camera_data = json.load(file)
 
     # Sort frames data by image name
@@ -71,7 +70,7 @@ def generate_sparse_dataset(model: Model,
     camera_data["frames"] = [camera_data["frames"][ind] for ind in inds]
 
     # Add masks paths to the transforms file
-    with open(cache_path / "transforms.json", "w") as file:
+    with open(output_path / "transforms.json", "w") as file:
         json.dump(camera_data, file, indent=4)
     
     # Load bboxes
@@ -107,16 +106,16 @@ def generate_sparse_dataset(model: Model,
 
     generate_masks(camera_data=camera_data, 
                    bboxes=bboxes, 
-                   output_path=cache_path, 
+                   output_path=output_path, 
                    dataparser_transform=dataparser_transform, 
                    dataparser_scale=dataparser_scale)
 
     # Update transforms.json with dedicated frames for training the sparse NeRF network
-    with open(cache_path / "transforms.json", "w") as file:
+    with open(output_path / "transforms.json", "w") as file:
         json.dump(camera_data, file, indent=4)
 
     # Get cameras for rendering
-    dataparser_config.data = cache_path
+    dataparser_config.data = output_path
     cameras, image_names = get_cameras(dataparser_config)
 
     # Pair cameras with appriopriate indices
@@ -128,10 +127,10 @@ def generate_sparse_dataset(model: Model,
         selected_frames.append(frames)
 
     # # Inpaint selected images
-    inpaint_images_in_grids(model, sam_predictor, inpainting_pipeline, selected_frames, cameras, cache_path, log_inpaint_images=True, logs_path=logs_path)
+    inpaint_images_in_grids(model, sam_predictor, inpainting_pipeline, selected_frames, cameras, output_path, log_inpaint_images=True, logs_path=logs_path)
 
     # Remove temporary masks
-    # shutil.rmtree(cache_path / "temp_masks")
+    # shutil.rmtree(output_path / "temp_masks")
 
 
 def generate_hemisphere_vectors(radius: float, num_layers: int, origin: np.ndarray) -> List[npt.NDArray]:

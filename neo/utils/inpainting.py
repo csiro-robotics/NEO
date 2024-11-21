@@ -86,7 +86,7 @@ def inpaint_images_in_grids(model: Model,
                             inpainting_pipeline: Any,
                             selected_frames: List[Tuple[npt.NDArray, int]], 
                             cameras: Cameras,
-                            cache_path: Path,
+                            output_path: Path,
                             log_inpaint_images: bool = False, 
                             logs_path: Path = None,
                             rendering_output_name: str = 'rgb_rm_preview', 
@@ -103,7 +103,7 @@ def inpaint_images_in_grids(model: Model,
         image_names = []
         for random_image in track(images_group, description=f"Rendering images for group {idx + 1}", transient=False):
             image = render_preview_image(model, cameras, random_image[1], output_name=rendering_output_name)
-            mask = cv2.imread(str(cache_path / f"temp_masks/{random_image[0]}"), cv2.IMREAD_GRAYSCALE)
+            mask = cv2.imread(str(output_path / f"temp_masks/{random_image[0]}"), cv2.IMREAD_GRAYSCALE)
             kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
             mask = cv2.dilate(mask, kernel, iterations=2)
             downscale_factor = mask.shape[0] / image.shape[0]
@@ -120,7 +120,7 @@ def inpaint_images_in_grids(model: Model,
 
             mask = cv2.resize(mask, (int(mask.shape[1] * downscale_factor), int(mask.shape[0] * downscale_factor)), cv2.INTER_MAX)
             refined_mask = cv2.resize(refined_mask, (int(refined_mask.shape[1] * downscale_factor), int(refined_mask.shape[0] * downscale_factor)), cv2.INTER_MAX)
-            cv2.imwrite(str(cache_path / f"masks/{random_image[0]}"), mask)
+            cv2.imwrite(str(output_path / f"masks/{random_image[0]}"), mask)
 
             if log_inpaint_images:
                 cv2.imwrite(str(group_logs_path / random_image[0]), image)
@@ -146,7 +146,7 @@ def inpaint_images_in_grids(model: Model,
             reconstructed_images = get_images_from_grid(reconstructed_grid_image, img_old_size)
 
             for image, name in zip(reconstructed_images, image_name):
-                cv2.imwrite(str(cache_path / f"images/{name}"), image)
+                cv2.imwrite(str(output_path / f"images/{name}"), image)
             
             if log_inpaint_images:
                 for image, name in zip(reconstructed_images, image_name):

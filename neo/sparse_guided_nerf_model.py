@@ -200,8 +200,8 @@ class SparseGuidedNeRFModel(NerfactoModel):
         inpaint_repeat = 2500
         if step >= step_delay and step % inpaint_repeat == 0:
             # Create paths for generating dataset
-            cache_path = Path("cache") / self.config.bbox_path.parent
-            logs_path = Path("logs") / self.config.bbox_path.parent
+            cache_path = Path(self.config.bbox_path.parent) / "cache"
+            logs_path = Path(self.config.bbox_path.parent) / "logs"
 
             # Get cameras for rendering
             cameras, image_names = get_cameras(self.dataparser_config)
@@ -234,7 +234,7 @@ class SparseGuidedNeRFModel(NerfactoModel):
                                         inpainting_pipeline=self.inpainting_pipeline,
                                         selected_frames=selected_frames,
                                         cameras=cameras,
-                                        cache_path=cache_path,
+                                        output_path=cache_path,
                                         log_inpaint_images=True,
                                         logs_path=logs_path / f"iteration_{step}_s_{strength}",
                                         rendering_output_name='rgb',

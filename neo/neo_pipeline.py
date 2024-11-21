@@ -55,6 +55,10 @@ class NeoPipelineConfig(VanillaPipelineConfig):
     inpainting_model: str = "diffusers/stable-diffusion-xl-1.0-inpainting-0.1"
     """Model used for inpainting"""
 
+    # TODO Add functionality described below
+    loopback_model: bool = True
+    """Load the model after editing for further editing"""
+
 
 class NeoPipeline(VanillaPipeline):
     """Neo Pipeline
@@ -119,13 +123,9 @@ class NeoPipeline(VanillaPipeline):
         # self.inpainting_pipeline.safety_checker = None
         # self.inpainting_pipeline.requires_safety_checker = False
 
-        # Create folder
-        os.makedirs("logs", exist_ok=True)
-        os.makedirs("cache", exist_ok=True)
-
     def apply_changes_hook(self):
 
-        verbose = False # If set to True prints training progress of separate models
+        verbose = True # If set to True prints training progress of separate models
         dry_run = False
 
         if not dry_run:
@@ -142,24 +142,22 @@ class NeoPipeline(VanillaPipeline):
                                     )
             self.model.train()
 
-            del self.sam_predictor
-            del self.inpainting_pipeline
-
-        print(a)
-
         path = self.config.bbox_data_path
+        dataset_path = path / "cache"
+        experiment_name = str(path).split('/')[1]
+        timestamp = str(path).split('/')[-1]
         checkpoint_paths = (path / "nerfstudio_models").glob('*.ckpt')
         checkpoint_filenames = [path for path in checkpoint_paths if path.is_file()]
 
         train_sparse_guided_nerf_cmd = [
             "ns-train sparse-guided-nerf",
-            f"--data cache/{path}",
-            "--experiment_name neo",
-            "--timestamp ''",
+            f"--data {dataset_path}",
+            f"--experiment_name {experiment_name}",
+            f"--timestamp {timestamp}",
             f"--neo-model-path {checkpoint_filenames[0]}",
             f"--pipeline.model.bbox-path {path}/bbox.json",
             "--viewer.quit-on-train-completion True",
-            f"--output-dir cache",
+            f"--output-dir outputs",
             f"--pipeline.model.camera-optimizer.mode {self.config.model.camera_optimizer.mode}",
             "--viewer.websocket-port 7008"
         ]
@@ -177,15 +175,15 @@ class NeoPipeline(VanillaPipeline):
 
         train_replace_nerf_cmd = [
             "ns-train replace-nerf",
-            f"--data cache/{path}",
-            "--experiment_name neo",
-            "--timestamp ''",
+            f"--data {dataset_path}",
+            f"--experiment_name {experiment_name}",
+            f"--timestamp {timestamp}",
             f"--pipeline.model.field-path {checkpoint_filenames[0]}",
-            f"--pipeline.model.replace-field-path cache/neo/sparse-guided-nerf/nerfstudio_models/step-000029999.ckpt",
+            f"--pipeline.model.replace-field-path outputs/{experiment_name}/sparse-guided-nerf/{timestamp}/nerfstudio_models/step-000029999.ckpt",
             f"--pipeline.model.bbox-path {path}/bbox.json",
             "--pipeline.datamanager.pixel-sampler.ignore-mask True",
             "--viewer.quit-on-train-completion True",
-            f"--output-dir cache",
+            f"--output-dir outputs",
             f"--pipeline.model.camera-optimizer.mode {self.config.model.camera_optimizer.mode}",
             "--viewer.websocket-port 7009"
         ]
