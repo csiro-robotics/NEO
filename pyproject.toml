@@ -23,3 +23,4 @@ replace_nerf = 'neo.neo_config:replace_nerf_method'
 
 [project.scripts]
 ns-convert = "neo.scripts.convert_to_neo:entrypoint"
+ns-render-neo = "neo.render.render:entrypoint"
