@@ -41,18 +41,18 @@ def main(
 
     train_replace_nerf_cmd = [
         "ns-render-neo render-from-transforms",
-        f"--load-config {model_config.get_base_dir() / 'config.yml'}",
+        f"--load-config {str(model_config.get_base_dir()).replace('neo', 'replace-nerf')}/config.yml",
         f"--output-path {render_output_path}",
         "--output-format images",
         "--image-format png",
         "--rendered-output-names rgb depth",
-        f"--transforms-filename {model_config.data / 'transforms.json'}"
+        f"--transforms-filename {str(model_config.data).replace('before', 'after')}/transforms.json"
     ]
 
     train_replace_nerf_cmd = " ".join(train_replace_nerf_cmd)
 
     # Render images
-    dry_run = True
+    dry_run = False
     verbose = True
     
     if not dry_run:

@@ -4,6 +4,7 @@ import json
 import shutil
 import sys
 import os
+import cv2
 from contextlib import ExitStack
 from dataclasses import dataclass
 from pathlib import Path
@@ -191,17 +192,19 @@ def _render_trajectory_video(
                     output_image = outputs[rendered_output_name]
                     is_depth = rendered_output_name.find("depth") != -1
                     if is_depth:
-                        output_image = (
-                            colormaps.apply_depth_colormap(
-                                output_image,
-                                accumulation=outputs["accumulation"],
-                                near_plane=depth_near_plane,
-                                far_plane=depth_far_plane,
-                                colormap_options=colormap_options,
-                            )
-                            .cpu()
-                            .numpy()
-                        )
+                        # NOTE Commented out to generate true depth
+                        # output_image = (
+                        #     colormaps.apply_depth_colormap(
+                        #         output_image,
+                        #         accumulation=outputs["accumulation"],
+                        #         near_plane=depth_near_plane,
+                        #         far_plane=depth_far_plane,
+                        #         colormap_options=colormap_options,
+                        #     )
+                        #     .cpu()
+                        #     .numpy()
+                        # )
+                        output_image = output_image.detach().cpu().numpy()
                     elif rendered_output_name == "rgba":
                         output_image = output_image.detach().cpu().numpy()
                     else:
@@ -238,9 +241,11 @@ def _render_trajectory_video(
 
                 for idx, rendered_output_name in enumerate(rendered_output_names):
                     if output_format == "images":
-                        if image_format == "png":
+                        if 'depth' in rendered_output_name:
+                            cv2.imwrite(output_image_dir / rendered_output_name / f"{image_names[camera_idx]}.png", render_image[idx])
+                        elif image_format == "png":
                             media.write_image(output_image_dir / rendered_output_name / f"{image_names[camera_idx]}.png", render_image[idx], fmt="png")
-                        if image_format == "jpeg":
+                        elif image_format == "jpeg":
                             media.write_image(
                                 output_image_dir / rendered_output_name / f"{image_names[camera_idx]}.jpg", render_image[idx], fmt="jpeg", quality=jpeg_quality
                             )
