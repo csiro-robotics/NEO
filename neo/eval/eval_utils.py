@@ -1,4 +1,12 @@
 import torch
+import numpy as np
+
+from typing import Dict, List, Tuple
+from torchtyping import TensorType
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+
+from neo.eval.metrics import ImageMetricModule
 
 
 def depth_to_distance(depth: torch.Tensor, fov_x: float = None, fov_y: float = None, fl_x: float = None, fl_y: float = None) -> torch.Tensor:
@@ -57,3 +65,38 @@ def distance_to_depth(distance: torch.Tensor, fov_x: float, fov_y: float, fl_x: 
     depth = xyz[:, 2:3]
 
     return depth
+
+
+def get_pred_target(metric: ImageMetricModule, 
+                    pred: List[TensorType["bs", "n", "H", "W"]], 
+                    target: List[TensorType["bs", "n", "H", "W"]]) -> Tuple[TensorType["bs", "n", "H", "W"]]:
+
+    if metric.name in ["PSNR", "SSIM", "LPIPS", "Corrs"]:
+        return pred[0], target[0]
+    
+    elif metric.name in ["MAE"]:
+        return pred[1], target[1]
+
+
+def calcualte_error(metric: ImageMetricModule, dataloader: DataLoader, gt_dataloader: DataLoader, results: Tuple[Dict[str, float]], masked: bool = False) -> None:
+
+    error = []
+    with tqdm(desc=f"Calcualting {metric.name}", total=len(dataloader.dataset), unit="img", leave=True) as pbar:
+        for img, img_gt in zip(dataloader, gt_dataloader):
+
+            pred, target = get_pred_target(metric, img, img_gt)
+
+            if masked:
+                errors = metric(pred, target, img_gt[2]).detach().cpu().numpy()
+                errors = np.array(errors)
+                errors = errors[~np.isnan(errors)]
+                error.extend(errors)
+
+            else:
+                error.extend(metric(pred, target).detach().cpu().numpy())
+
+            pbar.update(img[0].shape[0])
+
+        mean_error = float(np.mean(error))
+
+        results[f"{dataloader.dataset.name}"][metric.name] = mean_error

@@ -8,6 +8,7 @@ dependencies=[
     "tqdm",
     "nerfstudio>=1.0.0",
     "transformers",
+    "torchtyping",
     "diffusers",
     "accelerate",
     "segment_anything @ git+https://github.com/facebookresearch/segment-anything.git"
