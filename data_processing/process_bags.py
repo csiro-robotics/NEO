@@ -68,7 +68,6 @@ def read_realsense_bag(bag_file_path, output_path, rotate_images, images=[], ski
         # Stop the pipeline
         pipeline.stop()
 
-
 def get_marker_pose(corners, camera_matrix, dist_coeffs):
     """ Compute the pose of a marker given its corners. """
     # Define the length of the marker's side (in meters or other units)
@@ -92,9 +91,9 @@ def get_arucos(images, transforms_dict):
     detector = cv2.aruco.ArucoDetector(dictionary, parameters)
     arucos = []
     camera_matrix = np.array([[transforms_dict["fl_x"], 0, transforms_dict["cx"]], 
-                        [0, transforms_dict["fl_y"], transforms_dict["cy"]], 
-                        [0, 0, 1]])
-    dist_coeffs = np.zeros((4, 1))
+                              [0, transforms_dict["fl_y"], transforms_dict["cy"]], 
+                              [0, 0, 1]])
+    dist_coeffs = np.array([transforms_dict["k1"], transforms_dict["k2"], transforms_dict["p1"], transforms_dict["p2"]])
     for image, frame in zip(images, transforms_dict["frames"]):
         corners, ids, _ = detector.detectMarkers(image)
         for i in range(len(corners)):
@@ -141,42 +140,85 @@ def aruco_objective(scale, arucos):
     
     return sum_0 + sum_1 + sum_2 + sum_3
 
-def apply_scale(arucos, best_scale,transforms_dict):
-# Apply best scale and create aruco dictionsary
+def apply_scale(arucos, best_scale, transforms_dict):
+    # Apply best scale and create aruco dictionsary
     aruco_dict_before = {}
     for i in range(100):
         aruco_dict_before[i] = []
 
     camera_path_before = []
-    i = 0
+    aruco_t = []
+    world_to_aruco_t = []
 
-    world_to_aruco_R = None
-    world_to_aruco_t = None
+    # Calculate mean of aruco positions
+    for aruco_id in range(4):
+        aruco_ts = []
+        world_to_aruco_ts = []
+        for trans_mat, trans, idx in arucos:
+            temp = deepcopy(trans_mat)
+            temp[:3, 3:] = temp[:3, 3:] / best_scale
+            marker_pose = temp @ trans
+            if idx == aruco_id:
+                R = deepcopy(marker_pose[:3, :3])
+                aruco_ts.append(deepcopy(marker_pose[:3, 3:]))
+                marker_pose[:3, 3:] = R.T @ marker_pose[:3, 3:]
+                world_to_aruco_ts.append(deepcopy(marker_pose[:3, 3:]))
 
-    # Setup pose of 0 aruco marker as world center
+        world_to_aruco_ts = np.array(world_to_aruco_ts)
+        world_to_aruco_ts = reject_outliers_iqr(world_to_aruco_ts[:, :, 0])
+        world_to_aruco_t.append(np.mean(world_to_aruco_ts, axis=0))
+
+        aruco_ts = np.array(aruco_ts)
+        aruco_ts = reject_outliers_iqr(aruco_ts[:, :, 0])
+        aruco_t.append(np.mean(aruco_ts, axis=0))
+
+    # Calculate world axes according to nieghbouring arucos 1 and 2
+    points = np.array(aruco_t)
+
+    aruco_1 = points[1] - points[0]
+    aruco_2 = points[2] - points[0]
+
+    gamma = np.arctan2(-aruco_1[1], aruco_1[0])
+
+    Rz = np.array([[np.cos(gamma), -np.sin(gamma), 0],
+                [np.sin(gamma), np.cos(gamma), 0],
+                [0, 0, 1]])
+
+    aruco_1 = Rz @ aruco_1
+    aruco_2 = Rz @ aruco_2
+
+    beta = np.arctan2(aruco_1[2], aruco_1[0])
+    Ry = np.array([[np.cos(beta), 0, np.sin(beta)],
+                [0, 1, 0],
+                [-np.sin(beta), 0, np.cos(beta)]])
+
+    aruco_1 = Ry @ aruco_1
+    aruco_2 = Ry @ aruco_2
+
+    alpha = np.arctan2(-aruco_2[2], aruco_2[1])
+    Rx = np.array([[1, 0, 0],
+                [0, np.cos(alpha), -np.sin(alpha)],
+                [0, np.sin(alpha), np.cos(alpha)]])
+
+    aruco_1 = Rx @ aruco_1
+    aruco_2 = Rx @ aruco_2
+
+    world_to_aruco_R = (Rx @ Ry @ Rz).T
+    world_to_aruco_t = world_to_aruco_t[0][..., None]
+
     for trans_mat, trans, idx in arucos:
         temp = deepcopy(trans_mat)
         temp[:3, 3:] = temp[:3, 3:] / best_scale
         marker_pose = temp @ trans
-        if idx == 0:
-            world_to_aruco_R = deepcopy(marker_pose[:3, :3])
-            marker_pose[:3, 3:] = world_to_aruco_R.T @ marker_pose[:3, 3:]
-            world_to_aruco_t = deepcopy(marker_pose[:3, 3:])
-            break
 
-    for trans_mat, trans, idx in arucos:
-        temp = deepcopy(trans_mat)
-        temp[:3, 3:] = temp[:3, 3:] / best_scale
-        marker_pose = temp @ trans
         marker_pose[:3, 3:] = world_to_aruco_R.T @ marker_pose[:3, 3:]
         marker_pose[:3, 3:] = marker_pose[:3, 3:] - world_to_aruco_t
+
         aruco_dict_before[idx].append(marker_pose)
 
         if idx == 0:
             temp[:3, 3:] = (world_to_aruco_R.T @ temp[:3, 3:]) - world_to_aruco_t
             camera_path_before.append(temp)
-
-        i += 1
 
     # Convert transform.json file to meters
     for frame in transforms_dict["frames"]:
@@ -185,8 +227,35 @@ def apply_scale(arucos, best_scale,transforms_dict):
         transform_matrix[:3, 3:] = transform_matrix[:3, 3:] / best_scale
         transform_matrix[:3, 3:] = (world_to_aruco_R.T @ transform_matrix[:3, 3:]) - world_to_aruco_t
         frame["transform_matrix"] = transform_matrix.tolist()
-    
 
+def reject_outliers_iqr(points, multiplier=1.5):
+    """
+    Rejects outliers based on the IQR (Interquartile Range) method using NumPy.
+    
+    Parameters:
+    - points: numpy array of shape (n_points, 3) representing 3D points
+    - multiplier: the factor to multiply the IQR by to define the outlier range (default is 1.5)
+    
+    Returns:
+    - filtered_points: numpy array with outliers removed
+    """
+    # Compute the 1st (Q1) and 3rd (Q3) quartiles for each dimension (x, y, z)
+    Q1 = np.percentile(points, 25, axis=0)
+    Q3 = np.percentile(points, 75, axis=0)
+    
+    # Compute the Interquartile Range (IQR)
+    IQR = Q3 - Q1
+    
+    # Calculate lower and upper bounds for each dimension
+    lower_bound = Q1 - multiplier * IQR
+    upper_bound = Q3 + multiplier * IQR
+    
+    # Find the points that lie within the bounds for each dimension
+    mask = np.all((points >= lower_bound) & (points <= upper_bound), axis=1)
+    
+    # Return the filtered points (outliers removed)
+    return points[mask, :]
+    
 parser = ArgumentParser()
 parser.add_argument("--scene_name", "-n", type=str, 
                     help="name of scene. Used in naming all related files")
@@ -205,7 +274,6 @@ parser.add_argument("--object_name", type=str, nargs="+")
 parser.add_argument("--root_output", default="data/neo_dataset",
                     help="absolute path of output for dataset")
 args=parser.parse_args()
-
 
 # action_type = "remove" if args.action == 'remove' else "reconfigure"
 action_type = args.action
@@ -234,21 +302,21 @@ for stage in ["before", "after"]:
     
     print(f"OUTPUT PATH: {output_path}")
 
-    # Extract raw frames from realsense camera
-    read_realsense_bag(bag_file_path, output_path /stage, True, frames[stage], args.skip_frames)
-    print(f"NUMBER OF FRAMES: {len(frames[stage])}")    
-    # Use COLMAP to get initial positions
-    if object_name != "temp":
-        subprocess.run(f"ns-process-data images --data {output_path / stage / 'rgb'} --output-dir {output_path / stage}", shell=True)
-        subprocess.run(f"rm -rf {output_path / stage /'rgb'}", shell=True)
-        subprocess.run(f"cp {output_path / stage / 'transforms.json'} {output_path / stage / 'raw_transforms.json'}", shell=True)
+    # # Extract raw frames from realsense camera
+    # read_realsense_bag(bag_file_path, output_path /stage, True, frames[stage], args.skip_frames)
+    # print(f"NUMBER OF FRAMES: {len(frames[stage])}")    
+    # # Use COLMAP to get initial positions
+    # if object_name != "temp":
+    #     subprocess.run(f"ns-process-data images --data {output_path / stage / 'rgb'} --output-dir {output_path / stage}", shell=True)
+    #     subprocess.run(f"rm -rf {output_path / stage /'rgb'}", shell=True)
+    #     subprocess.run(f"cp {output_path / stage / 'transforms.json'} {output_path / stage / 'raw_transforms.json'}", shell=True)
 
-print("LOADING TRANSFORMATION FILES")
 # Load transformation
-with open(output_path / "before" / 'transforms.json', 'r') as file:
+print("LOADING TRANSFORMATION FILES")
+with open(output_path / "before" / 'raw_transforms.json', 'r') as file:
     transform_dicts["before"] = json.load(file)
 
-with open(output_path / "after" / 'transforms.json', 'r') as file:
+with open(output_path / "after" / 'raw_transforms.json', 'r') as file:
     transform_dicts["after"] = json.load(file)
 
 # TODO for some reason reading from file is better? TO BE CONFIRMED
@@ -258,9 +326,8 @@ for frame in transform_dicts["before"]["frames"]:
 for frame in transform_dicts["after"]["frames"]:
     frames["after"].append(cv2.imread(str(output_path / "after" / frame["file_path"])))
 
-# Define camera parameters for world before
-print("DETECTING ARUCOS")
 # Detect Aruco markers
+print("DETECTING ARUCOS")
 arucos["before"] = get_arucos(frames["before"], transform_dicts["before"])
 arucos["after"] = get_arucos(frames["after"], transform_dicts["after"])
 
@@ -272,8 +339,10 @@ best_scale["before"] = minimize(aruco_objective, rand_start, arucos["before"], m
 rand_start = scale_min + np.random.rand(1) * (scale_max - scale_min)
 best_scale["after"] = minimize(aruco_objective, rand_start, arucos["after"], method='nelder-mead')['x']
 
-print("APPLYING SCALE")
+print(f"Best scales before: {best_scale['before']}, after {best_scale['after']}")
+
 # Apply that scale to the transforms
+print("APPLYING SCALE")
 apply_scale(arucos["before"], best_scale["before"], transform_dicts["before"])
 apply_scale(arucos["after"], best_scale["after"], transform_dicts["after"])
 
@@ -282,4 +351,3 @@ with open(output_path / "before" / 'transforms.json', 'w') as file:
     json.dump(transform_dicts["before"], file, indent=4)
 with open(output_path / "after" / 'transforms.json', 'w') as file:
     json.dump(transform_dicts["after"], file, indent=4)
-
