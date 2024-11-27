@@ -146,27 +146,16 @@ def apply_scale(arucos, best_scale, transforms_dict):
     for i in range(100):
         aruco_dict_before[i] = []
 
-    camera_path_before = []
-    aruco_t = []
-    world_to_aruco_t = []
-
     # Calculate mean of aruco positions
+    aruco_t = []
     for aruco_id in range(4):
         aruco_ts = []
-        world_to_aruco_ts = []
         for trans_mat, trans, idx in arucos:
             temp = deepcopy(trans_mat)
             temp[:3, 3:] = temp[:3, 3:] / best_scale
             marker_pose = temp @ trans
             if idx == aruco_id:
-                R = deepcopy(marker_pose[:3, :3])
                 aruco_ts.append(deepcopy(marker_pose[:3, 3:]))
-                marker_pose[:3, 3:] = R.T @ marker_pose[:3, 3:]
-                world_to_aruco_ts.append(deepcopy(marker_pose[:3, 3:]))
-
-        world_to_aruco_ts = np.array(world_to_aruco_ts)
-        world_to_aruco_ts = reject_outliers_iqr(world_to_aruco_ts[:, :, 0])
-        world_to_aruco_t.append(np.mean(world_to_aruco_ts, axis=0))
 
         aruco_ts = np.array(aruco_ts)
         aruco_ts = reject_outliers_iqr(aruco_ts[:, :, 0])
@@ -204,7 +193,20 @@ def apply_scale(arucos, best_scale, transforms_dict):
     aruco_2 = Rx @ aruco_2
 
     world_to_aruco_R = (Rx @ Ry @ Rz).T
-    world_to_aruco_t = world_to_aruco_t[0][..., None]
+
+    # Calculate mean of aruco positions
+    world_to_aruco_ts = []
+    for trans_mat, trans, idx in arucos:
+        temp = deepcopy(trans_mat)
+        temp[:3, 3:] = temp[:3, 3:] / best_scale
+        marker_pose = temp @ trans
+        if idx == 0:
+            marker_pose[:3, 3:] = world_to_aruco_R.T @ marker_pose[:3, 3:]
+            world_to_aruco_ts.append(deepcopy(marker_pose[:3, 3:]))
+
+    world_to_aruco_ts = np.array(world_to_aruco_ts)
+    world_to_aruco_ts = reject_outliers_iqr(world_to_aruco_ts[:, :, 0])
+    world_to_aruco_t = np.mean(world_to_aruco_ts, axis=0)[..., None]
 
     for trans_mat, trans, idx in arucos:
         temp = deepcopy(trans_mat)
@@ -215,10 +217,6 @@ def apply_scale(arucos, best_scale, transforms_dict):
         marker_pose[:3, 3:] = marker_pose[:3, 3:] - world_to_aruco_t
 
         aruco_dict_before[idx].append(marker_pose)
-
-        if idx == 0:
-            temp[:3, 3:] = (world_to_aruco_R.T @ temp[:3, 3:]) - world_to_aruco_t
-            camera_path_before.append(temp)
 
     # Convert transform.json file to meters
     for frame in transforms_dict["frames"]:
@@ -273,6 +271,9 @@ parser.add_argument("--sequence_num", type=int)
 parser.add_argument("--object_name", type=str, nargs="+")
 parser.add_argument("--root_output", default="data/neo_dataset",
                     help="absolute path of output for dataset")
+parser.add_argument("--skip_colmap", dest='skip_colmap', action='store_true',
+                    help="if passed colmap computation will be skipped")
+parser.set_defaults(skip_colmap=False)
 args=parser.parse_args()
 
 # action_type = "remove" if args.action == 'remove' else "reconfigure"
@@ -302,14 +303,15 @@ for stage in ["before", "after"]:
     
     print(f"OUTPUT PATH: {output_path}")
 
-    # # Extract raw frames from realsense camera
-    # read_realsense_bag(bag_file_path, output_path /stage, True, frames[stage], args.skip_frames)
-    # print(f"NUMBER OF FRAMES: {len(frames[stage])}")    
-    # # Use COLMAP to get initial positions
-    # if object_name != "temp":
-    #     subprocess.run(f"ns-process-data images --data {output_path / stage / 'rgb'} --output-dir {output_path / stage}", shell=True)
-    #     subprocess.run(f"rm -rf {output_path / stage /'rgb'}", shell=True)
-    #     subprocess.run(f"cp {output_path / stage / 'transforms.json'} {output_path / stage / 'raw_transforms.json'}", shell=True)
+    # Extract raw frames from realsense camera
+    if not args.skip_colmap:
+        read_realsense_bag(bag_file_path, output_path /stage, True, frames[stage], args.skip_frames)
+        print(f"NUMBER OF FRAMES: {len(frames[stage])}")    
+        # Use COLMAP to get initial positions
+        if object_name != "temp":
+            subprocess.run(f"ns-process-data images --data {output_path / stage / 'rgb'} --output-dir {output_path / stage}", shell=True)
+            subprocess.run(f"rm -rf {output_path / stage /'rgb'}", shell=True)
+            subprocess.run(f"cp {output_path / stage / 'transforms.json'} {output_path / stage / 'raw_transforms.json'}", shell=True)
 
 # Load transformation
 print("LOADING TRANSFORMATION FILES")
