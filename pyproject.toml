@@ -4,9 +4,11 @@ description = "Repository contining Neo method for Nerfstudio."
 version = "0.0.1"
 
 dependencies=[
+    "bagpy",
     "scipy",
     "tqdm",
     "nerfstudio>=1.0.0",
+    "pyrealsense2",
     "transformers",
     "torchtyping",
     "diffusers",

@@ -253,103 +253,105 @@ def reject_outliers_iqr(points, multiplier=1.5):
     
     # Return the filtered points (outliers removed)
     return points[mask, :]
+
+if __name__ == "__main__":
     
-parser = ArgumentParser()
-parser.add_argument("--scene_name", "-n", type=str, 
-                    help="name of scene. Used in naming all related files")
-parser.add_argument("--root_bag", default="data/raw_bagfiles",
-                    help="absolute path of root location of bag files")
-parser.add_argument("--skip_frames", default=6, type=int, 
-                    help="number of frames to be skipped from original video")
-parser.add_argument("--action", choices=["remove", "translate", 
-                                       "rotate", "translate_and_rotate",
-                                       "mix"])
-parser.add_argument("--scene_type", choices=["single", "multiple_one", 
-                                             "multiple_sequential", 
-                                             "multiple_multiaction"])
-parser.add_argument("--sequence_num", type=int)
-parser.add_argument("--object_name", type=str, nargs="+")
-parser.add_argument("--root_output", default="data/neo_dataset",
-                    help="absolute path of output for dataset")
-parser.add_argument("--skip_colmap", dest='skip_colmap', action='store_true',
-                    help="if passed colmap computation will be skipped")
-parser.set_defaults(skip_colmap=False)
-args=parser.parse_args()
+    parser = ArgumentParser()
+    parser.add_argument("--scene_name", "-n", type=str, 
+                        help="name of scene. Used in naming all related files")
+    parser.add_argument("--root_bag", default="data/raw_bagfiles",
+                        help="absolute path of root location of bag files")
+    parser.add_argument("--skip_frames", default=6, type=int, 
+                        help="number of frames to be skipped from original video")
+    parser.add_argument("--action", choices=["remove", "translate", 
+                                        "rotate", "translate_and_rotate",
+                                        "mix"])
+    parser.add_argument("--scene_type", choices=["single", "multiple_one", 
+                                                "multiple_sequential", 
+                                                "multiple_multiaction"])
+    parser.add_argument("--sequence_num", type=int)
+    parser.add_argument("--object_name", type=str, nargs="+")
+    parser.add_argument("--root_output", default="data/neo_dataset",
+                        help="absolute path of output for dataset")
+    parser.add_argument("--skip_colmap", dest='skip_colmap', action='store_true',
+                        help="if passed colmap computation will be skipped")
+    parser.set_defaults(skip_colmap=False)
+    args=parser.parse_args()
 
-# action_type = "remove" if args.action == 'remove' else "reconfigure"
-action_type = args.action
-# HACK!!! we ran into issues with COLMAP within the docker. 
-# Should find out best practice to avoid this
-# subprocess.run(f"chmod -R 777 {args.root_output}", shell=True)
-# subprocess.run(f"chmod -R 777 {args.root_bag}", shell=True)
-scene_name = args.scene_name if args.scene_type not in ["multiple_sequential", "multiple_multiaction"] \
-    else f"{args.scene_name}-{args.sequence_num:04}"
-if args.scene_type == "single":
-    object_name = args.scene_name
-elif not args.object_name:
-    raise ValueError("Cannot have action on multiple object scene without defining object being acted upon")
-else:
-    object_name = "-".join([obj for obj in args.object_name])
-output_path = Path(args.root_output) / "real" / args.action /args.scene_type / scene_name / object_name
+    # action_type = "remove" if args.action == 'remove' else "reconfigure"
+    action_type = args.action
+    # HACK!!! we ran into issues with COLMAP within the docker. 
+    # Should find out best practice to avoid this
+    # subprocess.run(f"chmod -R 777 {args.root_output}", shell=True)
+    # subprocess.run(f"chmod -R 777 {args.root_bag}", shell=True)
+    scene_name = args.scene_name if args.scene_type not in ["multiple_sequential", "multiple_multiaction"] \
+        else f"{args.scene_name}-{args.sequence_num:04}"
+    if args.scene_type == "single":
+        object_name = args.scene_name
+    elif not args.object_name:
+        raise ValueError("Cannot have action on multiple object scene without defining object being acted upon")
+    else:
+        object_name = "-".join([obj for obj in args.object_name])
+    output_path = Path(args.root_output) / "real" / args.action /args.scene_type / scene_name / object_name
 
-# Need both before and after to be present in order to perform final alignment
-frames ={"before": [], "after": []}
-transform_dicts = {}
-arucos = {}
-best_scale = {}
-for stage in ["before", "after"]:
-    bag_file_path = os.path.join(args.root_bag, action_type, 
-                                f"{scene_name}_{stage}.bag")
-    
-    print(f"OUTPUT PATH: {output_path}")
+    # Need both before and after to be present in order to perform final alignment
+    frames ={"before": [], "after": []}
+    transform_dicts = {}
+    arucos = {}
+    best_scale = {}
+    for stage in ["before", "after"]:
+        bag_file_path = os.path.join(args.root_bag, action_type, 
+                                    f"{scene_name}_{stage}.bag")
+        
+        print(f"OUTPUT PATH: {output_path}")
 
-    # Extract raw frames from realsense camera
-    if not args.skip_colmap:
-        read_realsense_bag(bag_file_path, output_path /stage, True, frames[stage], args.skip_frames)
-        print(f"NUMBER OF FRAMES: {len(frames[stage])}")    
-        # Use COLMAP to get initial positions
-        if object_name != "temp":
-            subprocess.run(f"ns-process-data images --data {output_path / stage / 'rgb'} --output-dir {output_path / stage}", shell=True)
-            subprocess.run(f"rm -rf {output_path / stage /'rgb'}", shell=True)
-            subprocess.run(f"cp {output_path / stage / 'transforms.json'} {output_path / stage / 'raw_transforms.json'}", shell=True)
+        # Extract raw frames from realsense camera
+        if not args.skip_colmap:
+            read_realsense_bag(bag_file_path, output_path /stage, True, frames[stage], args.skip_frames)
+            print(f"NUMBER OF FRAMES: {len(frames[stage])}")    
+            # Use COLMAP to get initial positions
+            if object_name != "temp":
+                subprocess.run(f"ns-process-data images --data {output_path / stage / 'rgb'} --output-dir {output_path / stage}", shell=True)
+                subprocess.run(f"rm -rf {output_path / stage /'rgb'}", shell=True)
+                subprocess.run(f"cp {output_path / stage / 'transforms.json'} {output_path / stage / 'raw_transforms.json'}", shell=True)
 
-# Load transformation
-print("LOADING TRANSFORMATION FILES")
-with open(output_path / "before" / 'raw_transforms.json', 'r') as file:
-    transform_dicts["before"] = json.load(file)
+    # Load transformation
+    print("LOADING TRANSFORMATION FILES")
+    with open(output_path / "before" / 'raw_transforms.json', 'r') as file:
+        transform_dicts["before"] = json.load(file)
 
-with open(output_path / "after" / 'raw_transforms.json', 'r') as file:
-    transform_dicts["after"] = json.load(file)
+    with open(output_path / "after" / 'raw_transforms.json', 'r') as file:
+        transform_dicts["after"] = json.load(file)
 
-# TODO for some reason reading from file is better? TO BE CONFIRMED
-frames ={"before": [], "after": []}
-for frame in transform_dicts["before"]["frames"]:
-    frames["before"].append(cv2.imread(str(output_path / "before" / frame["file_path"])))
-for frame in transform_dicts["after"]["frames"]:
-    frames["after"].append(cv2.imread(str(output_path / "after" / frame["file_path"])))
+    # TODO for some reason reading from file is better? TO BE CONFIRMED
+    frames ={"before": [], "after": []}
+    for frame in transform_dicts["before"]["frames"]:
+        frames["before"].append(cv2.imread(str(output_path / "before" / frame["file_path"])))
+    for frame in transform_dicts["after"]["frames"]:
+        frames["after"].append(cv2.imread(str(output_path / "after" / frame["file_path"])))
 
-# Detect Aruco markers
-print("DETECTING ARUCOS")
-arucos["before"] = get_arucos(frames["before"], transform_dicts["before"])
-arucos["after"] = get_arucos(frames["after"], transform_dicts["after"])
+    # Detect Aruco markers
+    print("DETECTING ARUCOS")
+    arucos["before"] = get_arucos(frames["before"], transform_dicts["before"])
+    arucos["after"] = get_arucos(frames["after"], transform_dicts["after"])
 
-# Optimize for best scale
-print("OPTIMIZING SCALE")
-scale_min, scale_max = 0, 20
-rand_start = scale_min + np.random.rand(1) * (scale_max - scale_min)
-best_scale["before"] = minimize(aruco_objective, rand_start, arucos["before"], method='nelder-mead')['x']
-rand_start = scale_min + np.random.rand(1) * (scale_max - scale_min)
-best_scale["after"] = minimize(aruco_objective, rand_start, arucos["after"], method='nelder-mead')['x']
+    # Optimize for best scale
+    print("OPTIMIZING SCALE")
+    scale_min, scale_max = 0, 20
+    rand_start = scale_min + np.random.rand(1) * (scale_max - scale_min)
+    best_scale["before"] = minimize(aruco_objective, rand_start, arucos["before"], method='nelder-mead')['x']
+    rand_start = scale_min + np.random.rand(1) * (scale_max - scale_min)
+    best_scale["after"] = minimize(aruco_objective, rand_start, arucos["after"], method='nelder-mead')['x']
 
-print(f"Best scales before: {best_scale['before']}, after {best_scale['after']}")
+    print(f"Best scales before: {best_scale['before']}, after {best_scale['after']}")
 
-# Apply that scale to the transforms
-print("APPLYING SCALE")
-apply_scale(arucos["before"], best_scale["before"], transform_dicts["before"])
-apply_scale(arucos["after"], best_scale["after"], transform_dicts["after"])
+    # Apply that scale to the transforms
+    print("APPLYING SCALE")
+    apply_scale(arucos["before"], best_scale["before"], transform_dicts["before"])
+    apply_scale(arucos["after"], best_scale["after"], transform_dicts["after"])
 
-# Save the updated transforms file
-with open(output_path / "before" / 'transforms.json', 'w') as file:
-    json.dump(transform_dicts["before"], file, indent=4)
-with open(output_path / "after" / 'transforms.json', 'w') as file:
-    json.dump(transform_dicts["after"], file, indent=4)
+    # Save the updated transforms file
+    with open(output_path / "before" / 'transforms.json', 'w') as file:
+        json.dump(transform_dicts["before"], file, indent=4)
+    with open(output_path / "after" / 'transforms.json', 'w') as file:
+        json.dump(transform_dicts["after"], file, indent=4)
