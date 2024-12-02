@@ -300,7 +300,7 @@ if __name__ == "__main__":
     arucos = {}
     best_scale = {}
     for stage in ["before", "after"]:
-        bag_file_path = os.path.join(args.root_bag, action_type, 
+        bag_file_path = os.path.join(args.root_bag, action_type, args.scene_type,
                                     f"{scene_name}_{stage}.bag")
         
         print(f"OUTPUT PATH: {output_path}")
@@ -332,7 +332,9 @@ if __name__ == "__main__":
 
     # Detect Aruco markers
     print("DETECTING ARUCOS")
+    print("BEFORE")
     arucos["before"] = get_arucos(frames["before"], transform_dicts["before"])
+    print("AFTER")
     arucos["after"] = get_arucos(frames["after"], transform_dicts["after"])
 
     # Optimize for best scale
