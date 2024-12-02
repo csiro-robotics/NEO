@@ -10,6 +10,7 @@
 /outputs
 /renders
 /eval
+/exports
 
 # Pytohn
 __pycache__

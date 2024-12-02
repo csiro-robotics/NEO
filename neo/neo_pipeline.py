@@ -157,7 +157,7 @@ class NeoPipeline(VanillaPipeline):
             f"--neo-model-path {checkpoint_filenames[0]}",
             f"--pipeline.model.bbox-path {path}/bbox.json",
             "--viewer.quit-on-train-completion True",
-            f"--output-dir outputs",
+            f"--output-dir outputs/{experiment_name}",
             f"--pipeline.model.camera-optimizer.mode {self.config.model.camera_optimizer.mode}",
             "--viewer.websocket-port 7008"
         ]
@@ -183,7 +183,7 @@ class NeoPipeline(VanillaPipeline):
             f"--pipeline.model.bbox-path {path}/bbox.json",
             "--pipeline.datamanager.pixel-sampler.ignore-mask True",
             "--viewer.quit-on-train-completion True",
-            f"--output-dir outputs",
+            f"--output-dir outputs/{experiment_name}",
             f"--pipeline.model.camera-optimizer.mode {self.config.model.camera_optimizer.mode}",
             "--viewer.websocket-port 7009"
         ]
