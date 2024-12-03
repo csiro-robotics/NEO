@@ -1,9 +1,9 @@
 import bagpy
 import os
+import sys
 import json
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 
 from bagpy import bagreader
 from scipy.spatial.transform import Rotation
@@ -13,6 +13,8 @@ from pathlib import Path
 if __name__ == "__main__":
 
     parser = ArgumentParser()
+    parser.add_argument("--data_type", type=str, choices=["real", "simulated"],
+                    help="specify if data is real or simulated")
     parser.add_argument("--scene_name", "-n", type=str, 
                         help="name of scene. Used in naming all related files")
     parser.add_argument("--root_bag", default="data/raw_bagfiles",
@@ -40,7 +42,7 @@ if __name__ == "__main__":
         raise ValueError("Cannot have action on multiple object scene without defining object being acted upon")
     else:
         object_name = "-".join([obj for obj in args.object_name])
-    output_path = Path(args.root_output) / "real" / args.action / args.scene_type / scene_name / object_name / "after"
+    output_path = Path(args.root_output) / args.data_type / args.action / args.scene_type / scene_name / object_name / "after"
     os.makedirs(output_path, exist_ok=True)
 
     bag_file_path = os.path.join(args.root_bag, action_type, args.scene_type, f"{scene_name}_ros_topics.bag")
@@ -48,8 +50,16 @@ if __name__ == "__main__":
     print(f"BAG FILE: {bag_file_path}")
     print(f"OUTPUT PATH: {output_path}")
 
-    # Read bagfile
-    b = bagreader(bag_file_path)
+    if args.action == "remove":
+        print(f"Remove action, exiting arm movement extraction!")
+        sys.exit()
+
+    if os.path.exists(bag_file_path):
+        print(f"Loading .bag file: {bag_file_path}")
+        b = bagreader(bag_file_path)
+    else:
+        print(f"File '{bag_file_path}' does not exist. Exiting program.")
+        sys.exit()
 
     # Read arm data topic
     arm_topics = "/trolley/panda/armer/state"

@@ -257,6 +257,8 @@ def reject_outliers_iqr(points, multiplier=1.5):
 if __name__ == "__main__":
     
     parser = ArgumentParser()
+    parser.add_argument("--data_type", type=str, choices=["real", "simulated"],
+                        help="specify if data is real or simulated")
     parser.add_argument("--scene_name", "-n", type=str, 
                         help="name of scene. Used in naming all related files")
     parser.add_argument("--root_bag", default="data/raw_bagfiles",
@@ -292,7 +294,7 @@ if __name__ == "__main__":
         raise ValueError("Cannot have action on multiple object scene without defining object being acted upon")
     else:
         object_name = "-".join([obj for obj in args.object_name])
-    output_path = Path(args.root_output) / "real" / args.action /args.scene_type / scene_name / object_name
+    output_path = Path(args.root_output) / args.data_type / args.action /args.scene_type / scene_name / object_name
 
     # Need both before and after to be present in order to perform final alignment
     frames ={"before": [], "after": []}
