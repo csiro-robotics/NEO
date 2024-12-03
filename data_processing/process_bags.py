@@ -309,7 +309,7 @@ if __name__ == "__main__":
 
         # Extract raw frames from realsense camera
         if not args.skip_colmap:
-            read_realsense_bag(bag_file_path, output_path /stage, True, frames[stage], args.skip_frames)
+            read_realsense_bag(bag_file_path, output_path / stage, True, frames[stage], args.skip_frames)
             print(f"NUMBER OF FRAMES: {len(frames[stage])}")    
             # Use COLMAP to get initial positions
             if object_name != "temp":
