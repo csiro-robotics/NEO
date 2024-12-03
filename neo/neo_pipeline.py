@@ -144,20 +144,19 @@ class NeoPipeline(VanillaPipeline):
 
         path = self.config.bbox_data_path
         dataset_path = path / "cache"
-        experiment_name = str(path).split('/')[1]
-        timestamp = str(path).split('/')[-1]
         checkpoint_paths = (path / "nerfstudio_models").glob('*.ckpt')
         checkpoint_filenames = [path for path in checkpoint_paths if path.is_file()]
 
         train_sparse_guided_nerf_cmd = [
             "ns-train sparse-guided-nerf",
             f"--data {dataset_path}",
-            f"--experiment_name {experiment_name}",
-            f"--timestamp {timestamp}",
+            "--experiment_name ''",
+            "--timestamp ''",
+            "--method-name ''",
             f"--neo-model-path {checkpoint_filenames[0]}",
             f"--pipeline.model.bbox-path {path}/bbox.json",
             "--viewer.quit-on-train-completion True",
-            f"--output-dir outputs/{experiment_name}",
+            f"--output-dir {str(path).replace('neo', 'sparse-guided-nerf')}",
             f"--pipeline.model.camera-optimizer.mode {self.config.model.camera_optimizer.mode}",
             "--viewer.websocket-port 7008"
         ]
@@ -176,14 +175,15 @@ class NeoPipeline(VanillaPipeline):
         train_replace_nerf_cmd = [
             "ns-train replace-nerf",
             f"--data {dataset_path}",
-            f"--experiment_name {experiment_name}",
-            f"--timestamp {timestamp}",
+            "--experiment_name ''",
+            "--timestamp ''",
+            "--method-name ''",
             f"--pipeline.model.field-path {checkpoint_filenames[0]}",
-            f"--pipeline.model.replace-field-path outputs/{experiment_name}/sparse-guided-nerf/{timestamp}/nerfstudio_models/step-000029999.ckpt",
+            f"--pipeline.model.replace-field-path {str(path).replace('neo', 'sparse-guided-nerf')}/nerfstudio_models/step-000029999.ckpt",
             f"--pipeline.model.bbox-path {path}/bbox.json",
             "--pipeline.datamanager.pixel-sampler.ignore-mask True",
             "--viewer.quit-on-train-completion True",
-            f"--output-dir outputs/{experiment_name}",
+            f"--output-dir {str(path).replace('neo', 'replace-nerf')}",
             f"--pipeline.model.camera-optimizer.mode {self.config.model.camera_optimizer.mode}",
             "--viewer.websocket-port 7009"
         ]
