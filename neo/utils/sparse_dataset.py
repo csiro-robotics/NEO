@@ -5,17 +5,16 @@ import shutil
 import torch
 
 import numpy as np
-import numpy.typing as npt
 
-from typing import Dict, List, Any
+from typing import Dict, Any
 from pathlib import Path
 from rich.progress import track
 from segment_anything import SamPredictor
-from scipy.spatial.transform import Rotation
 
 from nerfstudio.models.base_model import Model
 from nerfstudio.utils.rich_utils import CONSOLE
 
+from neo.render.camera_paths import generate_hemisphere_transforms
 from neo.utils.cameras import get_cameras
 from neo.utils.collisions import get_collision_groups
 from neo.utils.inpainting import inpaint_images_in_grids
@@ -86,7 +85,7 @@ def generate_sparse_dataset(model: Model,
     selected_views = []
     for i, group in enumerate(collision_groups):
         boxes_centre = np.mean(np.vstack([box["data"]["position"] for box in bboxes if box['idx'] in group]), axis=0)
-        dedicated_transforms = generate_hemisphere_vectors(radius, num_layers, boxes_centre)
+        dedicated_transforms = generate_hemisphere_transforms(radius, num_layers, boxes_centre)
 
         group_views = []
         for j, dedicated_transform in enumerate(dedicated_transforms):
@@ -131,34 +130,6 @@ def generate_sparse_dataset(model: Model,
 
     # Remove temporary masks
     # shutil.rmtree(output_path / "temp_masks")
-
-
-def generate_hemisphere_vectors(radius: float, num_layers: int, origin: np.ndarray) -> List[npt.NDArray]:
-    transformation_matrices = []
-    
-    thetas = np.linspace(0.0, np.pi / 2, num_layers + 2)
-    phi_offsets = np.linspace(0.0, np.pi / 2, num_layers, endpoint=False)
-    for i, theta in enumerate(thetas[1:-1]):
-        for j in range(4):
-            
-            phi = ((np.pi / 2) * j) + phi_offsets[i] 
-
-            x = (np.cos(theta) * np.sin(-phi) * radius) + origin[0]
-            y = (np.cos(theta) * np.cos(-phi) * radius) + origin[1]
-            z = (np.sin(theta) * radius) + origin[2]
-
-            rot_1 = Rotation.from_euler('XYZ', [-np.pi / 2, -phi, 0.0], degrees=False)
-            rot_2 = Rotation.from_euler('XYZ', [theta, 0.0, 0.0], degrees=False)
-            rot_3 = Rotation.from_euler('XYZ', [0.0, 0.0, np.pi], degrees=False)
-            R = (rot_1 * rot_2 * rot_3).as_matrix()
-
-            trans_mat = np.eye(4)
-            trans_mat[:3, 3:] = np.array([[x, y, z]]).T
-            trans_mat[:3, :3] = R
-
-            transformation_matrices.append(trans_mat)
-    
-    return transformation_matrices
 
 
 def generate_masks(camera_data: Dict[str, float], 

@@ -21,17 +21,21 @@ from rich.progress import BarColumn, Progress, TaskProgressColumn, TextColumn, T
 from rich.table import Table
 from typing_extensions import Annotated
 
+from nerfstudio.cameras.camera_paths import get_spiral_path
 from nerfstudio.cameras.cameras import Cameras, CameraType, RayBundle
 from nerfstudio.model_components import renderers
 from nerfstudio.pipelines.base_pipeline import Pipeline
 from nerfstudio.scripts.render import insert_spherical_metadata_into_file, get_crop_from_json
-from nerfstudio.scripts.render import RenderCameraPath, RenderInterpolated, SpiralRender, DatasetRender, CropData
+from nerfstudio.scripts.render import BaseRender, RenderCameraPath, RenderInterpolated, DatasetRender, CropData
+from nerfstudio.data.datamanagers.base_datamanager import VanillaDataManager
+from nerfstudio.data.datamanagers.parallel_datamanager import ParallelDataManager
+from nerfstudio.data.datamanagers.random_cameras_datamanager import RandomCamerasDataManager
 from nerfstudio.utils import colormaps, install_checks
 from nerfstudio.utils.eval_utils import eval_setup
 from nerfstudio.utils.rich_utils import CONSOLE, ItersPerSecColumn
 from nerfstudio.utils.scripts import run_command
 
-from neo.render.camera_paths import get_path_from_json
+from neo.render.camera_paths import get_path_from_json, generate_hemisphere_transforms
 
 
 def _render_trajectory_video(
@@ -480,6 +484,83 @@ class RenderFromTransforms(RenderCameraPath):
                 if str(left_eye_path.parent)[-5:] == "_temp":
                     shutil.rmtree(left_eye_path.parent, ignore_errors=True)
                 CONSOLE.print("[bold green]Final VR180 Render Complete")
+
+
+@dataclass
+class SpiralRender(BaseRender):
+    """Render a spiral trajectory (often not great)."""
+
+    seconds: float = 3.0
+    """How long the video should be."""
+    output_format: Literal["images", "video"] = "video"
+    """How to save output data."""
+    frame_rate: int = 24
+    """Frame rate of the output video (only for interpolate trajectory)."""
+    radius: float = 0.1
+    """Radius of the spiral."""
+
+    def main(self) -> None:
+        """Main function."""
+        _, pipeline, _, _ = eval_setup(
+            self.load_config,
+            eval_num_rays_per_chunk=self.eval_num_rays_per_chunk,
+            test_mode="test",
+        )
+
+        install_checks.check_ffmpeg_installed()
+
+        assert isinstance(
+            pipeline.datamanager,
+            (
+                VanillaDataManager,
+                ParallelDataManager,
+                RandomCamerasDataManager,
+            ),
+        )
+        steps = int(self.frame_rate * self.seconds)
+        camera_start, _ = pipeline.datamanager.eval_dataloader.get_camera(image_idx=0)
+
+        x, y, z = 0.0, 0.0, 0.0
+        c2ws = generate_hemisphere_transforms(
+            radius=0.25,
+            num_layers=4,
+            origin=np.array([x, y, z]),
+            dtype=torch.Tensor,
+            shape=(3, 4)
+            )
+        c2ws = torch.stack(c2ws, dim=0)
+
+        times = torch.linspace(0, 1, c2ws.shape[0])[:, None]
+        camera_path = Cameras(
+            fx=camera_start.fx[0],
+            fy=camera_start.fy[0],
+            cx=camera_start.cx[0],
+            cy=camera_start.cy[0],
+            camera_to_worlds=c2ws,
+            times=times,
+        )
+
+        image_names = [f"frame_{num:05d}" for num in range(steps)]
+
+        if self.camera_idx is not None:
+            camera_path.metadata = {"cam_idx": self.camera_idx}
+
+        _render_trajectory_video(
+            pipeline,
+            camera_path,
+            image_names=image_names,
+            output_filename=self.output_path,
+            rendered_output_names=self.rendered_output_names,
+            rendered_resolution_scaling_factor=1.0 / self.downscale_factor,
+            seconds=self.seconds,
+            output_format=self.output_format,
+            image_format=self.image_format,
+            depth_near_plane=self.depth_near_plane,
+            depth_far_plane=self.depth_far_plane,
+            colormap_options=self.colormap_options,
+            render_nearest_camera=self.render_nearest_camera,
+            check_occlusions=self.check_occlusions,
+        )
 
 
 Commands = tyro.conf.FlagConversionOff[

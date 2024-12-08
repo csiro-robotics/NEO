@@ -1,6 +1,9 @@
-from typing import Any, Dict
-
 import torch
+import numpy as np
+import numpy.typing as npt
+
+from typing import Any, List, Dict
+from scipy.spatial.transform import Rotation
 
 from nerfstudio.cameras.cameras import Cameras, CameraType
 from nerfstudio.viewer_legacy.server.utils import three_js_perspective_camera_focal_length
@@ -97,3 +100,37 @@ def get_path_from_json(camera_path: Dict[str, Any]) -> Cameras:
         camera_type=camera_type,
         times=times,
     )
+
+
+def generate_hemisphere_transforms(radius: float, num_layers: int, origin: np.ndarray, dtype: type = np.array, shape: tuple = (4, 4)) -> List[npt.NDArray]:
+    transformation_matrices = []
+    
+    thetas = np.linspace(0.0, np.pi / 2, num_layers + 2)
+    phi_offsets = np.linspace(0.0, np.pi / 2, num_layers, endpoint=False)
+    for i, theta in enumerate(thetas[1:-1]):
+        for j in range(4):
+            
+            phi = ((np.pi / 2) * j) + phi_offsets[i] 
+
+            x = (np.cos(theta) * np.sin(-phi) * radius) + origin[0]
+            y = (np.cos(theta) * np.cos(-phi) * radius) + origin[1]
+            z = (np.sin(theta) * radius) + origin[2]
+
+            rot_1 = Rotation.from_euler('XYZ', [-np.pi / 2, -phi, 0.0], degrees=False)
+            rot_2 = Rotation.from_euler('XYZ', [theta, 0.0, 0.0], degrees=False)
+            rot_3 = Rotation.from_euler('XYZ', [0.0, 0.0, np.pi], degrees=False)
+            R = (rot_1 * rot_2 * rot_3).as_matrix()
+
+            trans_mat = np.eye(4)
+            trans_mat[:3, 3:] = np.array([[x, y, z]]).T
+            trans_mat[:3, :3] = R
+
+            if dtype == torch.Tensor:
+                trans_mat = torch.tensor(trans_mat).float()
+
+            if shape == (3, 4):
+                trans_mat = trans_mat[:3, :]
+
+            transformation_matrices.append(trans_mat)
+    
+    return transformation_matrices
