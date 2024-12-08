@@ -2,6 +2,7 @@
 Neo pipeline.
 """
 import os
+import re
 import torch
 import typing
 
@@ -142,63 +143,73 @@ class NeoPipeline(VanillaPipeline):
                                     )
             self.model.train()
 
-        path = self.config.bbox_data_path
-        dataset_path = path / "cache"
-        checkpoint_paths = (path / "nerfstudio_models").glob('*.ckpt')
-        checkpoint_filenames = [path for path in checkpoint_paths if path.is_file()]
+        # path = self.config.bbox_data_path
+        # dataset_path = path / "cache"
+        # checkpoint_paths = (path / "nerfstudio_models").glob('*.ckpt')
+        # checkpoint_filenames = [path for path in checkpoint_paths if path.is_file()]
 
-        train_sparse_guided_nerf_cmd = [
-            "ns-train sparse-guided-nerf",
-            f"--data {dataset_path}",
-            "--experiment_name ''",
-            "--timestamp ''",
-            "--method-name ''",
-            f"--neo-model-path {checkpoint_filenames[0]}",
-            f"--pipeline.model.bbox-path {path}/bbox.json",
-            "--viewer.quit-on-train-completion True",
-            f"--output-dir {str(path).replace('neo', 'sparse-guided-nerf')}",
-            f"--pipeline.model.camera-optimizer.mode {self.config.model.camera_optimizer.mode}",
-            "--viewer.websocket-port 7008"
-        ]
-        train_sparse_guided_nerf_cmd = " ".join(train_sparse_guided_nerf_cmd)
+        # timestamp_pattern = r'\d{4}-\d{2}-\d{2}_\d{6}'
+        # if re.match(timestamp_pattern, path.name) or path.name == "latest":
+        #     timestamp = path.name
+        # else:
+        #     timestamp = ''
 
-        if not dry_run:
-            with status(msg="[bold green]Training Sparse Guided NeRF", spinner="moon", verbose=verbose):
-                run_command(train_sparse_guided_nerf_cmd, verbose=verbose)
+        # method_name = "sparse-guided-nerf"
 
-        else:
-            print("----------------------------------------------------------------------------------------------------------------")
-            print("Train command:")
-            print(train_sparse_guided_nerf_cmd)
-            print("----------------------------------------------------------------------------------------------------------------")
+        # train_sparse_guided_nerf_cmd = [
+        #     f"ns-train {method_name}",
+        #     f"--data {dataset_path}",
+        #     "--experiment_name ''",
+        #     f"--timestamp {timestamp}",
+        #     f"--method-name {method_name}",
+        #     f"--neo-model-path {checkpoint_filenames[0]}",
+        #     f"--pipeline.model.bbox-path {path}/bbox.json",
+        #     "--viewer.quit-on-train-completion True",
+        #     f"--output-dir {str(path).replace('neo/', '').replace(timestamp, '')}",
+        #     f"--pipeline.model.camera-optimizer.mode {self.config.model.camera_optimizer.mode}",
+        #     "--viewer.websocket-port 7008"
+        # ]
+        # train_sparse_guided_nerf_cmd = " ".join(train_sparse_guided_nerf_cmd)
 
-        train_replace_nerf_cmd = [
-            "ns-train replace-nerf",
-            f"--data {dataset_path}",
-            "--experiment_name ''",
-            "--timestamp ''",
-            "--method-name ''",
-            f"--pipeline.model.field-path {checkpoint_filenames[0]}",
-            f"--pipeline.model.replace-field-path {str(path).replace('neo', 'sparse-guided-nerf')}/nerfstudio_models/step-000029999.ckpt",
-            f"--pipeline.model.bbox-path {path}/bbox.json",
-            "--pipeline.datamanager.pixel-sampler.ignore-mask True",
-            "--viewer.quit-on-train-completion True",
-            f"--output-dir {str(path).replace('neo', 'replace-nerf')}",
-            f"--pipeline.model.camera-optimizer.mode {self.config.model.camera_optimizer.mode}",
-            "--viewer.websocket-port 7009"
-        ]
+        # if not dry_run:
+        #     with status(msg="[bold green]Training Sparse Guided NeRF", spinner="moon", verbose=verbose):
+        #         run_command(train_sparse_guided_nerf_cmd, verbose=verbose)
 
-        train_replace_nerf_cmd = " ".join(train_replace_nerf_cmd)
+        # else:
+        #     print("----------------------------------------------------------------------------------------------------------------")
+        #     print("Train command:")
+        #     print(train_sparse_guided_nerf_cmd)
+        #     print("----------------------------------------------------------------------------------------------------------------")
+
+        # method_name = "replace-nerf"
+
+        # train_replace_nerf_cmd = [
+        #     f"ns-train {method_name}",
+        #     f"--data {dataset_path}",
+        #     "--experiment_name ''",
+        #     f"--timestamp {timestamp}",
+        #     f"--method-name {method_name}",
+        #     f"--pipeline.model.field-path {checkpoint_filenames[0]}",
+        #     f"--pipeline.model.replace-field-path {str(path).replace('neo', 'sparse-guided-nerf')}/nerfstudio_models/step-000029999.ckpt",
+        #     f"--pipeline.model.bbox-path {path}/bbox.json",
+        #     "--pipeline.datamanager.pixel-sampler.ignore-mask True",
+        #     "--viewer.quit-on-train-completion True",
+        #     f"--output-dir {str(path).replace('neo/', '').replace(timestamp, '')}",
+        #     f"--pipeline.model.camera-optimizer.mode {self.config.model.camera_optimizer.mode}",
+        #     "--viewer.websocket-port 7009"
+        # ]
+
+        # train_replace_nerf_cmd = " ".join(train_replace_nerf_cmd)
 
 
-        if not dry_run:
-            with status(msg="[bold green]Replacing objects", spinner="moon", verbose=verbose):
-                run_command(train_replace_nerf_cmd, verbose=verbose)
+        # if not dry_run:
+        #     with status(msg="[bold green]Replacing objects", spinner="moon", verbose=verbose):
+        #         run_command(train_replace_nerf_cmd, verbose=verbose)
 
-        else:
-            print("----------------------------------------------------------------------------------------------------------------")
-            print("Train command:")
-            print(train_replace_nerf_cmd)
-            print("----------------------------------------------------------------------------------------------------------------")
+        # else:
+        #     print("----------------------------------------------------------------------------------------------------------------")
+        #     print("Train command:")
+        #     print(train_replace_nerf_cmd)
+        #     print("----------------------------------------------------------------------------------------------------------------")
 
-        CONSOLE.print("[bold green]Editing finished!")
+        # CONSOLE.print("[bold green]Editing finished!")

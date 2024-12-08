@@ -7,12 +7,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 from copy import deepcopy
-from typing import Dict, List, Literal, Tuple, Type
+from typing import List, Type
 
 import numpy as np
 import json
 import torch
-from torch.nn import Parameter
 
 from nerfstudio.utils.rich_utils import CONSOLE
 from nerfstudio.cameras.camera_optimizers import CameraOptimizer
@@ -515,27 +514,21 @@ class ReplaceNeRFModel(NerfactoModel):
         )
         
         if step < 100:
-            print(f"Sigma loss: {step}")
-            
             if not self.frozen:
                 self.frozen = True
                 for name, param in self.field.named_parameters():
                     if 'mlp' in name:
                         param.requires_grad = False
-                        print(f'Frozen {name}')
 
             loss_dict["rgbs_loss"] = self.color_loss(outputs["gt_rgbs"], outputs["rgbs"])
             loss_dict["densities_loss"] = self.density_loss(outputs["gt_densities"], outputs["densities"])
 
         else:
-            print(f"Fotometric: {step}")
-            
             if self.frozen:
                 self.frozen = False
                 for name, param in self.field.named_parameters():
                     if 'mlp' in name:
                         param.requires_grad = True
-                        print(f'Unfrozen {name}')
             
             loss_dict["rgb_loss"] = self.rgb_loss(gt_rgb, pred_rgb)
             loss_dict["depth"] = self.depth_loss(outputs["gt_depth"], outputs["depth"])

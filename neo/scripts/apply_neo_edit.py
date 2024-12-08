@@ -1,7 +1,6 @@
 from nerfstudio.utils.eval_utils import eval_setup
 from pathlib import Path
 from argparse import ArgumentParser
-import time
 
 parser = ArgumentParser()
 parser.add_argument("--load_config", type=Path,
@@ -12,5 +11,4 @@ config_path = args.load_config
 
 # Load model
 config, pipeline, ckpt_path, step = eval_setup(config_path, eval_num_rays_per_chunk=None, test_mode='test')
-time.sleep(5)
 pipeline.apply_changes_hook()

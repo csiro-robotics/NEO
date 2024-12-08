@@ -55,7 +55,6 @@ class SparseGuidedNeRFModel(NerfactoModel):
                  num_train_data: int, 
                  dataparser_config: Dict[str, Any],
                  **kwargs) -> None:
-        print(config)
         super().__init__(config, scene_box, num_train_data, **kwargs)
 
         self.dataparser_config = dataparser_config
