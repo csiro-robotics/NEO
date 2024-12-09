@@ -102,15 +102,15 @@ def get_path_from_json(camera_path: Dict[str, Any]) -> Cameras:
     )
 
 
-def generate_hemisphere_transforms(radius: float, num_layers: int, origin: np.ndarray, dtype: type = np.array, shape: tuple = (4, 4)) -> List[npt.NDArray]:
+def generate_hemisphere_transforms(radius: float, num_layers: int, origin: np.ndarray, num_per_layer: int = 4, dtype: type = np.array, shape: tuple = (4, 4)) -> List[npt.NDArray]:
     transformation_matrices = []
     
     thetas = np.linspace(0.0, np.pi / 2, num_layers + 2)
     phi_offsets = np.linspace(0.0, np.pi / 2, num_layers, endpoint=False)
     for i, theta in enumerate(thetas[1:-1]):
-        for j in range(4):
+        for j in range(num_per_layer):
             
-            phi = ((np.pi / 2) * j) + phi_offsets[i] 
+            phi = (((2 * np.pi) / num_per_layer) * j) + phi_offsets[i]
 
             x = (np.cos(theta) * np.sin(-phi) * radius) + origin[0]
             y = (np.cos(theta) * np.cos(-phi) * radius) + origin[1]

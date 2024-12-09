@@ -6,9 +6,9 @@ import sys
 import os
 import cv2
 from contextlib import ExitStack
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Tuple, Literal, Optional, Union
 
 import mediapy as media
 import numpy as np
@@ -23,6 +23,7 @@ from typing_extensions import Annotated
 
 from nerfstudio.cameras.camera_paths import get_spiral_path
 from nerfstudio.cameras.cameras import Cameras, CameraType, RayBundle
+from nerfstudio.data.scene_box import OrientedBox
 from nerfstudio.model_components import renderers
 from nerfstudio.pipelines.base_pipeline import Pipeline
 from nerfstudio.scripts.render import insert_spherical_metadata_into_file, get_crop_from_json
@@ -488,7 +489,7 @@ class RenderFromTransforms(RenderCameraPath):
 
 @dataclass
 class SpiralRender(BaseRender):
-    """Render a spiral trajectory (often not great)."""
+    """Render a spiral trajectory."""
 
     seconds: float = 3.0
     """How long the video should be."""
@@ -498,6 +499,16 @@ class SpiralRender(BaseRender):
     """Frame rate of the output video (only for interpolate trajectory)."""
     radius: float = 0.1
     """Radius of the spiral."""
+    crop: bool = False
+    """Whether to crop the output images."""
+    crop_center: Tuple[float, float, float] = (0.0, 0.0, 0.0)
+    """Center of the crop area."""
+    crop_scale: Tuple[float, float, float] = (0.0, 0.0, 0.0)
+    """Scale of the crop area."""
+    crop_rot: Tuple[float, float, float] = (0.0, 0.0, 0.0)
+    """Rotation of the crop area."""
+    crop_bg_color: Dict[str, int] = field(default_factory=lambda: {"r": 255, "g": 255, "b": 255})
+    """Background color of the crop area."""
 
     def main(self) -> None:
         """Main function."""
@@ -517,14 +528,13 @@ class SpiralRender(BaseRender):
                 RandomCamerasDataManager,
             ),
         )
-        steps = int(self.frame_rate * self.seconds)
         camera_start, _ = pipeline.datamanager.eval_dataloader.get_camera(image_idx=0)
 
-        x, y, z = 0.0, 0.0, 0.0
         c2ws = generate_hemisphere_transforms(
-            radius=0.25,
-            num_layers=4,
-            origin=np.array([x, y, z]),
+            radius=self.radius,
+            num_layers=3,
+            num_per_layer=40,
+            origin=np.array(self.crop_center),
             dtype=torch.Tensor,
             shape=(3, 4)
             )
@@ -536,14 +546,23 @@ class SpiralRender(BaseRender):
             fy=camera_start.fy[0],
             cx=camera_start.cx[0],
             cy=camera_start.cy[0],
+            width=camera_start.width[0],
+            height=camera_start.height[0],
             camera_to_worlds=c2ws,
             times=times,
         )
 
-        image_names = [f"frame_{num:05d}" for num in range(steps)]
+        image_names = [f"frame_{num:05d}" for num in range(c2ws.shape[0])]
 
         if self.camera_idx is not None:
             camera_path.metadata = {"cam_idx": self.camera_idx}
+
+        crop_data = None
+        if self.crop:
+            crop_data = CropData(
+                background_color=torch.Tensor([self.crop_bg_color["r"] / 255.0, self.crop_bg_color["g"] / 255.0, self.crop_bg_color["b"] / 255.0]),
+                obb=OrientedBox.from_params(self.crop_center, self.crop_rot, self.crop_scale),
+            )
 
         _render_trajectory_video(
             pipeline,
@@ -551,6 +570,7 @@ class SpiralRender(BaseRender):
             image_names=image_names,
             output_filename=self.output_path,
             rendered_output_names=self.rendered_output_names,
+            crop_data=crop_data,
             rendered_resolution_scaling_factor=1.0 / self.downscale_factor,
             seconds=self.seconds,
             output_format=self.output_format,

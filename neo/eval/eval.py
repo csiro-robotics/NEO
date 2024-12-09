@@ -22,6 +22,20 @@ from neo.eval.metrics import (
     MAEModule,
 )
 
+def execute_command(command: str, dry_run: bool = False, verbose: bool = False) -> None:
+    """
+    Execute a command in the shell.
+    """
+    if not dry_run:
+        with status(msg="[bold green]Rendering images", spinner="moon", verbose=verbose):
+            run_command(command, verbose=verbose)
+
+    else:
+        print("----------------------------------------------------------------------------------------------------------------")
+        print("Render command:")
+        print(command)
+        print("----------------------------------------------------------------------------------------------------------------")
+
 
 @dataclass
 class EvalConfig:
@@ -29,6 +43,10 @@ class EvalConfig:
     """Path to the edited model config"""
     batch_size: int = 32
     """Size of batch for calculating metrics. Bigger batch mesans faster calculation"""
+    dry_run: bool = False
+    """If True, only print the commands that would be executed"""
+    verbose: bool = False
+    """If True, print additional information"""
 
 
 def main(
@@ -51,44 +69,82 @@ def main(
     # Get rendering command
     render_output_path = Path(f"renders/{'/'.join(str(model_config.get_base_dir()).split('/')[1:])}")
     gt_data_path = Path(str(model_config.data).replace('before', 'after'))
-
-    train_replace_nerf_cmd = [
+    
+    # Render full images
+    render_command = [
         "ns-render-neo render-from-transforms",
         f"--load-config {str(model_config.get_base_dir()).replace('neo', 'replace-nerf')}/config.yml",
-        f"--output-path {render_output_path}",
+        f"--output-path {render_output_path}/full_edited",
         "--output-format images",
         "--image-format png",
         "--rendered-output-names rgb depth",
         f"--transforms-filename {gt_data_path}/transforms.json"
     ]
 
-    train_replace_nerf_cmd = " ".join(train_replace_nerf_cmd)
+    render_command = " ".join(render_command)
+    execute_command(render_command, dry_run=config.dry_run, verbose=config.verbose)
 
-    # Render images
-    dry_run = True
-    verbose = True
-    
-    if not dry_run:
-        with status(msg="[bold green]Rendering images", spinner="moon", verbose=verbose):
-            run_command(train_replace_nerf_cmd, verbose=verbose)
+    # Crop parameters
+    radius = 0.5
+    crop = True
+    crop_center = (0.27, 0.28, 0.11)
+    crop_scale = (0.75, 0.78, 0.40)
+    crop_rot = (0.0, 0.0, 0.0)
 
-    else:
-        print("----------------------------------------------------------------------------------------------------------------")
-        print("Render command:")
-        print(train_replace_nerf_cmd)
-        print("----------------------------------------------------------------------------------------------------------------")
+    # Render cropped images from edited NeRF    
+    render_command = [
+        "ns-render-neo spiral",
+        f"--load-config {str(model_config.get_base_dir()).replace('neo', 'replace-nerf')}/config.yml",
+        f"--output-path {render_output_path}/cropped_edited",
+        "--output-format images",
+        "--image-format png",
+        "--rendered-output-names rgb depth",
+        f"--radius {radius}",
+        f"--crop {crop}",
+        f"--crop-center {' '.join(map(str, crop_center))}",
+        f"--crop-scale {' '.join(map(str, crop_scale))}",
+        f"--crop-rot {' '.join(map(str, crop_rot))}"
+    ]
+
+    render_command = " ".join(render_command)
+    execute_command(render_command, dry_run=config.dry_run, verbose=config.verbose)
+
+    # Render cropped images from GT NeRF
+    render_command = [
+        "ns-render-neo spiral",
+        f"--load-config {str(model_config.get_base_dir()).replace('neo', 'nerfacto').replace('before', 'after')}/config.yml",
+        f"--output-path {render_output_path}/cropped_gt",
+        "--output-format images",
+        "--image-format png",
+        "--rendered-output-names rgb depth",
+        f"--radius {radius}",
+        f"--crop {crop}",
+        f"--crop-center {' '.join(map(str, crop_center))}",
+        f"--crop-scale {' '.join(map(str, crop_scale))}",
+        f"--crop-rot {' '.join(map(str, crop_rot))}"
+    ]
+
+    render_command = " ".join(render_command)
+    execute_command(render_command, dry_run=config.dry_run, verbose=config.verbose)
 
     # Create datasets and dataloaders
-    gt_dataset = RealsenseDataset(gt_data_path, model_config.experiment_name)
-    dataset = NerfstudioDataset(render_output_path, model_config.experiment_name, transforms["fl_x"], transforms["fl_y"])
+    experiment_name = Path(model_config.experiment_name).parent.name
+    dataset_full_gt = RealsenseDataset(gt_data_path, experiment_name + "_full")
+    dataset_full_edited = NerfstudioDataset(render_output_path / "full_edited", experiment_name + "_full", transforms["fl_x"], transforms["fl_y"])
+    dataset_cropped_gt = NerfstudioDataset(render_output_path / "cropped_gt", experiment_name + "_cropped", transforms["fl_x"], transforms["fl_y"])
+    dataset_cropped_edited = NerfstudioDataset(render_output_path / "cropped_edited", experiment_name + "_cropped", transforms["fl_x"], transforms["fl_y"])
 
-    gt_dataloader = DataLoader(gt_dataset, config.batch_size, shuffle=False)
-    dataloader = DataLoader(dataset, config.batch_size, shuffle=False)
+    dataloader_full_gt = DataLoader(dataset_full_gt, config.batch_size, shuffle=False)
+    dataloader_full_edited = DataLoader(dataset_full_edited, config.batch_size, shuffle=False)
+    dataloader_cropped_gt = DataLoader(dataset_cropped_gt, config.batch_size, shuffle=False)
+    dataloader_cropped_edted = DataLoader(dataset_cropped_edited, config.batch_size, shuffle=False)
 
     # Calculate metrics
-    results = {model_config.experiment_name: {}}
-    calcualte_error(PSNRModule(), dataloader, gt_dataloader, results)
-    calcualte_error(MAEModule(), dataloader, gt_dataloader, results)
+    results = {experiment_name + "_full": {}, experiment_name + "_cropped": {}}
+    calcualte_error(PSNRModule(), dataloader_full_edited, dataloader_full_gt, results)
+    calcualte_error(MAEModule(), dataloader_full_edited, dataloader_full_gt, results)
+    calcualte_error(PSNRModule(), dataloader_cropped_edted, dataloader_cropped_gt, results)
+    calcualte_error(MAEModule(), dataloader_cropped_edted, dataloader_cropped_gt, results)
 
     # Save results
     eval_output_path = Path(f"eval/{'/'.join(str(model_config.get_base_dir()).split('/')[1:])}")

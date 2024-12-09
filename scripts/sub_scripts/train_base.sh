@@ -34,18 +34,6 @@ ns-train lerf \
     --auto-scale-poses False \
     --train-split-fraction 0.99
 
-# Train GT scene
-ns-train nerfacto \
-    --data "$root_input"/"$data_type"/"$action"/"$scene_type"/"$scene_name"/"$object_name"/after \
-    --output-dir outputs/"$data_type"/"$action"/"$scene_type"/"$scene_name" \
-    --experiment-name "$object_name"/after \
-    --viewer.quit-on-train-completion True \
-    nerfstudio-data \
-    --orientation-method none \
-    --center-method none \
-    --auto-scale-poses False \
-    --train-split-fraction 0.99
-
 # Directory containing the folders
 base_dir=outputs/"$data_type"/"$action"/"$scene_type"/"$scene_name"/"$object_name"/before/lerf
 
@@ -60,6 +48,22 @@ fi
 
 # Sort directories based on timestamp in folder names (YYYY-MM-DD_HHMMSS)
 newest_dir=$(echo "$timestamp_dirs" | sort -t'_' -k1,1 -k2,2 -r | head -n 1)
+
+# Get the last folder from the newest directory
+timestamp=$(basename "$newest_dir")
+
+# Train GT scene
+ns-train nerfacto \
+    --data "$root_input"/"$data_type"/"$action"/"$scene_type"/"$scene_name"/"$object_name"/after \
+    --output-dir outputs/"$data_type"/"$action"/"$scene_type"/"$scene_name" \
+    --experiment-name "$object_name"/after \
+    --timestamp "$timestamp" \
+    --viewer.quit-on-train-completion True \
+    nerfstudio-data \
+    --orientation-method none \
+    --center-method none \
+    --auto-scale-poses False \
+    --train-split-fraction 0.99
 
 # Convert LERF to Neo
 ns-convert --input $newest_dir
