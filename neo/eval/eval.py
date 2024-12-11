@@ -3,10 +3,12 @@ import tyro
 import yaml
 import json
 
+from abc import abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
-
 from torch.utils.data import DataLoader
+from typing import Union, List, Tuple
+from typing_extensions import Annotated
 
 from nerfstudio.engine.trainer import TrainerConfig
 from nerfstudio.utils.rich_utils import CONSOLE, status
@@ -22,145 +24,178 @@ from neo.eval.metrics import (
     MAEModule,
 )
 
-def execute_command(command: str, dry_run: bool = False, verbose: bool = False) -> None:
-    """
-    Execute a command in the shell.
-    """
-    if not dry_run:
-        with status(msg="[bold green]Rendering images", spinner="moon", verbose=verbose):
-            run_command(command, verbose=verbose)
-
-    else:
-        print("----------------------------------------------------------------------------------------------------------------")
-        print("Render command:")
-        print(command)
-        print("----------------------------------------------------------------------------------------------------------------")
-
 
 @dataclass
-class EvalConfig:
-    model_config_path: Path
-    """Path to the edited model config"""
+class EvalBaseConfig:
+    """
+    Base config for evaluation.
+    """
+
+    config_path: Path
+    """Path to the edited Neo model config"""
     batch_size: int = 32
-    """Size of batch for calculating metrics. Bigger batch mesans faster calculation"""
+    """Size of batch for calculating metrics. Bigger batch means faster calculation"""
     dry_run: bool = False
     """If True, only print the commands that would be executed"""
     verbose: bool = False
     """If True, print additional information"""
+    crop: bool = True
+    """If True, apply cropping to the rendered images"""
+    crop_radius: float = 0.5
+    """Radius for cropping the rendered images"""
+    crop_center: tuple = (0.27, 0.28, 0.11)
+    """Center coordinates for cropping the rendered images"""
+    crop_scale: tuple = (0.75, 0.78, 0.40)
+    """Scale factors for cropping the rendered images"""
+    crop_rot: tuple = (0.0, 0.0, 0.0)
+    """Rotation angles for cropping the rendered images"""
+
+    def execute_command(self, command: str) -> None:
+        """
+        Execute a command in the shell.
+        """
+        if not self.dry_run:
+            with status(msg="[bold green]Rendering images", spinner="moon", verbose=self.verbose):
+                run_command(command, verbose=self.verbose)
+
+        else:
+            print("----------------------------------------------------------------------------------------------------------------")
+            print("Render command:")
+            print(command)
+            print("----------------------------------------------------------------------------------------------------------------")
+
+    def render_full(self, render_output_path: Path, gt_data_path: Path, is_edited: bool = True) -> None:
+        """
+        Render full images.
+        """
+        render_command = [
+            "ns-render-neo render-from-transforms",
+            f"--load-config {self.config_path if is_edited else str(self.config_path).replace('before', 'after').replace(self.model_config.method_name, 'nerfacto')}",
+            f"--output-path {render_output_path}/full_{'edited' if is_edited else 'gt'}",
+            "--output-format images",
+            "--image-format png",
+            "--rendered-output-names rgb depth",
+            f"--transforms-filename {gt_data_path}/transforms.json"
+        ]
+
+        render_command = " ".join(render_command)
+        self.execute_command(render_command)
+
+    def render_cropped(self, render_output_path: Path, is_edited: bool = True) -> None:
+        """
+        Render cropped images.
+        """
+        render_command = [
+            "ns-render-neo spiral",
+            f"--load-config {self.config_path if is_edited else str(self.config_path).replace('before', 'after').replace(self.model_config.method_name, 'nerfacto')}",
+            f"--output-path {render_output_path}/cropped_{'edited' if is_edited else 'gt'}",
+            "--output-format images",
+            "--image-format png",
+            "--rendered-output-names rgb depth",
+            f"--radius {self.crop_radius}",
+            f"--crop {self.crop}",
+            f"--crop-center {' '.join(map(str, self.crop_center))}",
+            f"--crop-scale {' '.join(map(str, self.crop_scale))}",
+            f"--crop-rot {' '.join(map(str, self.crop_rot))}"
+        ]
+
+        render_command = " ".join(render_command)
+        self.execute_command(render_command)
+
+    @abstractmethod
+    def create_dataloaders(self, render_output_path: Path, gt_data_path: Path, exp_names: Tuple[str]) -> List[Tuple[DataLoader, DataLoader]]:
+        """
+        Create dataloaders and datasets.
+        """
+        pass
+
+    def main(self) -> None:
+        """
+        Evaluation pipeline for models.
+        """
+        # Create eval path
+        os.makedirs('eval', exist_ok=True)
+
+        # Load edited model config
+        self.model_config = yaml.load(self.config_path.read_text(), Loader=yaml.Loader)
+        assert isinstance(self.model_config, TrainerConfig)
+
+        with open(self.model_config.data / 'transforms.json') as f:
+            transforms = json.load(f)
+            self.focal_lengths = (transforms['fl_x'], transforms['fl_y'])
+
+        # Get rendering command
+        base_path = str(self.model_config.get_base_dir())
+        gt_data_path = Path(base_path.replace('outputs', 'data').replace('before', 'after')).parents[1]
+        render_output_path = Path(base_path.replace('outputs', 'renders'))
+
+        # Render full images
+        self.render_full(render_output_path, gt_data_path)
+
+        # Render cropped images
+        self.render_cropped(render_output_path)
+        self.render_cropped(render_output_path, is_edited=False)
+
+        # Create experiment names
+        exp_names = (f"full", f"cropped")
+
+        # Create datasets and dataloaders
+        dataloaders = self.create_dataloaders(render_output_path, gt_data_path, exp_names)
+
+        # Calculate metrics
+        metrics = [PSNRModule(), MAEModule()]
+        results = {exp_names[0]: {}, exp_names[1]: {}}
+        for dataloader in dataloaders:
+            for mertic in metrics:
+                calcualte_error(mertic, dataloader[0], dataloader[1], results)
+
+        # Save results
+        eval_output_path = Path(f"eval/{'/'.join(str(self.model_config.get_base_dir()).split('/')[1:])}")
+        os.makedirs(eval_output_path, exist_ok=True)
+
+        with open(eval_output_path / "results.json", "w") as f:
+            json.dump(results, f, indent=4)
+
+        CONSOLE.print("[bold green]Finished calculations, results are:")
+        CONSOLE.print(results)
 
 
-def main(
-        config: EvalConfig
-):
-    """
-    Evaluation pipeline for Neo models.
-    """
+@dataclass
+class EvalNerfstudioConfig(EvalBaseConfig):
 
-    # Create eval path
-    os.makedirs('eval', exist_ok=True)
+    def create_dataloaders(self, render_output_path: Path, gt_data_path: Path, exp_names: Tuple[str]) -> List[Tuple[DataLoader, DataLoader]]:
+        """
+        Create dataloaders and datasets.
+        """
 
-    # Load edited model config
-    model_config = yaml.load(config.model_config_path.read_text(), Loader=yaml.Loader)
-    assert isinstance(model_config, TrainerConfig)
+        dataset_full_edited = NerfstudioDataset(render_output_path / "full_edited", exp_names[0], self.focal_lengths)
+        dataset_full_gt = RealsenseDataset(gt_data_path, exp_names[0])
+        
+        dataset_cropped_edited = NerfstudioDataset(render_output_path / "cropped_edited", exp_names[1], self.focal_lengths)
+        dataset_cropped_gt = NerfstudioDataset(render_output_path / "cropped_gt", exp_names[1], self.focal_lengths)
 
-    with open(model_config.data / 'transforms.json') as f:
-        transforms = json.load(f)
+        datasets = [(dataset_full_edited, dataset_full_gt), (dataset_cropped_edited, dataset_cropped_gt)]
 
-    # Get rendering command
-    render_output_path = Path(f"renders/{'/'.join(str(model_config.get_base_dir()).split('/')[1:])}")
-    gt_data_path = Path(str(model_config.data).replace('before', 'after'))
-    
-    # Render full images
-    render_command = [
-        "ns-render-neo render-from-transforms",
-        f"--load-config {str(model_config.get_base_dir()).replace('neo', 'replace-nerf')}/config.yml",
-        f"--output-path {render_output_path}/full_edited",
-        "--output-format images",
-        "--image-format png",
-        "--rendered-output-names rgb depth",
-        f"--transforms-filename {gt_data_path}/transforms.json"
+        dataloaders = []
+        for dataset in datasets:
+            dataloaders.append((DataLoader(dataset[0], self.batch_size, shuffle=False), 
+                                DataLoader(dataset[1], self.batch_size, shuffle=False)))
+            
+        return dataloaders
+
+
+Commands = tyro.conf.FlagConversionOff[
+    Union[
+        Annotated[EvalNerfstudioConfig, tyro.conf.subcommand(name="nerfstudio")],
     ]
-
-    render_command = " ".join(render_command)
-    execute_command(render_command, dry_run=config.dry_run, verbose=config.verbose)
-
-    # Crop parameters
-    radius = 0.5
-    crop = True
-    crop_center = (0.27, 0.28, 0.11)
-    crop_scale = (0.75, 0.78, 0.40)
-    crop_rot = (0.0, 0.0, 0.0)
-
-    # Render cropped images from edited NeRF    
-    render_command = [
-        "ns-render-neo spiral",
-        f"--load-config {str(model_config.get_base_dir()).replace('neo', 'replace-nerf')}/config.yml",
-        f"--output-path {render_output_path}/cropped_edited",
-        "--output-format images",
-        "--image-format png",
-        "--rendered-output-names rgb depth",
-        f"--radius {radius}",
-        f"--crop {crop}",
-        f"--crop-center {' '.join(map(str, crop_center))}",
-        f"--crop-scale {' '.join(map(str, crop_scale))}",
-        f"--crop-rot {' '.join(map(str, crop_rot))}"
-    ]
-
-    render_command = " ".join(render_command)
-    execute_command(render_command, dry_run=config.dry_run, verbose=config.verbose)
-
-    # Render cropped images from GT NeRF
-    render_command = [
-        "ns-render-neo spiral",
-        f"--load-config {str(model_config.get_base_dir()).replace('neo', 'nerfacto').replace('before', 'after')}/config.yml",
-        f"--output-path {render_output_path}/cropped_gt",
-        "--output-format images",
-        "--image-format png",
-        "--rendered-output-names rgb depth",
-        f"--radius {radius}",
-        f"--crop {crop}",
-        f"--crop-center {' '.join(map(str, crop_center))}",
-        f"--crop-scale {' '.join(map(str, crop_scale))}",
-        f"--crop-rot {' '.join(map(str, crop_rot))}"
-    ]
-
-    render_command = " ".join(render_command)
-    execute_command(render_command, dry_run=config.dry_run, verbose=config.verbose)
-
-    # Create datasets and dataloaders
-    experiment_name = Path(model_config.experiment_name).parent.name
-    dataset_full_gt = RealsenseDataset(gt_data_path, experiment_name + "_full")
-    dataset_full_edited = NerfstudioDataset(render_output_path / "full_edited", experiment_name + "_full", transforms["fl_x"], transforms["fl_y"])
-    dataset_cropped_gt = NerfstudioDataset(render_output_path / "cropped_gt", experiment_name + "_cropped", transforms["fl_x"], transforms["fl_y"])
-    dataset_cropped_edited = NerfstudioDataset(render_output_path / "cropped_edited", experiment_name + "_cropped", transforms["fl_x"], transforms["fl_y"])
-
-    dataloader_full_gt = DataLoader(dataset_full_gt, config.batch_size, shuffle=False)
-    dataloader_full_edited = DataLoader(dataset_full_edited, config.batch_size, shuffle=False)
-    dataloader_cropped_gt = DataLoader(dataset_cropped_gt, config.batch_size, shuffle=False)
-    dataloader_cropped_edted = DataLoader(dataset_cropped_edited, config.batch_size, shuffle=False)
-
-    # Calculate metrics
-    results = {experiment_name + "_full": {}, experiment_name + "_cropped": {}}
-    calcualte_error(PSNRModule(), dataloader_full_edited, dataloader_full_gt, results)
-    calcualte_error(MAEModule(), dataloader_full_edited, dataloader_full_gt, results)
-    calcualte_error(PSNRModule(), dataloader_cropped_edted, dataloader_cropped_gt, results)
-    calcualte_error(MAEModule(), dataloader_cropped_edted, dataloader_cropped_gt, results)
-
-    # Save results
-    eval_output_path = Path(f"eval/{'/'.join(str(model_config.get_base_dir()).split('/')[1:])}")
-    os.makedirs(eval_output_path, exist_ok=True)
-
-    with open(eval_output_path / "results.json", "w") as f:
-        json.dump(results, f, indent=4)
-
-    CONSOLE.print("[bold green]Finished calculations, results are:")
-    CONSOLE.print(results)
+]
 
 
 def entrypoint():
     """Entrypoint for use with pyproject scripts."""
     tyro.extras.set_accent_color("bright_yellow")
-    main(tyro.cli(EvalConfig))
+    tyro.cli(Commands).main()
+
 
 if __name__ == '__main__':
     entrypoint()

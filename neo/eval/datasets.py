@@ -5,7 +5,7 @@ import os
 import subprocess
 
 from torch.utils.data import Dataset
-from typing import List
+from typing import List, Tuple
 from pathlib import Path
 
 from neo.eval.eval_utils import depth_to_distance
@@ -92,11 +92,11 @@ class RealsenseDataset(BaseDataset):
 class NerfstudioDataset(BaseDataset):
     """Dataset of images rendered from Nerfstudio."""
 
-    def __init__(self, path: Path, name: str, fl_x: float, fl_y: float):
+    def __init__(self, path: Path, name: str, focal_lengths: Tuple[float, float]):
         super().__init__(path, name)
 
-        self.fl_x = fl_x
-        self.fl_y = fl_y
+        self.fl_x = focal_lengths[0]
+        self.fl_y = focal_lengths[1]
 
         # Load images
         self.rgb_image_paths = self.load_images_from_folder("rgb")
