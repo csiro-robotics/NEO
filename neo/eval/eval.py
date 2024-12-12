@@ -7,13 +7,15 @@ from abc import abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
 from torch.utils.data import DataLoader
-from typing import Union, List, Tuple
+from typing import Union, List, Tuple, Dict
 from typing_extensions import Annotated
 
 from nerfstudio.engine.trainer import TrainerConfig
 from nerfstudio.utils.rich_utils import CONSOLE, status
 from nerfstudio.utils.scripts import run_command
 
+from neo.utils.sparse_dataset import generate_masks
+from neo.render.camera_paths import generate_hemisphere_transforms
 from neo.eval.datasets import RealsenseDataset, NerfstudioDataset
 from neo.eval.eval_utils import calcualte_error
 from neo.eval.metrics import (
@@ -109,6 +111,45 @@ class EvalBaseConfig:
         """
         pass
 
+    def generate_masks_for_eval(self, transforms: Dict[str, float], render_output_path: Path) -> None:
+        """
+        Generate masks for evaluation.
+        """
+        datamanager = self.model_config.pipeline.datamanager.setup(
+            device='cuda:0', test_mode='test', world_size=1, local_rank=0
+        )
+        dataparser_output = datamanager.dataparser._generate_dataparser_outputs()
+
+        bboxes_path = (Path(str(self.config_path).replace(self.model_config.method_name, 'neo')).parent / "bbox.json")
+        if bboxes_path.is_file():
+            bboxes = json.load(bboxes_path.open())['bboxes']
+        else:
+            raise FileNotFoundError(f"File {bboxes_path} not found. Check if the file exists or train Neo model first.")
+
+        generate_masks(camera_data=transforms,
+                       bboxes=bboxes,
+                       output_path=render_output_path / "full_masks",
+                       dataparser_transform=dataparser_output.dataparser_transform,
+                       dataparser_scale=dataparser_output.dataparser_scale)
+        
+        frames = generate_hemisphere_transforms(radius=self.crop_radius,
+                                                num_layers=3,
+                                                num_per_layer=40,
+                                                origin=self.crop_center)
+        image_names = [f"frame_{num:05d}" for num in range(len(frames))]
+
+        frames_with_names = []
+        for frame, name in zip(frames, image_names):
+            frames_with_names.append({"file_path": f"images/{name}.png", "transform_matrix": frame})
+
+        transforms["frames"] = frames_with_names
+
+        generate_masks(camera_data=transforms,
+                       bboxes=bboxes,
+                       output_path=render_output_path / "cropped_masks",
+                       dataparser_transform=dataparser_output.dataparser_transform,
+                       dataparser_scale=dataparser_output.dataparser_scale)
+
     def main(self) -> None:
         """
         Evaluation pipeline for models.
@@ -135,6 +176,9 @@ class EvalBaseConfig:
         # Render cropped images
         self.render_cropped(render_output_path)
         self.render_cropped(render_output_path, is_edited=False)
+
+        # Generate masks
+        self.generate_masks_for_eval(transforms, render_output_path)
 
         # Create experiment names
         exp_names = (f"full", f"cropped")

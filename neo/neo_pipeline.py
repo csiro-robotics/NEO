@@ -85,7 +85,7 @@ class NeoPipeline(VanillaPipeline):
         )
         self.datamanager.to(device)
 
-        # Obrain example dataparser output. Used for mask generation
+        # Obtain example dataparser output. Used for mask generation
         self.dataparser_output = self.datamanager.dataparser._generate_dataparser_outputs()
 
         assert self.datamanager.train_dataset is not None, "Missing input dataset"
