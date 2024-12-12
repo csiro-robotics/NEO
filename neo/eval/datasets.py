@@ -80,13 +80,15 @@ class RealsenseDataset(BaseDataset):
         # Load images
         self.rgb_image_paths = self.load_images_from_folder("images")
         self.depth_image_paths = self.load_images_from_folder("depth")
+        self.mask_image_paths = self.load_images_from_folder(f"../{name}_masks/temp_masks")
 
     def __getitem__(self, idx: int):
 
         rgb_img = torch.tensor(cv2.imread(str(self.rgb_image_paths[idx])), device=device).permute(2, 0, 1) / 255
         depth_img = torch.tensor(np.int64(cv2.imread(str(self.depth_image_paths[idx]), cv2.IMREAD_ANYDEPTH)), device=device) / 1000
+        mask_img = torch.tensor(cv2.imread(str(self.mask_image_paths[idx]), cv2.IMREAD_GRAYSCALE), device=device) / 255
         
-        return [rgb_img, depth_img]
+        return [rgb_img, depth_img, mask_img]
     
     
 class NerfstudioDataset(BaseDataset):
@@ -101,6 +103,7 @@ class NerfstudioDataset(BaseDataset):
         # Load images
         self.rgb_image_paths = self.load_images_from_folder("rgb")
         self.depth_image_paths = self.load_images_from_folder("depth")
+        self.mask_image_paths = self.load_images_from_folder(f"../{name}_masks/temp_masks")
 
     def __getitem__(self, idx: int):
 
@@ -109,5 +112,6 @@ class NerfstudioDataset(BaseDataset):
         depth_img = depth_img[None, None, ...]
         depth_img = depth_to_distance(depth_img, fl_x=self.fl_x, fl_y=self.fl_y)
         depth_img = depth_img.squeeze(0).squeeze(0)
+        mask_img = torch.tensor(cv2.imread(str(self.mask_image_paths[idx]), cv2.IMREAD_GRAYSCALE), device=device) / 255
         
-        return [rgb_img, depth_img]
+        return [rgb_img, depth_img, mask_img]

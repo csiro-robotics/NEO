@@ -81,7 +81,8 @@ def get_pred_target(metric: ImageMetricModule,
 def calcualte_error(metric: ImageMetricModule, dataloader: DataLoader, gt_dataloader: DataLoader, results: Tuple[Dict[str, float]], masked: bool = False) -> None:
 
     error = []
-    with tqdm(desc=f"Calcualting {metric.name}", total=len(dataloader.dataset), unit="img", leave=True) as pbar:
+    name = f"{metric.name}" if not masked else f"{metric.name} Masked"
+    with tqdm(desc=f"Calcualting {name}", total=len(dataloader.dataset), unit="img", leave=True) as pbar:
         for img, img_gt in zip(dataloader, gt_dataloader):
 
             pred, target = get_pred_target(metric, img, img_gt)
@@ -99,4 +100,4 @@ def calcualte_error(metric: ImageMetricModule, dataloader: DataLoader, gt_datalo
 
         mean_error = float(np.mean(error))
 
-        results[f"{dataloader.dataset.name}"][metric.name] = mean_error
+        results[f"{dataloader.dataset.name}"][name] = mean_error

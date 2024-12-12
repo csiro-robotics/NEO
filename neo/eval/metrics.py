@@ -110,7 +110,7 @@ class MAEModule(ImageMetricModule):
             mask_reshaped = mask.view(bs, hw)
             num = num * mask_reshaped
             den =  torch.count_nonzero(target_reshaped * mask_reshaped, dim=-1)
-        mae = num.sum(-1) / den
+        mae = num.sum(-1) / (den + 1e-9)
 
         return mae
 

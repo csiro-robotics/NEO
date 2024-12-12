@@ -167,7 +167,12 @@ class NeoPipeline(VanillaPipeline):
             "--viewer.quit-on-train-completion True",
             f"--output-dir {str(path).replace('neo/', '').replace(timestamp, '')}",
             f"--pipeline.model.camera-optimizer.mode {self.config.model.camera_optimizer.mode}",
-            "--viewer.websocket-port 7008"
+            "--viewer.websocket-port 7008",
+            "nerfstudio-data",
+            f"--orientation-method {self.config.datamanager.dataparser.orientation_method}",
+            f"--center-method {self.config.datamanager.dataparser.center_method}",
+            f"--auto-scale-poses {self.config.datamanager.dataparser.auto_scale_poses}",
+            f"--train-split-fraction {self.config.datamanager.dataparser.train_split_fraction}"
         ]
         train_sparse_guided_nerf_cmd = " ".join(train_sparse_guided_nerf_cmd)
 
@@ -196,7 +201,12 @@ class NeoPipeline(VanillaPipeline):
             "--viewer.quit-on-train-completion True",
             f"--output-dir {str(path).replace('neo/', '').replace(timestamp, '')}",
             f"--pipeline.model.camera-optimizer.mode {self.config.model.camera_optimizer.mode}",
-            "--viewer.websocket-port 7009"
+            "--viewer.websocket-port 7009",
+            "nerfstudio-data",
+            f"--orientation-method {self.config.datamanager.dataparser.orientation_method}",
+            f"--center-method {self.config.datamanager.dataparser.center_method}",
+            f"--auto-scale-poses {self.config.datamanager.dataparser.auto_scale_poses}",
+            f"--train-split-fraction {self.config.datamanager.dataparser.train_split_fraction}"
         ]
 
         train_replace_nerf_cmd = " ".join(train_replace_nerf_cmd)

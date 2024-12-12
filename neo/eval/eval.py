@@ -2,6 +2,7 @@ import os
 import tyro
 import yaml
 import json
+import shutil
 
 from abc import abstractmethod
 from dataclasses import dataclass
@@ -66,7 +67,7 @@ class EvalBaseConfig:
             print(command)
             print("----------------------------------------------------------------------------------------------------------------")
 
-    def render_full(self, render_output_path: Path, gt_data_path: Path, is_edited: bool = True) -> None:
+    def render_full(self, render_output_path: Path, is_edited: bool = True) -> None:
         """
         Render full images.
         """
@@ -77,7 +78,7 @@ class EvalBaseConfig:
             "--output-format images",
             "--image-format png",
             "--rendered-output-names rgb depth",
-            f"--transforms-filename {gt_data_path}/transforms.json"
+            f"--transforms-filename {render_output_path}/full_gt/transforms.json"
         ]
 
         render_command = " ".join(render_command)
@@ -111,7 +112,7 @@ class EvalBaseConfig:
         """
         pass
 
-    def generate_masks_for_eval(self, transforms: Dict[str, float], render_output_path: Path) -> None:
+    def generate_masks_for_eval(self, transforms: Dict[str, float], render_output_path: Path, exp_names: Tuple[str]) -> None:
         """
         Generate masks for evaluation.
         """
@@ -128,7 +129,7 @@ class EvalBaseConfig:
 
         generate_masks(camera_data=transforms,
                        bboxes=bboxes,
-                       output_path=render_output_path / "full_masks",
+                       output_path=render_output_path / f"{exp_names[0]}_masks",
                        dataparser_transform=dataparser_output.dataparser_transform,
                        dataparser_scale=dataparser_output.dataparser_scale)
         
@@ -146,7 +147,7 @@ class EvalBaseConfig:
 
         generate_masks(camera_data=transforms,
                        bboxes=bboxes,
-                       output_path=render_output_path / "cropped_masks",
+                       output_path=render_output_path / f"{exp_names[1]}_masks",
                        dataparser_transform=dataparser_output.dataparser_transform,
                        dataparser_scale=dataparser_output.dataparser_scale)
 
@@ -156,6 +157,9 @@ class EvalBaseConfig:
         """
         # Create eval path
         os.makedirs('eval', exist_ok=True)
+
+        # Create experiment names
+        exp_names = ("full", "cropped")
 
         # Load edited model config
         self.model_config = yaml.load(self.config_path.read_text(), Loader=yaml.Loader)
@@ -170,21 +174,21 @@ class EvalBaseConfig:
         gt_data_path = Path(base_path.replace('outputs', 'data').replace('before', 'after')).parents[1]
         render_output_path = Path(base_path.replace('outputs', 'renders'))
 
+        # Copy GT data to render output path
+        shutil.copytree(gt_data_path, render_output_path / f"{exp_names[0]}_gt", dirs_exist_ok=True)
+
         # Render full images
-        self.render_full(render_output_path, gt_data_path)
+        self.render_full(render_output_path)
 
         # Render cropped images
         self.render_cropped(render_output_path)
         self.render_cropped(render_output_path, is_edited=False)
 
         # Generate masks
-        self.generate_masks_for_eval(transforms, render_output_path)
-
-        # Create experiment names
-        exp_names = (f"full", f"cropped")
+        self.generate_masks_for_eval(transforms, render_output_path, exp_names)
 
         # Create datasets and dataloaders
-        dataloaders = self.create_dataloaders(render_output_path, gt_data_path, exp_names)
+        dataloaders = self.create_dataloaders(render_output_path, exp_names)
 
         # Calculate metrics
         metrics = [PSNRModule(), MAEModule()]
@@ -192,6 +196,7 @@ class EvalBaseConfig:
         for dataloader in dataloaders:
             for mertic in metrics:
                 calcualte_error(mertic, dataloader[0], dataloader[1], results)
+                calcualte_error(mertic, dataloader[0], dataloader[1], results, masked=True)
 
         # Save results
         eval_output_path = Path(f"eval/{'/'.join(str(self.model_config.get_base_dir()).split('/')[1:])}")
@@ -207,16 +212,16 @@ class EvalBaseConfig:
 @dataclass
 class EvalNerfstudioConfig(EvalBaseConfig):
 
-    def create_dataloaders(self, render_output_path: Path, gt_data_path: Path, exp_names: Tuple[str]) -> List[Tuple[DataLoader, DataLoader]]:
+    def create_dataloaders(self, render_output_path: Path, exp_names: Tuple[str]) -> List[Tuple[DataLoader, DataLoader]]:
         """
         Create dataloaders and datasets.
         """
 
-        dataset_full_edited = NerfstudioDataset(render_output_path / "full_edited", exp_names[0], self.focal_lengths)
-        dataset_full_gt = RealsenseDataset(gt_data_path, exp_names[0])
+        dataset_full_edited = NerfstudioDataset(render_output_path / f"{exp_names[0]}_edited", exp_names[0], self.focal_lengths)
+        dataset_full_gt = RealsenseDataset(render_output_path / f"{exp_names[0]}_gt", exp_names[0])
         
-        dataset_cropped_edited = NerfstudioDataset(render_output_path / "cropped_edited", exp_names[1], self.focal_lengths)
-        dataset_cropped_gt = NerfstudioDataset(render_output_path / "cropped_gt", exp_names[1], self.focal_lengths)
+        dataset_cropped_edited = NerfstudioDataset(render_output_path / f"{exp_names[1]}_edited", exp_names[1], self.focal_lengths)
+        dataset_cropped_gt = NerfstudioDataset(render_output_path / f"{exp_names[1]}_gt", exp_names[1], self.focal_lengths)
 
         datasets = [(dataset_full_edited, dataset_full_gt), (dataset_cropped_edited, dataset_cropped_gt)]
 
