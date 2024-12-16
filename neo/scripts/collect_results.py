@@ -48,10 +48,12 @@ if __name__ == "__main__":
     # # Generating tables
     tex = PyTex()
 
-    columns = ["Method name", "PSNR+", "PSNR M+", "MAE-", "MAE M-"]
+    columns = ["Method name", "PSNR[dB]+", "PSNR$_M$[dB]+", "MAE[m]-", "MAE$_M$[m]-"]
+    name_map = {"replace-nerf": "Our", "nerfacto-nerfiller": "Na\\\"{i}ve", "grid-prior-du": "Nerfiller" }
+    digits = ([2, 2, 3, 2], [2, 2, 6, 6])
 
     fig_name = f"{config_path.parents[4].name}"
     fig_name = (fig_name[0].upper() + fig_name[1:]).replace("_", " ")
 
-    for res_key in res_keys:
-        tex.table(columns, results[res_key], 'lllll', [2, 2, 2, 2], caption_title=fig_name, caption_text=res_key[0].upper() + res_key[1:])
+    for res_key, digit in zip(res_keys, digits):
+        tex.table(columns, results[res_key], 'lllll', digit, caption_title=fig_name, caption_text=res_key[0].upper() + res_key[1:], name_map=name_map)

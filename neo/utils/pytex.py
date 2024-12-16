@@ -52,6 +52,7 @@ class PyTex:
               table_label: str = "label", 
               caption_text: str = "caption text",
               skip_columns: List[int] = [],
+              name_map: Dict[str, str] = None
               ) -> str:
         
         # Assign default table format
@@ -102,7 +103,7 @@ class PyTex:
             if "SDXL" in name and "x4" in name and "Random" in name:
                 name = "Our Preview + Update"
 
-            row = f"{name} & "
+            row = f"{name if name_map is None else name_map[name]} & "
             for j in range(mat.shape[1]):
 
                 if j in skip_columns:
