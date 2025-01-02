@@ -23,7 +23,7 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 # Train LERF
-ns-train lerf \
+ns-train lerf-lite \
     --data "$root_input"/"$data_type"/"$action"/"$scene_type"/"$scene_name"/"$object_name"/before \
     --output-dir outputs/"$data_type"/"$action"/"$scene_type"/"$scene_name" \
     --experiment-name "$object_name"/before \
@@ -35,7 +35,7 @@ ns-train lerf \
     --train-split-fraction 0.99
 
 # Directory containing the folders
-base_dir=outputs/"$data_type"/"$action"/"$scene_type"/"$scene_name"/"$object_name"/before/lerf
+base_dir=outputs/"$data_type"/"$action"/"$scene_type"/"$scene_name"/"$object_name"/before/lerf-lite
 
 # Find all timestamped directories within the base directory
 timestamp_dirs=$(find "$base_dir" -type d -regextype posix-egrep -regex '.*[0-9]{4}-[0-9]{2}-[0-9]{2}_[0-9]{6}')

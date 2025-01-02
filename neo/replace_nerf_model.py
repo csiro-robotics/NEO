@@ -7,7 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 from copy import deepcopy
-from typing import List, Type
+from typing import Optional, List, Type
 
 import numpy as np
 import json
@@ -46,11 +46,11 @@ class ReplaceNeRFModelConfig(NerfactoModelConfig):
 
     _target: Type = field(default_factory=lambda: ReplaceNeRFModel)
 
-    field_path: Path = ""
+    field_path: Optional[Path] = None
     """Path to the main NeRF"""
-    replace_field_path: Path = ""
+    replace_field_path: Optional[Path] = None
     """Path to the NeRF with reconstructed region"""
-    bbox_path: Path = ""
+    bbox_path: Optional[Path] = None
     """Path to the bounding box"""
 
 

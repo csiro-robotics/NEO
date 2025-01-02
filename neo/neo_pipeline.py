@@ -41,7 +41,7 @@ class NeoPipelineConfig(VanillaPipelineConfig):
 
     _target: Type = field(default_factory=lambda: NeoPipeline)
     """target class to instantiate"""
-    bbox_data_path: Path = None
+    bbox_data_path: Optional[Path] = None
     """path to file with bounding boxes"""
     datamanager: DataManagerConfig = VanillaDataManagerConfig()
     """specifies the datamanager config"""

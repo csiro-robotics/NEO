@@ -6,7 +6,6 @@ scene_name=""
 action=""
 scene_type=""
 object_name=""
-root_output=""
 root_input=""
 skip_colmap=""
 
@@ -18,7 +17,6 @@ while [[ "$#" -gt 0 ]]; do
         --action) action="$2"; shift ;;
         --scene_type) scene_type="$2"; shift ;;
         --object_name) object_name="$2"; shift ;;
-        --root_output) root_output="$2"; shift ;;
         --root_input) root_input="$2"; shift ;;
         --skip_colmap) skip_colmap=true ;;
         *) echo "Unknown option: $1"; exit 1 ;;
@@ -31,7 +29,7 @@ done
     --action $action \
     --scene_type $scene_type \
     --object_name $object_name \
-    --root_output $root_output \
+    --root_input $root_input \
     ${skip_colmap:+--skip_colmap}  # Only include --skip_colmap if it's true
 
 ./scripts/sub_scripts/train_base.sh --data_type $data_type \

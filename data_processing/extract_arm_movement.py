@@ -19,33 +19,27 @@ if __name__ == "__main__":
                         help="name of scene. Used in naming all related files")
     parser.add_argument("--root_bag", default="data/raw_bagfiles",
                         help="absolute path of root location of bag files")
-    parser.add_argument("--skip_frames", default=6, type=int, 
-                        help="number of frames to be skipped from original video")
     parser.add_argument("--action", choices=["remove", "translate", 
                                         "rotate", "translate_and_rotate",
                                         "mix"])
     parser.add_argument("--scene_type", choices=["single", "multiple_one", 
                                                 "multiple_sequential", 
                                                 "multiple_multiaction"])
-    parser.add_argument("--sequence_num", type=int)
     parser.add_argument("--object_name", type=str, nargs="+")
-    parser.add_argument("--root_output", default="data/neo_dataset",
+    parser.add_argument("--root_input", default="data/neo_dataset",
                         help="absolute path of output for dataset")
     args=parser.parse_args()
 
-    action_type = args.action
-    scene_name = args.scene_name if args.scene_type not in ["multiple_sequential", "multiple_multiaction"] \
-        else f"{args.scene_name}-{args.sequence_num:04}"
     if args.scene_type == "single":
         object_name = args.scene_name
     elif not args.object_name:
         raise ValueError("Cannot have action on multiple object scene without defining object being acted upon")
     else:
         object_name = "-".join([obj for obj in args.object_name])
-    output_path = Path(args.root_output) / args.data_type / args.action / args.scene_type / scene_name / object_name / "after"
+    output_path = Path(args.root_input) / args.data_type / args.action / args.scene_type / args.scene_name  / object_name / "after"
     os.makedirs(output_path, exist_ok=True)
 
-    bag_file_path = os.path.join(args.root_bag, action_type, args.scene_type, f"{scene_name}_ros_topics.bag")
+    bag_file_path = os.path.join(args.root_bag, args.action, args.scene_type, f"{args.scene_name }_ros_topics.bag")
 
     print(f"BAG FILE: {bag_file_path}")
     print(f"OUTPUT PATH: {output_path}")

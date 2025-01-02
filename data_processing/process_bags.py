@@ -261,7 +261,7 @@ if __name__ == "__main__":
                         help="specify if data is real or simulated")
     parser.add_argument("--scene_name", "-n", type=str, 
                         help="name of scene. Used in naming all related files")
-    parser.add_argument("--root_bag", default="data/raw_bagfiles",
+    parser.add_argument("--root_bag", default="raw_bagfiles",
                         help="absolute path of root location of bag files")
     parser.add_argument("--skip_frames", default=6, type=int, 
                         help="number of frames to be skipped from original video")
@@ -271,30 +271,26 @@ if __name__ == "__main__":
     parser.add_argument("--scene_type", choices=["single", "multiple_one", 
                                                 "multiple_sequential", 
                                                 "multiple_multiaction"])
-    parser.add_argument("--sequence_num", type=int)
     parser.add_argument("--object_name", type=str, nargs="+")
-    parser.add_argument("--root_output", default="data/neo_dataset",
+    parser.add_argument("--root_input", default="data/neo_dataset",
                         help="absolute path of output for dataset")
     parser.add_argument("--skip_colmap", dest='skip_colmap', action='store_true',
                         help="if passed colmap computation will be skipped")
     parser.set_defaults(skip_colmap=False)
     args=parser.parse_args()
 
-    # action_type = "remove" if args.action == 'remove' else "reconfigure"
-    action_type = args.action
+    root_bag = Path(args.root_input) / args.root_bag
     # HACK!!! we ran into issues with COLMAP within the docker. 
     # Should find out best practice to avoid this
-    # subprocess.run(f"chmod -R 777 {args.root_output}", shell=True)
-    # subprocess.run(f"chmod -R 777 {args.root_bag}", shell=True)
-    scene_name = args.scene_name if args.scene_type not in ["multiple_sequential", "multiple_multiaction"] \
-        else f"{args.scene_name}-{args.sequence_num:04}"
+    # subprocess.run(f"chmod -R 777 {args.root_input}", shell=True)
+    # subprocess.run(f"chmod -R 777 {root_bag}", shell=True)
     if args.scene_type == "single":
         object_name = args.scene_name
     elif not args.object_name:
         raise ValueError("Cannot have action on multiple object scene without defining object being acted upon")
     else:
         object_name = "-".join([obj for obj in args.object_name])
-    output_path = Path(args.root_output) / args.data_type / args.action /args.scene_type / scene_name / object_name
+    output_path = Path(args.root_input) / args.data_type / args.action /args.scene_type / args.scene_name / object_name
 
     # Need both before and after to be present in order to perform final alignment
     frames ={"before": [], "after": []}
@@ -302,8 +298,8 @@ if __name__ == "__main__":
     arucos = {}
     best_scale = {}
     for stage in ["before", "after"]:
-        bag_file_path = os.path.join(args.root_bag, action_type, args.scene_type,
-                                    f"{scene_name}_{stage}.bag")
+        bag_file_path = os.path.join(root_bag, args.action, args.scene_type,
+                                    f"{args.scene_name}_{stage}.bag")
         
         print(f"OUTPUT PATH: {output_path}")
 

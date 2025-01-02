@@ -22,13 +22,6 @@ Neo/
 └── README.md
 ```
 
-If you are running Neo inside docker container or remote server you need to run
-```bash
-sudo apt-get install -y xvfb
-Xvfb :99 -screen 0 1024x768x24 &
-export DISPLAY=:99
-```
-
 ## Using pretrained Nerfacto-based models
 
 If you want to use different Nerfacto based model just convert the config file with command
@@ -37,6 +30,23 @@ ns-convert --input CONFIG_INPUT_PATH
 ```
 Converted config will be saved at previous output location in neo folder
 
-ns-render camera-path --load-config outputs/figurines/neo/2024-08-04_225712/config.yml --camera-path-filename /workspace/Neo/data/figurines/camera_paths/2024-08-15-02-21-06.json --output-path renders/figurines/2024-08-15-02-21-06.mp4
+## Running Editing Pipeline
 
-ns-train nerfacto --data data/realsense_after --pipeline.model.camera-optimizer.mode off nerfstudio-data --orientation-method none --center-method none --auto-scale-poses False --train-split-fraction 0.99
+To run all parts of the editing pipeline just run the command as follows
+
+```bash
+./scripts/run_all.sh --root_input <data_directory> --data_type <data_type> --scene_name <scene_name> --action <action> --scene_type <scene_type> --object_name <object_name> --lerf_prompt '<lerf_prompt>' [--skip_colmap] [--dry_run]
+```
+
+> **Note:** Make sure that `lerfprompt` is enclosed within single quotes ('').
+
+Arguments are:
+- `--root_input`: The root directory where input data is stored.
+- `--data_type`: The type of data being used (e.g., real, synthetic).
+- `--scene_name`: The name of the scene to be processed.
+- `--action`: The action to be performed (e.g., remove, translate).
+- `--scene_type`: The type of scene (e.g., single, multiple_one).
+- `--object_name`: The name of the object to be edited.
+- `--lerf_prompt`: The prompt for the LERF model to identify the object.
+- `--skip_colmap`: Flag to skip the COLMAP step in the pipeline.
+- `--dry_run`: Flag to skip the rendering of images in evaluation step.

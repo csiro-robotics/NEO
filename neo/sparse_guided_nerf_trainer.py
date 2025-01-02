@@ -26,7 +26,7 @@ class SparseGuidedNeRFTrainerConfig(TrainerConfig):
 
     _target: Type = field(default_factory=lambda: SparseGuidedNeRFTrainer)
     """target class to instantiate"""
-    neo_model_path: Path = None
+    neo_model_path: Optional[Path] = None
     """Path to Neo model"""
 
 

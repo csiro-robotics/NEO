@@ -11,7 +11,7 @@ import numpy as np
 from dataclasses import dataclass, field
 from rich.progress import track
 from pathlib import Path
-from typing import Type, List, Dict, Any
+from typing import Optional, Type, List, Dict, Any
 
 from nerfstudio.data.scene_box import SceneBox
 from nerfstudio.engine.callbacks import TrainingCallback, TrainingCallbackAttributes, TrainingCallbackLocation
@@ -40,7 +40,7 @@ class SparseGuidedNeRFModelConfig(NerfactoModelConfig):
 
     _target: Type = field(default_factory=lambda: SparseGuidedNeRFModel)
 
-    bbox_path: Path = None
+    bbox_path: Optional[Path] = None
     """Path to the bounding box"""
 
 
@@ -68,7 +68,7 @@ class SparseGuidedNeRFModel(NerfactoModel):
         # Loading bbox data
         CONSOLE.print("Loading bounding boxes from: ")
 
-        bbox_path = self.config.bbox_path
+        bbox_path = str(self.config.bbox_path)
 
         assert bbox_path is not None, "Please specify --pipeline.model.bbox-path"
 
@@ -199,8 +199,8 @@ class SparseGuidedNeRFModel(NerfactoModel):
         inpaint_repeat = 2500
         if step >= step_delay and step % inpaint_repeat == 0:
             # Create paths for generating dataset
-            cache_path = Path(self.config.bbox_path.parent) / "cache"
-            logs_path = Path(self.config.bbox_path.parent) / "logs"
+            cache_path = self.config.bbox_path.parent / "cache"
+            logs_path = self.config.bbox_path.parent / "logs"
 
             # Get cameras for rendering
             cameras, image_names = get_cameras(self.dataparser_config)
