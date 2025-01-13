@@ -28,13 +28,13 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
-./scripts/prepare_data.sh --root_input $root_input \
-                          --data_type $data_type \
-                          --scene_name $scene_name \
-                          --action $action \
-                          --scene_type $scene_type \
-                          --object_name $object_name \
-                          ${skip_colmap:+--skip_colmap}  # Only include --skip_colmap if it's true
+# ./scripts/prepare_data.sh --root_input $root_input \
+#                           --data_type $data_type \
+#                           --scene_name $scene_name \
+#                           --action $action \
+#                           --scene_type $scene_type \
+#                           --object_name $object_name \
+#                           ${skip_colmap:+--skip_colmap}  # Only include --skip_colmap if it's true
 
 ./scripts/sub_scripts/get_bbox.sh --root_input $root_input \
                                   --data_type $data_type \
