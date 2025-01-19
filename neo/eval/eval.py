@@ -165,14 +165,19 @@ class EvalBaseConfig:
         self.model_config = yaml.load(self.config_path.read_text(), Loader=yaml.Loader)
         assert isinstance(self.model_config, TrainerConfig)
 
-        with open(self.model_config.data / 'transforms.json') as f:
-            transforms = json.load(f)
-            self.focal_lengths = (transforms['fl_x'], transforms['fl_y'])
-
         # Get rendering command
         base_path = str(self.model_config.get_base_dir())
         gt_data_path = Path(base_path.replace('outputs', 'data').replace('before', 'after')).parents[1]
         render_output_path = Path(base_path.replace('outputs', 'renders'))
+
+        # Load focal lengths and transforms
+        with open(self.model_config.data / 'transforms.json') as f:
+            transforms = json.load(f)
+            self.focal_lengths = (transforms['fl_x'], transforms['fl_y'])
+
+        with open(gt_data_path / 'transforms.json') as f:
+            transforms = json.load(f)
+            self.gt_focal_lengths = (transforms['fl_x'], transforms['fl_y'])
 
         # Copy GT data to render output path
         shutil.copytree(gt_data_path, render_output_path / f"{exp_names[0]}_gt", dirs_exist_ok=True)
@@ -221,7 +226,7 @@ class EvalNerfstudioConfig(EvalBaseConfig):
         dataset_full_gt = RealsenseDataset(render_output_path / f"{exp_names[0]}_gt", exp_names[0])
         
         dataset_cropped_edited = NerfstudioDataset(render_output_path / f"{exp_names[1]}_edited", exp_names[1], self.focal_lengths)
-        dataset_cropped_gt = NerfstudioDataset(render_output_path / f"{exp_names[1]}_gt", exp_names[1], self.focal_lengths)
+        dataset_cropped_gt = NerfstudioDataset(render_output_path / f"{exp_names[1]}_gt", exp_names[1], self.gt_focal_lengths)
 
         datasets = [(dataset_full_edited, dataset_full_gt), (dataset_cropped_edited, dataset_cropped_gt)]
 
