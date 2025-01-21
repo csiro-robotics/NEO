@@ -39,7 +39,7 @@ if __name__ == "__main__":
     output_path = Path(args.root_input) / args.data_type / args.action / args.scene_type / args.scene_name  / object_name / "after"
     os.makedirs(output_path, exist_ok=True)
 
-    bag_file_path = os.path.join(args.root_bag, args.action, args.scene_type, f"{args.scene_name }_ros_topics.bag")
+    bag_file_path = os.path.join(args.root_bag, args.data_type, args.action, args.scene_type, args.scene_name, f"{args.scene_name}_ros_topics.bag")
 
     print(f"BAG FILE: {bag_file_path}")
     print(f"OUTPUT PATH: {output_path}")
@@ -93,8 +93,7 @@ if __name__ == "__main__":
     quat_end = Rotation.from_quat(movement_end[['ee_pose.pose.orientation.x', 'ee_pose.pose.orientation.y', 'ee_pose.pose.orientation.z', 'ee_pose.pose.orientation.w']].to_numpy())
     
     # Compute final translation and rotation 
-    total_travel = (np.round(np.abs(movement_end - movement_start)[['ee_pose.pose.position.x', 'ee_pose.pose.position.y', 'ee_pose.pose.position.z']], 3)).tolist()
-
+    total_travel = ((np.round((movement_end - movement_start)[['ee_pose.pose.position.x', 'ee_pose.pose.position.y', 'ee_pose.pose.position.z']], 3)) * np.array([-1, -1, 1])).tolist()
     total_rotation = quat_start * quat_end.inv()
     total_rotation = np.round(total_rotation.as_euler('xyz', degrees=True), 3).tolist()
 

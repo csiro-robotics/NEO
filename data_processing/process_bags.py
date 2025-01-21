@@ -298,11 +298,11 @@ if __name__ == "__main__":
     arucos = {}
     best_scale = {}
     for stage in ["before", "after"]:
-        bag_file_path = os.path.join(root_bag, args.action, args.scene_type,
-                                    f"{args.scene_name}_{stage}.bag")
+        bag_file_path = os.path.join(root_bag, args.data_type, args.action, args.scene_type, args.scene_name, f"{args.scene_name}_{stage}.bag")
         
         print(f"OUTPUT PATH: {output_path}")
-
+        print(f"BAG FILE PATH: {bag_file_path}")
+        
         # Extract raw frames from realsense camera
         if not args.skip_colmap:
             read_realsense_bag(bag_file_path, output_path / stage, True, frames[stage], args.skip_frames)

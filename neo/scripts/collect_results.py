@@ -48,8 +48,8 @@ if __name__ == "__main__":
     # # Generating tables
     tex = PyTex()
 
-    columns = ["Method name", "PSNR[dB]+", "PSNR$_M$[dB]+", "MAE[m]-", "MAE$_M$[m]-"]
-    name_map = {"replace-nerf": "Our", "nerfacto-nerfiller": "Na\\\"{i}ve", "grid-prior-du": "Nerfiller" }
+    columns = ["Scene", "Method name", "PSNR[dB]+", "PSNR$_M$[dB]+", "MAE[m]-", "MAE$_M$[m]-"]
+    name_map = {"replace-nerf": "Our", "nerfacto-nerfiller": "Na\\\"{i}ve", "grid-prior-du": "Nerfiller"}
     digits = ([2, 2, 3, 2], [2, 2, 6, 6])
 
     fig_name = f"{config_path.parents[4].name}"
