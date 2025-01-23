@@ -3,6 +3,7 @@ import tyro
 import yaml
 import os
 import shutil
+import torch
 
 from dataclasses import dataclass, fields
 from pathlib import Path
@@ -85,9 +86,11 @@ class ConvertToNerfacto(BaseConvert):
         self.config.method_name = "nerfacto"
         shutil.copytree(old_base_dir, self.config.get_base_dir(), dirs_exist_ok=True)
 
+        # Load the Neo config
+        neo_config = yaml.load(Path(str(old_base_dir / "config.yml").replace("replace-nerf", "neo")).read_text(), Loader=yaml.Loader)
+
         # Load the .ckpt torch model
         ckpt_path = next((self.config.get_base_dir() / "nerfstudio_models").glob("*.ckpt"))
-        print("Old base dir: ", old_base_dir)
         model = torch.load(ckpt_path)
 
         keys_to_delete = []
@@ -121,13 +124,10 @@ class ConvertToNerfacto(BaseConvert):
         for field in fields(NerfactoModelConfig):
             if field.name != '_target':
                 setattr(model_config, field.name, getattr(self.config.pipeline.model, field.name))
+        model_config.average_init_density = neo_config.pipeline.model.average_init_density
         
         # Change data path
-        self.config.data = str(self.config.data).replace("outputs", "data")
-        self.config.data = Path(self.config.data.split("before")[0]) / "before"
-
-        model_config.camera_optimizer.mode = "off"
-
+        self.config.data = neo_config.data
         pipeline_config.model = model_config
         pipeline_config.datamanager = datamanager_config
         pipeline_config.datamanager.data = self.config.data
