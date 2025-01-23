@@ -6,67 +6,149 @@ import shutil
 
 from dataclasses import dataclass, fields
 from pathlib import Path
+from typing import Union
+from typing_extensions import Annotated
+from abc import ABC, abstractmethod
 
 from nerfstudio.engine.trainer import TrainerConfig
 from nerfstudio.data.datamanagers.base_datamanager import VanillaDataManagerConfig
+from nerfstudio.data.datamanagers.parallel_datamanager import ParallelDataManagerConfig
+from nerfstudio.pipelines.base_pipeline import VanillaPipelineConfig
+from nerfstudio.models.nerfacto import NerfactoModelConfig
 
 from neo.neo_pipeline import NeoPipelineConfig
 from neo.neo_model import NeoModelConfig
 
 
 @dataclass
-class ConvertConfig:
+class BaseConvert:
     input: Path
     """Path to the folder containing config.yaml file and nerfstudio_models"""
-    # output: Path
-    # """Path to the output where converted model will be saved"""
 
-def main(
-        config: ConvertConfig
-):
-    """
-    Convert any Nerfacto based model to Neo model suitable for editing.
-    """
+    @abstractmethod
+    def main(self):
+        assert self.input is not None, "Please specify --input. Type 'ns-convert -h' for more help."
 
-    assert config.input is not None, "Please specify --input. Type 'ns-convert -h' for more help."
+        # Load config
+        config_path = self.input / "config.yml"
+        self.config = yaml.load(config_path.read_text(), Loader=yaml.Loader)
 
-    # Load config
-    nerfacto_config_path = config.input / "config.yml"
-    nerfacto_config = yaml.load(nerfacto_config_path.read_text(), Loader=yaml.Loader)
+        assert self.config is not None, f"Could not find the config file in specified directory: {config_path}"
+        assert isinstance(self.config, TrainerConfig), "Config is not the instance of TrainerConfig and thus cannot be converted."
 
-    assert nerfacto_config is not None, f"Could not find the config file in specified directory: {nerfacto_config_path}"
-    assert isinstance(nerfacto_config, TrainerConfig), "Config is not the instance of TrainerConfig and thus cannot be converted."
 
-    # Change model name in config and copy the content of input folder to its new location 
-    old_base_dir = nerfacto_config.get_base_dir()
-    nerfacto_config.method_name = "neo"
-    shutil.copytree(old_base_dir, nerfacto_config.get_base_dir(), dirs_exist_ok=True)
+@dataclass
+class ConvertToNeo(BaseConvert):
+    def main(self):
+        """
+        Convert any Nerfacto based model to Neo model suitable for editing.
+        """
+        super().main()
 
-    # Copy pipeline settings
-    neo_pipeline_config = NeoPipelineConfig()
-    neo_pipeline_config.bbox_data_path = nerfacto_config.get_base_dir()
+        # Change model name in config and copy the content of input folder to its new location 
+        old_base_dir = self.config.get_base_dir()
+        self.config.method_name = "neo"
+        shutil.copytree(old_base_dir, self.config.get_base_dir(), dirs_exist_ok=True)
 
-    # Copy datamanager settings
-    datamanager_config = VanillaDataManagerConfig()
-    for field in fields(VanillaDataManagerConfig):
-        if field.name != '_target':
-            setattr(datamanager_config, field.name, getattr(nerfacto_config.pipeline.datamanager, field.name))
+        # Copy pipeline settings
+        pipeline_config = NeoPipelineConfig()
+        pipeline_config.bbox_data_path = self.config.get_base_dir()
 
-    # Copy model settings
-    neo_model_config = NeoModelConfig()
-    for field in fields(NeoModelConfig):
-        setattr(neo_model_config, field.name, getattr(nerfacto_config.pipeline.model, field.name))
+        # Copy datamanager settings
+        datamanager_config = VanillaDataManagerConfig()
+        for field in fields(VanillaDataManagerConfig):
+            if field.name != '_target':
+                setattr(datamanager_config, field.name, getattr(self.config.pipeline.datamanager, field.name))
+
+        # Copy model settings
+        model_config = NeoModelConfig()
+        for field in fields(NeoModelConfig):
+            setattr(model_config, field.name, getattr(self.config.pipeline.model, field.name))
+            
+        pipeline_config.datamanager = datamanager_config
+        self.config.pipeline = pipeline_config
+
+        # Save changed config
+        self.config.save_config()
+
+
+@dataclass
+class ConvertToNerfacto(BaseConvert):
+    def main(self):
+        """
+        Convert Replace-NeRF model to Nerfacto model.
+        """
+        super().main()
+
+        # Change model name in config and copy the content of input folder to its new location 
+        old_base_dir = self.config.get_base_dir()
+        self.config.method_name = "nerfacto"
+        shutil.copytree(old_base_dir, self.config.get_base_dir(), dirs_exist_ok=True)
+
+        # Load the .ckpt torch model
+        ckpt_path = next((self.config.get_base_dir() / "nerfstudio_models").glob("*.ckpt"))
+        print("Old base dir: ", old_base_dir)
+        model = torch.load(ckpt_path)
+
+        keys_to_delete = []
+        for line in model["pipeline"]:
+            if "copy" in line or "replace" in line:
+                keys_to_delete.append(line)
+                
+        for key in keys_to_delete:
+            del model["pipeline"][key]
+
+        appearance_embedding = model["pipeline"]["_model.field.embedding_appearance.embedding.weight"]
+        pose_adjustment = model["pipeline"]["_model.camera_optimizer.pose_adjustment"]
+
+        model["pipeline"]["_model.camera_optimizer.pose_adjustment"] = pose_adjustment[:appearance_embedding.shape[0] - pose_adjustment.shape[0], :]
+
+        # Save the modified model
+        torch.save(model, ckpt_path)
+
+        # Copy pipeline settings
+        pipeline_config = VanillaPipelineConfig()
+
+        # Copy datamanager settings
+        datamanager_config = ParallelDataManagerConfig()
+        for field in fields(ParallelDataManagerConfig):
+            if field.name != '_target':
+                if getattr(self.config.pipeline.datamanager, field.name, None) is not None:
+                    setattr(datamanager_config, field.name, getattr(self.config.pipeline.datamanager, field.name))
+
+        # Copy model settings
+        model_config = NerfactoModelConfig()
+        for field in fields(NerfactoModelConfig):
+            if field.name != '_target':
+                setattr(model_config, field.name, getattr(self.config.pipeline.model, field.name))
         
-    neo_pipeline_config.datamanager = datamanager_config
-    nerfacto_config.pipeline = neo_pipeline_config
+        # Change data path
+        self.config.data = str(self.config.data).replace("outputs", "data")
+        self.config.data = Path(self.config.data.split("before")[0]) / "before"
 
-    # Save changed config
-    nerfacto_config.save_config()
+        model_config.camera_optimizer.mode = "off"
+
+        pipeline_config.model = model_config
+        pipeline_config.datamanager = datamanager_config
+        pipeline_config.datamanager.data = self.config.data
+        pipeline_config.datamanager.dataparser.data = self.config.data
+        self.config.pipeline = pipeline_config
+
+        # Save changed config
+        self.config.save_config()
+
+
+Commands = tyro.conf.FlagConversionOff[
+    Union[
+        Annotated[ConvertToNeo, tyro.conf.subcommand(name="to-neo")],
+        Annotated[ConvertToNerfacto, tyro.conf.subcommand(name="to-nerfacto")],
+    ]
+]
 
 def entrypoint():
     """Entrypoint for use with pyproject scripts."""
     tyro.extras.set_accent_color("bright_yellow")
-    main(tyro.cli(ConvertConfig))
+    tyro.cli(Commands).main()
 
 if __name__ == '__main__':
     entrypoint()
