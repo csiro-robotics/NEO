@@ -66,4 +66,4 @@ ns-train nerfacto \
     --train-split-fraction 0.99
 
 # Convert LERF to Neo
-ns-convert --input $newest_dir
+ns-convert to-neo --input $newest_dir
