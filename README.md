@@ -50,3 +50,11 @@ Arguments are:
 - `--lerf_prompt`: The prompt for the LERF model to identify the object.
 - `--skip_colmap`: Flag to skip the COLMAP step in the pipeline.
 - `--dry_run`: Flag to skip the rendering of images in evaluation step.
+
+## Loopback edited model
+
+In order to load edited lerf model use the command:
+
+```bash
+ns-loopback lerf --input <path_to_folder_containing_config_file>
+```

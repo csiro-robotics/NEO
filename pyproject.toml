@@ -28,3 +28,4 @@ replace_nerf = 'neo.neo_config:replace_nerf_method'
 ns-convert = "neo.scripts.convert_to_neo:entrypoint"
 ns-eval-neo = "neo.eval.eval:entrypoint"
 ns-render-neo = "neo.render.render:entrypoint"
+ns-loopback = "neo.scripts.loopback_model:entrypoint"

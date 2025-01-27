@@ -10,6 +10,7 @@ from typing_extensions import Annotated
 from abc import abstractmethod
 
 from nerfstudio.utils.scripts import run_command
+from datetime import datetime
 
 
 @dataclass
@@ -44,13 +45,14 @@ class LoopbackLERF(BaseLoopback):
 
     def main(self):
         
+        # Convert to Nerfacto
         convert_command = [
             f"ns-convert to-nerfacto",
             f"--input {self.input}",
         ]
         convert_command = " ".join(convert_command)
 
-        # run_command(convert_command, verbose=self.verbose)
+        run_command(convert_command, verbose=self.verbose)
 
         # Load config to get data path
         neo_config = yaml.load(Path(str(self.input / "config.yml").replace("replace-nerf", "neo")).read_text(), Loader=yaml.Loader)
@@ -70,11 +72,14 @@ class LoopbackLERF(BaseLoopback):
         ]
         render_command = " ".join(render_command)
 
-        # run_command(render_command, verbose=self.verbose)
+        run_command(render_command, verbose=self.verbose)
 
         # Rename folder
         if (render_path / "rgb").exists():
-            shutil.move(render_path / "rgb", render_path / "images")
+            destination_path = render_path / "images"
+            if destination_path.exists():
+                shutil.rmtree(destination_path)
+            shutil.move(render_path / "rgb", destination_path)
 
         # Train language field
         train_command = [
@@ -95,6 +100,38 @@ class LoopbackLERF(BaseLoopback):
         train_command = " ".join(train_command)
 
         run_command(train_command, verbose=self.verbose)
+
+        # Move model to its new location
+        new_config_path = Path(str(self.input / "config.yml").replace("replace-nerf", "lerf-lite-lan"))
+        lerf_lite_lan_config = yaml.load(new_config_path.read_text(), Loader=yaml.Loader)
+        lerf_lite_lan_config.method_name = "lerf-lite"
+
+        new_timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+
+        lerf_lite_lan_config.timestamp = new_timestamp
+        output_path = str(lerf_lite_lan_config.pipeline.output_path).replace("lerf-lite-lan", "lerf-lite").replace(neo_config.timestamp, new_timestamp)
+        lerf_lite_lan_output_path = Path(lerf_lite_lan_config.pipeline.output_path)
+        lerf_lite_lan_config.pipeline.output_path = output_path 
+        lerf_lite_lan_config.pipeline.model.output_folder = output_path
+
+        # Overwrite config.yml
+        with open(new_config_path, 'w') as config_file:
+            yaml.dump(lerf_lite_lan_config, config_file)
+
+        # Copy the timestamp folder to lerf-lite location
+        shutil.move(lerf_lite_lan_output_path, output_path)
+
+        # Remove lerf-lite-lan folder
+        shutil.rmtree(lerf_lite_lan_output_path.parent)
+
+        # Convert to Neo
+        convert_command = [
+            f"ns-convert to-neo",
+            f"--input {output_path}",
+        ]
+        convert_command = " ".join(convert_command)
+
+        run_command(convert_command, verbose=self.verbose)
 
 
 Commands = tyro.conf.FlagConversionOff[
