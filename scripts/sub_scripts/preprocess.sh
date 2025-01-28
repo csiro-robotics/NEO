@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e  # Exit the script if any command fails
+
 # Default values for arguments
 data_type=""
 scene_name=""
@@ -24,8 +26,13 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
+# Import the time logging function
+source scripts/sub_scripts/log_time.sh
+log_file=outputs/"$data_type"/"$action"/"$scene_type"/"$scene_name"/"$object_name"/times.json
+
 # Run image extraction, COLMAP and scene matching
-python3 data_processing/process_bags.py \
+log_time "$log_file" "Colmap" \
+    python3 data_processing/process_bags.py \
     --data_type "$data_type" \
     --scene_name "$scene_name" \
     --action "$action" \
@@ -37,7 +44,8 @@ python3 data_processing/process_bags.py \
     ${skip_colmap:+--skip_colmap}  # Only include --skip_colmap if it's true
 
 # Extract arm movement if applicable
-python3 data_processing/extract_arm_movement.py \
+log_time "$log_file" "Arm_movement_extraction" \
+    python3 data_processing/extract_arm_movement.py \
     --data_type "$data_type" \
     --scene_name "$scene_name" \
     --action "$action" \

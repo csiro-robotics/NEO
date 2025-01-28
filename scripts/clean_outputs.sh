@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e  # Exit the script if any command fails
+
 # Base directory where you want to search for timestamped folders (can be modified)
 base_dir="outputs"
 

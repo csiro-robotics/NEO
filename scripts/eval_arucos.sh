@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e  # Exit the script if any command fails
+
 # Default values for arguments
 data_type=""
 scene_name=""

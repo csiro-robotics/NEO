@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e  # Exit the script if any command fails
+
 # Default values for arguments
 root_input=""
 data_type=""
@@ -28,6 +30,10 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
+# Import the time logging function
+source scripts/sub_scripts/log_time.sh
+log_file=outputs/"$data_type"/"$action"/"$scene_type"/"$scene_name"/"$object_name"/times.json
+
 # ./scripts/prepare_data.sh --root_input $root_input \
 #                           --data_type $data_type \
 #                           --scene_name $scene_name \
@@ -36,31 +42,35 @@ done
 #                           --object_name $object_name \
 #                           ${skip_colmap:+--skip_colmap}  # Only include --skip_colmap if it's true
 
-./scripts/sub_scripts/get_bbox.sh --root_input $root_input \
-                                  --data_type $data_type \
-                                  --scene_name $scene_name \
-                                  --action $action \
-                                  --scene_type $scene_type \
-                                  --object_name $object_name \
-                                  --lerf_prompt \'"$lerf_prompt"\'
+log_time "$log_file" "All_get_bbox" \
+    ./scripts/sub_scripts/get_bbox.sh --root_input $root_input \
+                                      --data_type $data_type \
+                                      --scene_name $scene_name \
+                                      --action $action \
+                                      --scene_type $scene_type \
+                                      --object_name $object_name \
+                                      --lerf_prompt \'"$lerf_prompt"\'
 
-./scripts/edit.sh --data_type $data_type \
-                  --scene_name $scene_name \
-                  --action $action \
-                  --scene_type $scene_type \
-                  --object_name $object_name \
-                  --root_input $root_input
+log_time "$log_file" "All_neo_edit" \
+    ./scripts/edit.sh --data_type $data_type \
+                      --scene_name $scene_name \
+                      --action $action \
+                      --scene_type $scene_type \
+                      --object_name $object_name \
+                      --root_input $root_input
 
-./scripts/sub_scripts/train_nerfiller.sh --data_type $data_type \
-                                         --scene_name $scene_name \
-                                         --action $action \
-                                         --scene_type $scene_type \
-                                         --object_name $object_name
+log_time "$log_file" "All_nerfiller_training" \
+    ./scripts/sub_scripts/train_nerfiller.sh --data_type $data_type \
+                                             --scene_name $scene_name \
+                                             --action $action \
+                                             --scene_type $scene_type \
+                                             --object_name $object_name
 
-./scripts/eval.sh --data_type $data_type \
-                  --scene_name $scene_name \
-                  --action $action \
-                  --scene_type $scene_type \
-                  --object_name $object_name \
-                  --root_input $root_input \
-                  ${dry_run:+--dry_run}  # Only include --dry_run if it's true
+log_time "$log_file" "All_eval" \
+    ./scripts/eval.sh --data_type $data_type \
+                      --scene_name $scene_name \
+                      --action $action \
+                      --scene_type $scene_type \
+                      --object_name $object_name \
+                      --root_input $root_input \
+                      ${dry_run:+--dry_run}  # Only include --dry_run if it's true

@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Import the time logging function
+source scripts/sub_scripts/log_time.sh
+log_file=outputs/"$data_type"/"$action"/"$scene_type"/"$scene_name"/"$object_name"/times.json
+
 # ./scripts/prepare_data.sh --root_input data \
 #                           --data_type real \
 #                           --scene_name mustard_bottle \
@@ -40,9 +44,17 @@
 #                           --object_name tomato_soup_can \
 #                           --skip_colmap
 
-./scripts/prepare_data.sh --root_input data \
-                          --data_type real \
-                          --scene_name mustard_bottle \
-                          --action translate_and_rotate \
-                          --scene_type single \
-                          --object_name mustard_bottle
+# ./scripts/prepare_data.sh --root_input data \
+#                           --data_type real \
+#                           --scene_name mustard_bottle \
+#                           --action translate_and_rotate \
+#                           --scene_type single \
+#                           --object_name mustard_bottle
+
+log_time "$log_file" "Pipeline_time_1" \
+    ./scripts/prepare_data.sh --root_input data \
+                              --data_type real \
+                              --scene_name red_robot \
+                              --action translate_and_rotate \
+                              --scene_type single \
+                              --object_name red_robot

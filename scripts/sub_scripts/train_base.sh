@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e  # Exit the script if any command fails
+
 # Default values for arguments
 data_type=""
 scene_name=""
@@ -22,8 +24,13 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
+# Import the time logging function
+source scripts/sub_scripts/log_time.sh
+log_file=outputs/"$data_type"/"$action"/"$scene_type"/"$scene_name"/"$object_name"/times.json
+
 # Train LERF
-ns-train lerf-lite \
+log_time "$log_file" "Lerf_training" \
+    ns-train lerf-lite \
     --data "$root_input"/"$data_type"/"$action"/"$scene_type"/"$scene_name"/"$object_name"/before \
     --output-dir outputs/"$data_type"/"$action"/"$scene_type"/"$scene_name" \
     --experiment-name "$object_name"/before \
@@ -53,7 +60,8 @@ newest_dir=$(echo "$timestamp_dirs" | sort -t'_' -k1,1 -k2,2 -r | head -n 1)
 timestamp=$(basename "$newest_dir")
 
 # Train GT scene
-ns-train nerfacto \
+log_time "$log_file" "GT_nerfacto_training" \
+    ns-train nerfacto \
     --data "$root_input"/"$data_type"/"$action"/"$scene_type"/"$scene_name"/"$object_name"/after \
     --output-dir outputs/"$data_type"/"$action"/"$scene_type"/"$scene_name" \
     --experiment-name "$object_name"/after \
@@ -66,4 +74,5 @@ ns-train nerfacto \
     --train-split-fraction 0.99
 
 # Convert LERF to Neo
-ns-convert to-neo --input $newest_dir
+log_time "$log_file" "Converting_to_neo" \
+    ns-convert to-neo --input $newest_dir

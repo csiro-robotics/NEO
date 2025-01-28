@@ -58,3 +58,11 @@ In order to load edited lerf model use the command:
 ```bash
 ns-loopback lerf --input <path_to_folder_containing_config_file>
 ```
+
+## Time logging
+
+For time logging you will need to install
+
+```bash
+sudo apt-get install bc jq
+```

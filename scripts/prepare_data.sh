@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e  # Exit the script if any command fails
+
 # Default values for arguments
 data_type=""
 scene_name=""
@@ -24,7 +26,12 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
-./scripts/sub_scripts/preprocess.sh --data_type $data_type \
+# Import the time logging function
+source scripts/sub_scripts/log_time.sh
+log_file=outputs/"$data_type"/"$action"/"$scene_type"/"$scene_name"/"$object_name"/times.json
+
+log_time "$log_file" "All_preprocessing" \
+    ./scripts/sub_scripts/preprocess.sh --data_type $data_type \
     --scene_name $scene_name \
     --action $action \
     --scene_type $scene_type \
@@ -32,7 +39,8 @@ done
     --root_input $root_input \
     ${skip_colmap:+--skip_colmap}  # Only include --skip_colmap if it's true
 
-./scripts/sub_scripts/train_base.sh --data_type $data_type \
+log_time "$log_file" "All_base_training" \
+    ./scripts/sub_scripts/train_base.sh --data_type $data_type \
     --scene_name $scene_name \
     --action $action \
     --scene_type $scene_type \

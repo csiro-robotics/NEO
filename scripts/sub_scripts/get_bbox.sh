@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e  # Exit the script if any command fails
+
 # Default values for arguments
 data_type=""
 scene_name=""
@@ -24,10 +26,15 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
-lerftogo-neo --root_input "$root_input" \
-             --data_type "$data_type" \
-             --scene_name "$scene_name" \
-             --action "$action" \
-             --scene_type "$scene_type" \
-             --object_name "$object_name" \
-             --lerf_prompt \'"$lerf_prompt"\'
+# Import the time logging function
+source scripts/sub_scripts/log_time.sh
+log_file=outputs/"$data_type"/"$action"/"$scene_type"/"$scene_name"/"$object_name"/times.json
+
+log_time "$log_file" "Lerftogo_get_bbox" \
+    lerftogo-neo --root_input "$root_input" \
+                 --data_type "$data_type" \
+                 --scene_name "$scene_name" \
+                 --action "$action" \
+                 --scene_type "$scene_type" \
+                 --object_name "$object_name" \
+                 --lerf_prompt \'"$lerf_prompt"\'

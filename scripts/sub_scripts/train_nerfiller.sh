@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e  # Exit the script if any command fails
+
 # Default values for arguments
 data_type=""
 scene_name=""
@@ -20,6 +22,10 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
+# Import the time logging function
+source scripts/sub_scripts/log_time.sh
+log_file=outputs/"$data_type"/"$action"/"$scene_type"/"$scene_name"/"$object_name"/times.json
+
 # Directory containing the folders
 base_dir=outputs/"$data_type"/"$action"/"$scene_type"/"$scene_name"/"$object_name"/before/neo
 
@@ -39,37 +45,40 @@ newest_dir=$(echo "$timestamp_dirs" | sort -t'_' -k1,1 -k2,2 -r | head -n 1)
 timestamp=$(basename "$newest_dir")
 
 # Prepare datasets for training
-python3 neo/scripts/prepare_data_nerfiller.py \
-    --load_config "$base_dir"/"$timestamp"/config.yml
+log_time "$log_file" "Nerfiller_data_prepare" \
+    python3 neo/scripts/prepare_data_nerfiller.py \
+        --load_config "$base_dir"/"$timestamp"/config.yml
 
 # Train NeRFiller base
-ns-train nerfacto-nerfiller \
-    --data outputs/"$data_type"/"$action"/"$scene_type"/"$scene_name"/"$object_name"/before/nerfacto-nerfiller/"$timestamp"/cache \
-    --output-dir outputs/"$data_type"/"$action"/"$scene_type"/"$scene_name" \
-    --experiment-name "$object_name"/before \
-    --timestamp "$timestamp" \
-    --viewer.quit-on-train-completion True \
-    --pipeline.model.camera-optimizer.mode off \
-    --pipeline.datamanager.masks-on-gpu True \
-    --pipeline.datamanager.images-on-gpu True \
-    nerfstudio-data \
-    --orientation-method none \
-    --center-method none \
-    --auto-scale-poses False \
-    --train-split-fraction 0.99
+log_time "$log_file" "Nerfiller_base_train" \
+    ns-train nerfacto-nerfiller \
+        --data outputs/"$data_type"/"$action"/"$scene_type"/"$scene_name"/"$object_name"/before/nerfacto-nerfiller/"$timestamp"/cache \
+        --output-dir outputs/"$data_type"/"$action"/"$scene_type"/"$scene_name" \
+        --experiment-name "$object_name"/before \
+        --timestamp "$timestamp" \
+        --viewer.quit-on-train-completion True \
+        --pipeline.model.camera-optimizer.mode off \
+        --pipeline.datamanager.masks-on-gpu True \
+        --pipeline.datamanager.images-on-gpu True \
+        nerfstudio-data \
+        --orientation-method none \
+        --center-method none \
+        --auto-scale-poses False \
+        --train-split-fraction 0.99
     
 # Train NeRFiller
-ns-train grid-prior-du \
-    --data outputs/"$data_type"/"$action"/"$scene_type"/"$scene_name"/"$object_name"/before/nerfacto-nerfiller/"$timestamp"/cache \
-    --output-dir outputs/"$data_type"/"$action"/"$scene_type"/"$scene_name" \
-    --experiment-name "$object_name"/before \
-    --timestamp "$timestamp" \
-    --viewer.quit-on-train-completion True \
-    --pipeline.model.camera-optimizer.mode off \
-    --pipeline.datamanager.masks-on-gpu True \
-    --pipeline.datamanager.images-on-gpu True \
-    nerfstudio-data \
-    --orientation-method none \
-    --center-method none \
-    --auto-scale-poses False \
-    --train-split-fraction 0.99
+log_time "$log_file" "Nerfiller_train" \
+    ns-train grid-prior-du \
+        --data outputs/"$data_type"/"$action"/"$scene_type"/"$scene_name"/"$object_name"/before/nerfacto-nerfiller/"$timestamp"/cache \
+        --output-dir outputs/"$data_type"/"$action"/"$scene_type"/"$scene_name" \
+        --experiment-name "$object_name"/before \
+        --timestamp "$timestamp" \
+        --viewer.quit-on-train-completion True \
+        --pipeline.model.camera-optimizer.mode off \
+        --pipeline.datamanager.masks-on-gpu True \
+        --pipeline.datamanager.images-on-gpu True \
+        nerfstudio-data \
+        --orientation-method none \
+        --center-method none \
+        --auto-scale-poses False \
+        --train-split-fraction 0.99

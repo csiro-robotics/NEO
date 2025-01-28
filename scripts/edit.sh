@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e  # Exit the script if any command fails
+
 # Default values for arguments
 data_type=""
 scene_name=""
@@ -22,6 +24,10 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
+# Import the time logging function
+source scripts/sub_scripts/log_time.sh
+log_file=outputs/"$data_type"/"$action"/"$scene_type"/"$scene_name"/"$object_name"/times.json
+
 # Directory containing the folders
 base_dir=outputs/"$data_type"/"$action"/"$scene_type"/"$scene_name"/"$object_name"/before/neo
 
@@ -37,5 +43,6 @@ fi
 # Sort directories based on timestamp in folder names (YYYY-MM-DD_HHMMSS)
 newest_dir=$(echo "$timestamp_dirs" | sort -t'_' -k1,1 -k2,2 -r | head -n 1)
 
-python3 neo/scripts/apply_neo_edit.py \
-    --load_config "$newest_dir"/config.yml
+log_time "$log_file" "Neo_edit" \
+    python3 neo/scripts/apply_neo_edit.py \
+        --load_config "$newest_dir"/config.yml
