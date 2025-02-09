@@ -7,10 +7,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 from copy import deepcopy
-from typing import Optional, List, Type
+from typing import Optional, Type
 
 import numpy as np
-import json
 import torch
 
 from nerfstudio.utils.rich_utils import CONSOLE
@@ -35,8 +34,6 @@ from nerfstudio.model_components.scene_colliders import NearFarCollider
 from nerfstudio.model_components.shaders import NormalsShader
 from nerfstudio.models.nerfacto import NerfactoModel, NerfactoModelConfig
 
-from neo.utils.bbox import BoundingBox
-from neo.utils.bbox_utils import BBoxData
 from neo.utils.ray_samplers import DualProposalNetworkSampler, ReconfigurationalProposalNetworkSampler
 
 
@@ -74,6 +71,9 @@ class ReplaceNeRFModel(NerfactoModel):
 
         appearance_embedding_dim = self.config.appearance_embed_dim if self.config.use_appearance_embedding else 0
 
+        # Bboxes
+        self.bboxes = self.kwargs["bboxes"]
+
         # Fields
         self.field = NerfactoField(
             self.scene_box.aabb,
@@ -86,7 +86,7 @@ class ReplaceNeRFModel(NerfactoModel):
             hidden_dim_color=self.config.hidden_dim_color,
             hidden_dim_transient=self.config.hidden_dim_transient,
             spatial_distortion=scene_contraction,
-            num_images=self.num_train_data - 31,
+            num_images=self.num_train_data - ((len(self.bboxes) * 32) - 1),
             use_pred_normals=self.config.predict_normals,
             use_average_appearance_embedding=self.config.use_average_appearance_embedding,
             appearance_embedding_dim=appearance_embedding_dim,
@@ -105,7 +105,7 @@ class ReplaceNeRFModel(NerfactoModel):
             hidden_dim_color=self.config.hidden_dim_color,
             hidden_dim_transient=self.config.hidden_dim_transient,
             spatial_distortion=scene_contraction,
-            num_images=self.num_train_data - 31,
+            num_images=self.num_train_data - ((len(self.bboxes) * 32) - 1),
             use_pred_normals=self.config.predict_normals,
             use_average_appearance_embedding=self.config.use_average_appearance_embedding,
             appearance_embedding_dim=appearance_embedding_dim,
@@ -163,35 +163,6 @@ class ReplaceNeRFModel(NerfactoModel):
         self.replace_field.eval()
 
         CONSOLE.print("Fields loaded succesfully!")
-        CONSOLE.print()
-
-        # Loading bbox data
-        CONSOLE.print("Loading bounding box from: ")
-
-        bbox_path = self.config.bbox_path
-
-        assert bbox_path is not None, "Please specify --pipeline.model.bbox-path"
-
-        CONSOLE.print(f"- {bbox_path}")
-
-        with open(bbox_path, 'r') as f:
-            bboxes_file = json.load(f)
-
-        self.bboxes: List[BoundingBox] = []
-        for bbox in bboxes_file['bboxes']:
-            data = bbox['data']
-            bbox_data = BBoxData(bbox['idx'], 
-                                 dimensions=data['dimensions'], 
-                                 euler=data['euler'], 
-                                 quaternion=data['quaternion'], 
-                                 position=data['position'],
-                                 is_reconfigured=data['is_reconfigured'],
-                                 offset_position=data['offset_position'],
-                                 offset_euler=data['offset_euler'])
-
-            self.bboxes.append(BoundingBox(bbox_data))
-        
-        CONSOLE.print("Fields bounding box succesfully!")
         CONSOLE.print()
         
         self.camera_optimizer: CameraOptimizer = self.config.camera_optimizer.setup(

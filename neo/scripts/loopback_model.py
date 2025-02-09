@@ -79,7 +79,8 @@ class LoopbackLERF(BaseLoopback):
             destination_path = render_path / "images"
             if destination_path.exists():
                 shutil.rmtree(destination_path)
-            shutil.move(render_path / "rgb", destination_path)
+            shutil.copytree(render_path / "rgb", destination_path, dirs_exist_ok=True)
+            shutil.rmtree(render_path / "rgb")
 
         # Train language field
         train_command = [
@@ -119,7 +120,7 @@ class LoopbackLERF(BaseLoopback):
             yaml.dump(lerf_lite_lan_config, config_file)
 
         # Copy the timestamp folder to lerf-lite location
-        shutil.move(lerf_lite_lan_output_path, output_path)
+        shutil.copytree(lerf_lite_lan_output_path, output_path, dirs_exist_ok=True)
 
         # Remove lerf-lite-lan folder
         shutil.rmtree(lerf_lite_lan_output_path.parent)

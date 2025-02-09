@@ -5,9 +5,10 @@ Replace NeRF Pipeline
 import typing
 import torch
 import yaml
+import json
 
 from dataclasses import dataclass, field, fields
-from typing import Literal, Optional, Type
+from typing import Literal, Optional, Type, List
 
 import torch.distributed as dist
 from torch.cuda.amp.grad_scaler import GradScaler
@@ -27,7 +28,10 @@ from nerfstudio.pipelines.base_pipeline import (
     VanillaPipelineConfig,
 )
 from nerfstudio.utils import profiler
+from nerfstudio.utils.rich_utils import CONSOLE
 
+from neo.utils.bbox import BoundingBox
+from neo.utils.bbox_utils import BBoxData
 from neo.replace_nerf_model import ReplaceNeRFModel, ReplaceNeRFModelConfig
 
 
@@ -63,6 +67,35 @@ class ReplaceNeRFPipeline(VanillaPipeline):
 
         self.config = config
 
+        # Loading bbox data
+        CONSOLE.print("Loading bounding box from: ")
+
+        bbox_path = self.config.model.bbox_path
+
+        assert bbox_path is not None, "Please specify --pipeline.model.bbox-path"
+
+        CONSOLE.print(f"- {bbox_path}")
+
+        with open(bbox_path, 'r') as f:
+            bboxes_file = json.load(f)
+
+        self.bboxes: List[BoundingBox] = []
+        for bbox in bboxes_file['bboxes']:
+            data = bbox['data']
+            bbox_data = BBoxData(bbox['idx'], 
+                                 dimensions=data['dimensions'], 
+                                 euler=data['euler'], 
+                                 quaternion=data['quaternion'], 
+                                 position=data['position'],
+                                 is_reconfigured=data['is_reconfigured'],
+                                 offset_position=data['offset_position'],
+                                 offset_euler=data['offset_euler'])
+
+            self.bboxes.append(BoundingBox(bbox_data))
+        
+        CONSOLE.print("Loaded bounding box succesfully!")
+        CONSOLE.print()
+
         # Merge confgis
         nerfacto_config_path = self.config.model.bbox_path.parent / "config.yml"
         nerfacto_config = yaml.load(nerfacto_config_path.read_text(), Loader=yaml.Loader)
@@ -89,6 +122,7 @@ class ReplaceNeRFPipeline(VanillaPipeline):
             metadata=self.datamanager.train_dataset.metadata,
             device=device,
             grad_scaler=grad_scaler,
+            bboxes=self.bboxes
         )
         self.model.to(device)
 
@@ -110,7 +144,7 @@ class ReplaceNeRFPipeline(VanillaPipeline):
         """
         ray_bundle, batch = self.datamanager.next_train(step)
         # TODO Very bad solution, needs to be replaced
-        ray_bundle.camera_indices = torch.clamp(ray_bundle.camera_indices, 0, len(self.datamanager.train_dataset) - 32)
+        ray_bundle.camera_indices = torch.clamp(ray_bundle.camera_indices, 0, len(self.datamanager.train_dataset) - (32 * len(self.bboxes)))
         model_outputs = self._model(ray_bundle)
         metrics_dict = self.model.get_metrics_dict(model_outputs)
         loss_dict = self.model.get_loss_dict(model_outputs, step, metrics_dict)

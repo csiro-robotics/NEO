@@ -125,7 +125,7 @@ def generate_sparse_dataset(model: Model,
             frames.append((view, image_names.index(view)))
         selected_frames.append(frames)
 
-    # # Inpaint selected images
+    # Inpaint selected images
     inpaint_images_in_grids(model, sam_predictor, inpainting_pipeline, selected_frames, cameras, output_path, log_inpaint_images=True, logs_path=logs_path)
 
     # Remove temporary masks
