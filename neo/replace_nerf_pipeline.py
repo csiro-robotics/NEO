@@ -144,7 +144,7 @@ class ReplaceNeRFPipeline(VanillaPipeline):
         """
         ray_bundle, batch = self.datamanager.next_train(step)
         # TODO Very bad solution, needs to be replaced
-        ray_bundle.camera_indices = torch.clamp(ray_bundle.camera_indices, 0, len(self.datamanager.train_dataset) - (32 * len(self.bboxes)))
+        ray_bundle.camera_indices = torch.clamp(ray_bundle.camera_indices, 0, len(self.datamanager.train_dataset) - (32 * len(self.bboxes)) - 1)
         model_outputs = self._model(ray_bundle)
         metrics_dict = self.model.get_metrics_dict(model_outputs)
         loss_dict = self.model.get_loss_dict(model_outputs, step, metrics_dict)

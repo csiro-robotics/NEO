@@ -102,7 +102,7 @@ def get_path_from_json(camera_path: Dict[str, Any]) -> Cameras:
     )
 
 
-def generate_hemisphere_transforms(radius: float, num_layers: int, origin: np.ndarray, num_per_layer: int = 4, dtype: type = np.array, shape: tuple = (4, 4)) -> List[npt.NDArray]:
+def generate_hemisphere_transforms(radius: float, num_layers: int, origin: np.ndarray, dataparser_transform: np.ndarray, dataparser_scale: float, num_per_layer: int = 4, dtype: type = np.array, shape: tuple = (4, 4)) -> List[npt.NDArray]:
     transformation_matrices = []
     
     thetas = np.linspace(0.0, np.pi / 2, num_layers + 2)
@@ -124,6 +124,9 @@ def generate_hemisphere_transforms(radius: float, num_layers: int, origin: np.nd
             trans_mat = np.eye(4)
             trans_mat[:3, 3:] = np.array([[x, y, z]]).T
             trans_mat[:3, :3] = R
+            
+            trans_mat[:3, 3] = trans_mat[:3, 3] / dataparser_scale
+            trans_mat = np.linalg.inv(np.concatenate([dataparser_transform, np.array([[0, 0, 0, 1]])], axis=0)) @ trans_mat
 
             if dtype == torch.Tensor:
                 trans_mat = torch.tensor(trans_mat).float()

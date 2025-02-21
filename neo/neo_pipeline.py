@@ -5,6 +5,7 @@ import os
 import re
 import torch
 import typing
+import time
 
 from dataclasses import dataclass, field
 from typing import Literal, Optional, Type
@@ -126,6 +127,13 @@ class NeoPipeline(VanillaPipeline):
 
     def apply_changes_hook(self):
 
+        path = self.config.bbox_data_path
+        dataset_path = path / "cache"
+        logs_path = path / "logs"
+
+        if os.path.exists(logs_path):
+            start_time = time.time()
+        
         verbose = True # If set to True prints training progress of separate models
         dry_run = False
 
@@ -143,8 +151,6 @@ class NeoPipeline(VanillaPipeline):
                                     )
             self.model.train()
 
-        path = self.config.bbox_data_path
-        dataset_path = path / "cache"
         checkpoint_paths = (path / "nerfstudio_models").glob('*.ckpt')
         checkpoint_filenames = [path for path in checkpoint_paths if path.is_file()]
 
@@ -226,3 +232,12 @@ class NeoPipeline(VanillaPipeline):
             print("----------------------------------------------------------------------------------------------------------------")
 
         CONSOLE.print("[bold green]Editing finished!")
+
+        if os.path.exists(logs_path):
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+            log_filename = f"logfile.log"
+            with open(logs_path / log_filename, "a") as log_file:
+                elapsed_minutes = int(elapsed_time // 60)
+                elapsed_seconds = int(elapsed_time % 60)
+                log_file.write(f"[{time.strftime('%Y%m%d_%H%M%S')}] Editing time: {elapsed_minutes} min {elapsed_seconds} s\n")

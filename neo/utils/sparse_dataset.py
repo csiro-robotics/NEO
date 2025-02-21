@@ -85,7 +85,7 @@ def generate_sparse_dataset(model: Model,
     selected_views = []
     for i, group in enumerate(collision_groups):
         boxes_centre = np.mean(np.vstack([box["data"]["position"] for box in bboxes if box['idx'] in group]), axis=0)
-        dedicated_transforms = generate_hemisphere_transforms(radius, num_layers, boxes_centre)
+        dedicated_transforms = generate_hemisphere_transforms(radius, num_layers, boxes_centre, dataparser_transform, dataparser_scale)
 
         group_views = []
         for j, dedicated_transform in enumerate(dedicated_transforms):
@@ -97,6 +97,14 @@ def generate_sparse_dataset(model: Model,
             frame["file_path"] = f"images/dedicated_{num}.png"
             frame["mask_path"] = f"masks/dedicated_{num}.png"
             frame["transform_matrix"] = dedicated_transform.tolist()
+
+            if not "fl_x" in camera_data:
+                frame["fl_x"] = camera_data["frames"][0]["fl_x"]
+                frame["fl_y"] = camera_data["frames"][0]["fl_y"]
+                frame["cx"] = camera_data["frames"][0]["cx"]
+                frame["cy"] = camera_data["frames"][0]["cy"]
+                frame["w"] = camera_data["frames"][0]["w"]
+                frame["h"] = camera_data["frames"][0]["h"]
 
             camera_data["frames"].append(frame)
             group_views.append(f"dedicated_{num}.png")
@@ -143,12 +151,20 @@ def generate_masks(camera_data: Dict[str, float],
     os.makedirs(output_path / "temp_masks", exist_ok=True)
 
     # Extract camera parameters
-    fl_x = camera_data["fl_x"]
-    fl_y = camera_data["fl_y"]
-    cx = camera_data["cx"]
-    cy = camera_data["cy"]
-    width = camera_data["w"]
-    height = camera_data["h"]
+    if "fl_x" in camera_data:
+        fl_x = camera_data["fl_x"]
+        fl_y = camera_data["fl_y"]
+        cx = camera_data["cx"]
+        cy = camera_data["cy"]
+        width = camera_data["w"]
+        height = camera_data["h"]
+    else:
+        fl_x = camera_data["frames"][0]["fl_x"]
+        fl_y = camera_data["frames"][0]["fl_y"]
+        cx = camera_data["frames"][0]["cx"]
+        cy = camera_data["frames"][0]["cy"]
+        width = camera_data["frames"][0]["w"]
+        height = camera_data["frames"][0]["h"]
     
     if "applied_transform" in camera_data:
         dataparser_transform = dataparser_transform.cpu().detach().numpy() @ np.linalg.inv(np.concatenate([np.array(camera_data["applied_transform"]), np.array([[0, 0, 0, 1]])], axis=0))

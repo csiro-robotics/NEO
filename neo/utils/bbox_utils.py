@@ -157,6 +157,12 @@ class BoundingBoxToolbox(ViewerElement[bool]):
         self.remove_box_handle = viser_server.add_gui_button("Remove Bbox", color='gray', icon=Icon.TRASH)
         self.apply_changes_handle = viser_server.add_gui_button("Apply changes", color='gray', icon=Icon.DEVICE_FLOPPY)
 
+    def apply_changes_hook_wrapper(self) -> None:
+        
+        self.apply_changes_handle.disabled = True
+        self.apply_changes_hook()
+        self.apply_changes_handle.disabled = False
+
     def install(self, viser_server: ViserServer) -> None:
         self._create_gui_handle(viser_server)
 
@@ -172,7 +178,7 @@ class BoundingBoxToolbox(ViewerElement[bool]):
         self.bbox_selector_handle.on_update(lambda _: self.bbox_selector_hook())
         self.add_box_handle.on_click(lambda _: self.add_box_hook())
         self.remove_box_handle.on_click(lambda _: self.remove_box_hook())
-        self.apply_changes_handle.on_click(lambda _: self.apply_changes_hook())
+        self.apply_changes_handle.on_click(lambda _: self.apply_changes_hook_wrapper())
 
     def get_bbox_data(self) -> BBoxData:
 

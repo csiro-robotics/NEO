@@ -72,6 +72,10 @@ class ConvertToNeo(BaseConvert):
         # Save changed config
         self.config.save_config()
 
+        # Copy datapareser transforms file if exists
+        if (old_base_dir / "dataparser_transforms.json").exists():
+            shutil.copyfile(old_base_dir / "dataparser_transforms.json", self.config.get_base_dir() / "dataparser_transforms.json")
+
 
 @dataclass
 class ConvertToNerfacto(BaseConvert):
@@ -136,6 +140,11 @@ class ConvertToNerfacto(BaseConvert):
 
         # Save changed config
         self.config.save_config()
+
+        # Copy datapareser transforms file if exists
+        if (old_base_dir / "dataparser_transforms.json").exists():
+            shutil.copyfile(old_base_dir / "dataparser_transforms.json", self.config.get_base_dir() / "dataparser_transforms.json")
+
 
 
 Commands = tyro.conf.FlagConversionOff[
