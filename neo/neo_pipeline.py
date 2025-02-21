@@ -129,19 +129,19 @@ class NeoPipeline(VanillaPipeline):
         verbose = True # If set to True prints training progress of separate models
         dry_run = False
 
-        # if not dry_run:
-        #     self.model.eval()
-        #     generate_sparse_dataset(model=self.model, 
-        #                             sam_predictor=self.sam_predictor,
-        #                             inpainting_pipeline=self.inpainting_pipeline,
-        #                             data_path=self.config.datamanager.data, 
-        #                             bboxes_path=self.config.bbox_data_path, 
-        #                             dataparser_config=self.config.datamanager.dataparser, 
-        #                             dataparser_transform=self.dataparser_output.dataparser_transform, 
-        #                             dataparser_scale=self.dataparser_output.dataparser_scale,
-        #                             log_inpaint_images=self.config.log_inpaint_images,
-        #                             )
-        #     self.model.train()
+        if not dry_run:
+            self.model.eval()
+            generate_sparse_dataset(model=self.model, 
+                                    sam_predictor=self.sam_predictor,
+                                    inpainting_pipeline=self.inpainting_pipeline,
+                                    data_path=self.config.datamanager.data, 
+                                    bboxes_path=self.config.bbox_data_path, 
+                                    dataparser_config=self.config.datamanager.dataparser, 
+                                    dataparser_transform=self.dataparser_output.dataparser_transform, 
+                                    dataparser_scale=self.dataparser_output.dataparser_scale,
+                                    log_inpaint_images=self.config.log_inpaint_images,
+                                    )
+            self.model.train()
 
         path = self.config.bbox_data_path
         dataset_path = path / "cache"
@@ -156,38 +156,38 @@ class NeoPipeline(VanillaPipeline):
 
         max_num_iterations = 30000
 
-        # method_name = "sparse-guided-nerf"
+        method_name = "sparse-guided-nerf"
 
-        # train_sparse_guided_nerf_cmd = [
-        #     f"ns-train {method_name}",
-        #     f"--data {dataset_path}",
-        #     "--experiment_name ''",
-        #     f"--timestamp {timestamp}",
-        #     f"--method-name {method_name}",
-        #     f"--max-num-iterations {max_num_iterations}",
-        #     f"--neo-model-path {checkpoint_filenames[0]}",
-        #     f"--pipeline.model.bbox-path {path}/bbox.json",
-        #     "--viewer.quit-on-train-completion True",
-        #     f"--output-dir {str(path).replace('neo/', '').replace(timestamp, '')}",
-        #     f"--pipeline.model.camera-optimizer.mode {self.config.model.camera_optimizer.mode}",
-        #     "--viewer.websocket-port 7008",
-        #     "nerfstudio-data",
-        #     f"--orientation-method {self.config.datamanager.dataparser.orientation_method}",
-        #     f"--center-method {self.config.datamanager.dataparser.center_method}",
-        #     f"--auto-scale-poses {self.config.datamanager.dataparser.auto_scale_poses}",
-        #     f"--train-split-fraction {self.config.datamanager.dataparser.train_split_fraction}"
-        # ]
-        # train_sparse_guided_nerf_cmd = " ".join(train_sparse_guided_nerf_cmd)
+        train_sparse_guided_nerf_cmd = [
+            f"ns-train {method_name}",
+            f"--data {dataset_path}",
+            "--experiment_name ''",
+            f"--timestamp {timestamp}",
+            f"--method-name {method_name}",
+            f"--max-num-iterations {max_num_iterations}",
+            f"--neo-model-path {checkpoint_filenames[0]}",
+            f"--pipeline.model.bbox-path {path}/bbox.json",
+            "--viewer.quit-on-train-completion True",
+            f"--output-dir {str(path).replace('neo/', '').replace(timestamp, '')}",
+            f"--pipeline.model.camera-optimizer.mode {self.config.model.camera_optimizer.mode}",
+            "--viewer.websocket-port 7008",
+            "nerfstudio-data",
+            f"--orientation-method {self.config.datamanager.dataparser.orientation_method}",
+            f"--center-method {self.config.datamanager.dataparser.center_method}",
+            f"--auto-scale-poses {self.config.datamanager.dataparser.auto_scale_poses}",
+            f"--train-split-fraction {self.config.datamanager.dataparser.train_split_fraction}"
+        ]
+        train_sparse_guided_nerf_cmd = " ".join(train_sparse_guided_nerf_cmd)
 
-        # if not dry_run:
-        #     with status(msg="[bold green]Training Sparse Guided NeRF", spinner="moon", verbose=verbose):
-        #         run_command(train_sparse_guided_nerf_cmd, verbose=verbose)
+        if not dry_run:
+            with status(msg="[bold green]Training Sparse Guided NeRF", spinner="moon", verbose=verbose):
+                run_command(train_sparse_guided_nerf_cmd, verbose=verbose)
 
-        # else:
-        #     print("----------------------------------------------------------------------------------------------------------------")
-        #     print("Train command:")
-        #     print(train_sparse_guided_nerf_cmd)
-        #     print("----------------------------------------------------------------------------------------------------------------")
+        else:
+            print("----------------------------------------------------------------------------------------------------------------")
+            print("Train command:")
+            print(train_sparse_guided_nerf_cmd)
+            print("----------------------------------------------------------------------------------------------------------------")
 
         method_name = "replace-nerf"
 
