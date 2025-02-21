@@ -65,6 +65,44 @@ neo_method = MethodSpecification(
     description="Neo method for fast nerf editing.",
 )
 
+neo_method = MethodSpecification(
+    config=NeoTrainerConfig(
+        method_name="neo-opt",
+        steps_per_eval_batch=500,
+        steps_per_save=2000,
+        max_num_iterations=30000,
+        mixed_precision=True,
+        pipeline=NeoPipelineConfig(
+            datamanager=VanillaDataManagerConfig(
+                dataparser=NerfstudioDataParserConfig(),
+                train_num_rays_per_batch=4096,
+                eval_num_rays_per_batch=4096,
+            ),
+            model=NeoModelConfig(
+                eval_num_rays_per_chunk=1 << 15,
+                average_init_density=0.01,
+            ),
+        ),
+        optimizers={
+            "proposal_networks": {
+                "optimizer": AdamOptimizerConfig(lr=1e-2, eps=1e-15),
+                "scheduler": ExponentialDecaySchedulerConfig(lr_final=0.0001, max_steps=200000),
+            },
+            "fields": {
+                "optimizer": AdamOptimizerConfig(lr=1e-2, eps=1e-15),
+                "scheduler": ExponentialDecaySchedulerConfig(lr_final=1e-4, max_steps=50000),
+            },
+            "camera_opt": {
+                "optimizer": AdamOptimizerConfig(lr=1e-3, eps=1e-15),
+                "scheduler": ExponentialDecaySchedulerConfig(lr_final=1e-4, max_steps=5000),
+            },
+        },
+        viewer=ViewerConfig(num_rays_per_chunk=1 << 15),
+        vis="viewer",
+    ),
+    description="Neo method for fast nerf editing. Optimized for working with 24GB GPUs.",
+)
+
 sparse_guided_nerf_method = MethodSpecification(
     config=SparseGuidedNeRFTrainerConfig(
         method_name="sparse-guided-nerf",

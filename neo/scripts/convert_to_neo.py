@@ -78,6 +78,45 @@ class ConvertToNeo(BaseConvert):
 
 
 @dataclass
+class ConvertToNeo(BaseConvert):
+    def main(self):
+        """
+        Convert any Nerfacto based model to Neo model suitable for editing.
+        """
+        super().main()
+
+        # Change model name in config and copy the content of input folder to its new location 
+        old_base_dir = self.config.get_base_dir()
+        self.config.method_name = "neo-opt"
+        shutil.copytree(old_base_dir, self.config.get_base_dir(), dirs_exist_ok=True)
+
+        # Copy pipeline settings
+        pipeline_config = NeoPipelineConfig()
+        pipeline_config.bbox_data_path = self.config.get_base_dir()
+
+        # Copy datamanager settings
+        datamanager_config = VanillaDataManagerConfig()
+        for field in fields(VanillaDataManagerConfig):
+            if field.name != '_target':
+                setattr(datamanager_config, field.name, getattr(self.config.pipeline.datamanager, field.name))
+
+        # Copy model settings
+        model_config = NeoModelConfig()
+        for field in fields(NeoModelConfig):
+            setattr(model_config, field.name, getattr(self.config.pipeline.model, field.name))
+            
+        pipeline_config.datamanager = datamanager_config
+        self.config.pipeline = pipeline_config
+
+        # Save changed config
+        self.config.save_config()
+
+        # Copy datapareser transforms file if exists
+        if (old_base_dir / "dataparser_transforms.json").exists():
+            shutil.copyfile(old_base_dir / "dataparser_transforms.json", self.config.get_base_dir() / "dataparser_transforms.json")
+
+
+@dataclass
 class ConvertToNerfacto(BaseConvert):
     def main(self):
         """
@@ -150,6 +189,7 @@ class ConvertToNerfacto(BaseConvert):
 Commands = tyro.conf.FlagConversionOff[
     Union[
         Annotated[ConvertToNeo, tyro.conf.subcommand(name="to-neo")],
+        Annotated[ConvertToNeo, tyro.conf.subcommand(name="to-neo-opt")],
         Annotated[ConvertToNerfacto, tyro.conf.subcommand(name="to-nerfacto")],
     ]
 ]
