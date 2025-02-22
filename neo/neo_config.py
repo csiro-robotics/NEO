@@ -10,7 +10,6 @@ from nerfstudio.data.dataparsers.nerfstudio_dataparser import NerfstudioDataPars
 from nerfstudio.engine.optimizers import AdamOptimizerConfig
 from nerfstudio.engine.trainer import TrainerConfig
 from nerfstudio.plugins.types import MethodSpecification
-from nerfstudio.pipelines.base_pipeline import VanillaPipelineConfig
 from nerfstudio.data.datamanagers.parallel_datamanager import ParallelDataManagerConfig
 
 from nerfstudio.engine.schedulers import (
@@ -25,6 +24,7 @@ from neo.sparse_guided_nerf_pipeline import SparseGuidedNeRFPipelineConfig
 from neo.sparse_guided_nerf_model import SparseGuidedNeRFModelConfig
 from neo.replace_nerf_model import ReplaceNeRFModelConfig
 from neo.replace_nerf_pipeline import ReplaceNeRFPipelineConfig
+from neo.data.pixel_samplers import NeoPixelSamplerConfig
 
 
 neo_method = MethodSpecification(
@@ -65,7 +65,7 @@ neo_method = MethodSpecification(
     description="Neo method for fast nerf editing.",
 )
 
-neo_method = MethodSpecification(
+neo_opt_method = MethodSpecification(
     config=NeoTrainerConfig(
         method_name="neo-opt",
         steps_per_eval_batch=500,
@@ -115,6 +115,7 @@ sparse_guided_nerf_method = MethodSpecification(
                 dataparser=NerfstudioDataParserConfig(),
                 train_num_rays_per_batch=4096,
                 eval_num_rays_per_batch=4096,
+                pixel_sampler=NeoPixelSamplerConfig(),
             ),
             model=SparseGuidedNeRFModelConfig(
                 eval_num_rays_per_chunk=1 << 15,
@@ -154,6 +155,7 @@ replace_nerf_method = MethodSpecification(
                 dataparser=NerfstudioDataParserConfig(),
                 train_num_rays_per_batch=4096,
                 eval_num_rays_per_batch=4096,
+                pixel_sampler=NeoPixelSamplerConfig(),
             ),
             model=ReplaceNeRFModelConfig(
                 eval_num_rays_per_chunk=1 << 15,

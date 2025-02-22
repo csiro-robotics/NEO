@@ -3,6 +3,7 @@ Neo pipeline.
 """
 import os
 import re
+import json
 import torch
 import typing
 import time
@@ -80,6 +81,44 @@ class NeoPipeline(VanillaPipeline):
     ):
         super(VanillaPipeline, self).__init__()
         self.config = config
+
+        # Load transforms
+        transforms = None
+        with open(self.config.datamanager.data / "transforms.json", 'r') as f:
+            transforms = json.load(f)
+
+        # Check if transfomrs have proper format
+        assert transforms is not None, "Transforms are not loaded properly."
+
+        if "fl_x" in transforms:
+            CONSOLE.print("[yellow]transforms.json has wrong format. Correcting the file")
+
+            for frame in transforms["frames"]:
+                frame["w"] = transforms["w"]
+                frame["h"] = transforms["h"]
+                frame["fl_x"] = transforms["fl_x"]
+                frame["fl_y"] = transforms["fl_y"]
+                frame["cx"] = transforms["cx"]
+                frame["cy"] = transforms["cy"]
+                frame["k1"] = transforms["k1"]
+                frame["k2"] = transforms["k2"]
+                frame["p1"] = transforms["p1"]
+                frame["p2"] = transforms["p2"]
+
+            del transforms["w"]
+            del transforms["h"]
+            del transforms["fl_x"]
+            del transforms["fl_y"]
+            del transforms["cx"]
+            del transforms["cy"]
+            del transforms["k1"]
+            del transforms["k2"]
+            del transforms["p1"]
+            del transforms["p2"]
+
+            with open(self.config.datamanager.data / "transforms.json", 'w') as f:
+                json.dump(transforms, f, indent=4)
+
         self.test_mode = test_mode
         self.datamanager: DataManager = config.datamanager.setup(
             device=device, test_mode=test_mode, world_size=world_size, local_rank=local_rank
@@ -164,6 +203,9 @@ class NeoPipeline(VanillaPipeline):
 
         method_name = "sparse-guided-nerf"
 
+        # TODO This shouldnt be hardcoded!
+        neo_variant = "neo-opt"
+
         train_sparse_guided_nerf_cmd = [
             f"ns-train {method_name}",
             f"--data {dataset_path}",
@@ -174,7 +216,7 @@ class NeoPipeline(VanillaPipeline):
             f"--neo-model-path {checkpoint_filenames[0]}",
             f"--pipeline.model.bbox-path {path}/bbox.json",
             "--viewer.quit-on-train-completion True",
-            f"--output-dir {str(path).replace('neo/', '').replace(timestamp, '')}",
+            f"--output-dir {str(path).replace(f'{neo_variant}/', '').replace(timestamp, '')}",
             f"--pipeline.model.camera-optimizer.mode {self.config.model.camera_optimizer.mode}",
             "--viewer.websocket-port 7008",
             "nerfstudio-data",
@@ -204,11 +246,11 @@ class NeoPipeline(VanillaPipeline):
             f"--timestamp {timestamp}",
             f"--method-name {method_name}",
             f"--pipeline.model.field-path {checkpoint_filenames[0]}",
-            f"--pipeline.model.replace-field-path {str(path).replace('neo', 'sparse-guided-nerf')}/nerfstudio_models/step-{str(max_num_iterations - 1).zfill(9)}.ckpt",
+            f"--pipeline.model.replace-field-path {str(path).replace(neo_variant, 'sparse-guided-nerf')}/nerfstudio_models/step-{str(max_num_iterations - 1).zfill(9)}.ckpt",
             f"--pipeline.model.bbox-path {path}/bbox.json",
             "--pipeline.datamanager.pixel-sampler.ignore-mask True",
             "--viewer.quit-on-train-completion True",
-            f"--output-dir {str(path).replace('neo/', '').replace(timestamp, '')}",
+            f"--output-dir {str(path).replace(f'{neo_variant}/', '').replace(timestamp, '')}",
             f"--pipeline.model.camera-optimizer.mode {self.config.model.camera_optimizer.mode}",
             "--viewer.websocket-port 7009",
             "nerfstudio-data",
@@ -219,7 +261,6 @@ class NeoPipeline(VanillaPipeline):
         ]
 
         train_replace_nerf_cmd = " ".join(train_replace_nerf_cmd)
-
 
         if not dry_run:
             with status(msg="[bold green]Replacing objects", spinner="moon", verbose=verbose):

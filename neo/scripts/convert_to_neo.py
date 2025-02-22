@@ -19,6 +19,8 @@ from nerfstudio.models.nerfacto import NerfactoModelConfig
 
 from neo.neo_pipeline import NeoPipelineConfig
 from neo.neo_model import NeoModelConfig
+from neo.neo_trainer import NeoTrainerConfig
+from neo.neo_config import neo_method, neo_opt_method
 
 
 @dataclass
@@ -55,6 +57,13 @@ class ConvertToNeo(BaseConvert):
         pipeline_config = NeoPipelineConfig()
         pipeline_config.bbox_data_path = self.config.get_base_dir()
 
+        # Assign Neo trainer
+        self.config = NeoTrainerConfig(**self.config.__dict__)
+        self.config._target = neo_method.config._target
+
+        # Copy optimizers settings
+        self.config.optimizers = neo_method.config.optimizers
+
         # Copy datamanager settings
         datamanager_config = VanillaDataManagerConfig()
         for field in fields(VanillaDataManagerConfig):
@@ -78,7 +87,7 @@ class ConvertToNeo(BaseConvert):
 
 
 @dataclass
-class ConvertToNeo(BaseConvert):
+class ConvertToNeoOpt(BaseConvert):
     def main(self):
         """
         Convert any Nerfacto based model to Neo model suitable for editing.
@@ -94,18 +103,33 @@ class ConvertToNeo(BaseConvert):
         pipeline_config = NeoPipelineConfig()
         pipeline_config.bbox_data_path = self.config.get_base_dir()
 
+        # Assign Neo trainer
+        self.config = NeoTrainerConfig(**self.config.__dict__)
+        self.config._target = neo_opt_method.config._target
+
+        # Copy optimizers settings
+        self.config.optimizers = neo_opt_method.config.optimizers
+
         # Copy datamanager settings
         datamanager_config = VanillaDataManagerConfig()
         for field in fields(VanillaDataManagerConfig):
-            if field.name != '_target':
-                setattr(datamanager_config, field.name, getattr(self.config.pipeline.datamanager, field.name))
+            if field.name not in ['_target']:
+                if field.name in ['train_num_rays_per_batch', 'eval_num_rays_per_batch']:
+                    setattr(datamanager_config, field.name, getattr(neo_opt_method.config.pipeline.datamanager, field.name))
+                else:
+                    setattr(datamanager_config, field.name, getattr(self.config.pipeline.datamanager, field.name))
 
         # Copy model settings
         model_config = NeoModelConfig()
         for field in fields(NeoModelConfig):
-            setattr(model_config, field.name, getattr(self.config.pipeline.model, field.name))
-            
+            if field.name not in ['_target']:
+                if field.name in ['eval_num_rays_per_chunk']:
+                    setattr(model_config, field.name, getattr(neo_opt_method.config.pipeline.model, field.name))
+                else:
+                    setattr(model_config, field.name, getattr(self.config.pipeline.model, field.name))
+        
         pipeline_config.datamanager = datamanager_config
+        pipeline_config.model = model_config
         self.config.pipeline = pipeline_config
 
         # Save changed config
@@ -189,7 +213,7 @@ class ConvertToNerfacto(BaseConvert):
 Commands = tyro.conf.FlagConversionOff[
     Union[
         Annotated[ConvertToNeo, tyro.conf.subcommand(name="to-neo")],
-        Annotated[ConvertToNeo, tyro.conf.subcommand(name="to-neo-opt")],
+        Annotated[ConvertToNeoOpt, tyro.conf.subcommand(name="to-neo-opt")],
         Annotated[ConvertToNerfacto, tyro.conf.subcommand(name="to-nerfacto")],
     ]
 ]

@@ -81,6 +81,13 @@ def generate_sparse_dataset(model: Model,
     # Select views for inpainting
     radius = 0.5
     num_layers = 8
+
+    # Get dataparser transformation matrix
+    if "applied_transform" in camera_data:
+        dataparser_transform = dataparser_transform.cpu().detach().numpy() @ np.linalg.inv(np.concatenate([np.array(camera_data["applied_transform"]), np.array([[0, 0, 0, 1]])], axis=0))
+
+    else:
+        dataparser_transform = dataparser_transform.cpu().detach().numpy()
     
     selected_views = []
     for i, group in enumerate(collision_groups):
@@ -99,13 +106,13 @@ def generate_sparse_dataset(model: Model,
             frame["transform_matrix"] = dedicated_transform.tolist()
 
             if not "fl_x" in camera_data:
-                frame["fl_x"] = camera_data["frames"][0]["fl_x"]
-                frame["fl_y"] = camera_data["frames"][0]["fl_y"]
-                frame["cx"] = camera_data["frames"][0]["cx"]
-                frame["cy"] = camera_data["frames"][0]["cy"]
-                frame["w"] = camera_data["frames"][0]["w"]
-                frame["h"] = camera_data["frames"][0]["h"]
-
+                frame["fl_x"] = 488
+                frame["fl_y"] = 488
+                frame["cx"] = 256
+                frame["cy"] = 256
+                frame["w"] = 512
+                frame["h"] = 512
+                
             camera_data["frames"].append(frame)
             group_views.append(f"dedicated_{num}.png")
 
@@ -149,33 +156,6 @@ def generate_masks(camera_data: Dict[str, float],
     # Create masks folder
     os.makedirs(output_path / "masks", exist_ok=True)
     os.makedirs(output_path / "temp_masks", exist_ok=True)
-
-    # Extract camera parameters
-    if "fl_x" in camera_data:
-        fl_x = camera_data["fl_x"]
-        fl_y = camera_data["fl_y"]
-        cx = camera_data["cx"]
-        cy = camera_data["cy"]
-        width = camera_data["w"]
-        height = camera_data["h"]
-    else:
-        fl_x = camera_data["frames"][0]["fl_x"]
-        fl_y = camera_data["frames"][0]["fl_y"]
-        cx = camera_data["frames"][0]["cx"]
-        cy = camera_data["frames"][0]["cy"]
-        width = camera_data["frames"][0]["w"]
-        height = camera_data["frames"][0]["h"]
-    
-    if "applied_transform" in camera_data:
-        dataparser_transform = dataparser_transform.cpu().detach().numpy() @ np.linalg.inv(np.concatenate([np.array(camera_data["applied_transform"]), np.array([[0, 0, 0, 1]])], axis=0))
-
-    else:
-        dataparser_transform = dataparser_transform.cpu().detach().numpy()
-
-    # Camera matrix
-    camera_matrix = np.array([[fl_x, 0.0, cx],
-                              [0.0, fl_y, cy],
-                              [0.0, 0.0, 1.0]])
 
     # Add boxes to visualization
     CONSOLE.print("Reading bbox data")
@@ -236,8 +216,39 @@ def generate_masks(camera_data: Dict[str, float],
         extrinsic = np.linalg.inv(transform_matrix)
         transform_matrix = extrinsic @ np.diag([-1, -1, -1, -1])
 
+        # Extract camera parameters
+        if "fl_x" in camera_data:
+            fl_x = camera_data["fl_x"]
+            fl_y = camera_data["fl_y"]
+            cx = camera_data["cx"]
+            cy = camera_data["cy"]
+            width = camera_data["w"]
+            height = camera_data["h"]
+
+        elif "dedicated" in frame["file_path"]:
+            fl_x = 488
+            fl_y = 488
+            cx = 256
+            cy = 256
+            width = 512
+            height = 512
+
+        else:
+            fl_x = frame["fl_x"]
+            fl_y = frame["fl_y"]
+            cx = frame["cx"]
+            cy = frame["cy"]
+            width = frame["w"]
+            height = frame["h"]
+
+        # Camera matrix
+        camera_matrix = np.array([[fl_x, 0.0, cx],
+                                  [0.0, fl_y, cy],
+                                  [0.0, 0.0, 1.0]])
+
         mask = np.zeros((height, width))
         for box_points in boxes_points:
+
             uv_points = []
             for world_point in box_points:
 
