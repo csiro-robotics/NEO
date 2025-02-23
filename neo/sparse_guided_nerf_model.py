@@ -8,11 +8,14 @@ import json
 import cv2
 import numpy as np
 
+from collections import defaultdict
 from dataclasses import dataclass, field
 from rich.progress import track
 from pathlib import Path
 from typing import Optional, Type, List, Dict, Any
 
+from nerfstudio.cameras.cameras import Cameras
+from nerfstudio.data.scene_box import OrientedBox
 from nerfstudio.data.scene_box import SceneBox
 from nerfstudio.engine.callbacks import TrainingCallback, TrainingCallbackAttributes, TrainingCallbackLocation
 from nerfstudio.models.base_model import ModelConfig
@@ -291,3 +294,61 @@ class SparseGuidedNeRFModel(NerfactoModel):
 
         return callbacks
     
+    @torch.no_grad()
+    def get_outputs_for_camera_ray_bundle(self, camera_ray_bundle: RayBundle, prserve_device: bool = True) -> Dict[str, torch.Tensor]:
+        """Takes in camera parameters and computes the output of the model.
+
+        Args:
+            camera_ray_bundle: ray bundle to calculate outputs over
+        """
+        input_device = camera_ray_bundle.directions.device
+        num_rays_per_chunk = self.config.eval_num_rays_per_chunk
+        image_height, image_width = camera_ray_bundle.origins.shape[:2]
+        num_rays = len(camera_ray_bundle)
+        outputs_lists = defaultdict(list)
+        for i in range(0, num_rays, num_rays_per_chunk):
+            start_idx = i
+            end_idx = i + num_rays_per_chunk
+            ray_bundle = camera_ray_bundle.get_row_major_sliced_ray_bundle(start_idx, end_idx)
+            # move the chunk inputs to the model device
+            ray_bundle = ray_bundle.to(self.device)
+            outputs = self.forward(ray_bundle=ray_bundle)
+            for output_name, output in outputs.items():  # type: ignore
+                if not isinstance(output, torch.Tensor):
+                    # TODO: handle lists of tensors as well
+                    continue
+                # move the chunk outputs from the model device back to the device of the inputs.
+                if prserve_device:
+                    outputs_lists[output_name].append(output.to(input_device))
+                else:
+                    outputs_lists[output_name].append(output)
+        outputs = {}
+        for output_name, outputs_list in outputs_lists.items():
+            outputs[output_name] = torch.cat(outputs_list).view(image_height, image_width, -1)  # type: ignore
+        return outputs
+    
+    @torch.no_grad()
+    def get_outputs_for_camera(self, camera: Cameras, obb_box: Optional[OrientedBox] = None) -> Dict[str, torch.Tensor]:
+        """Takes in a camera, generates the raybundle, and computes the output of the model.
+        Assumes a ray-based model.
+
+        Args:
+            camera: generates raybundle
+        """
+
+        # TODO Not really stack rendering for now but there was a preoblem with RegionAwareSampling indices and 
+        # objects were not removed properly in the final renderings. Speedup from stacking is unnoticable
+
+        outputs = []
+        for cam in camera:
+            ray_bundle = cam.generate_rays(camera_indices=0, keep_shape=True, obb_box=obb_box)
+            output = self.get_outputs_for_camera_ray_bundle(ray_bundle, prserve_device=False)
+            outputs.append(output)
+
+        if len(outputs) == 1:
+            return outputs[0]
+        
+        for key in outputs[0].keys():
+            outputs[0][key] = torch.stack([output[key] for output in outputs], dim=2)
+
+        return outputs[0]

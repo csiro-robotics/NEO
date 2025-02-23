@@ -11,7 +11,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Literal, Optional, Type
 from pathlib import Path
-from segment_anything import sam_model_registry, SamPredictor
+from segment_anything import SamPredictor
 from diffusers import AutoPipelineForInpainting
 
 import torch.distributed as dist
@@ -35,6 +35,7 @@ from nerfstudio.pipelines.base_pipeline import (
 
 from neo.neo_model import NeoModel, NeoModelConfig
 from neo.utils.sparse_dataset import generate_sparse_dataset
+from neo.utils.sam_patch import sam_model_registry
 
 
 @dataclass

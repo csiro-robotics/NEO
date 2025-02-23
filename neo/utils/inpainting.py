@@ -1,5 +1,6 @@
 import cv2
 import os
+import torch
 import numpy as np
 import numpy.typing as npt
 
@@ -16,43 +17,70 @@ from nerfstudio.cameras.cameras import Cameras
 from neo.utils.rendering import render_preview_image
 
 
-def refine_mask(input_mask: npt.NDArray, rendered_image: npt.NDArray, sam_predictor: SamPredictor) -> npt.NDArray:
+def refine_mask(input_masks: npt.NDArray, rendered_images: torch.Tensor, sam_predictor: SamPredictor) -> npt.NDArray:
 
     # Generate features for rendered image
-    sam_predictor.set_image(rendered_image)
+    rendered_images = rendered_images.permute(0, 3, 1, 2)
+    original_image_size = rendered_images.shape[-2:]
+    resized_images = torch.nn.functional.interpolate(rendered_images, size=(1024, 1024), mode='bilinear', align_corners=False)
+    resized_images = resized_images.to(torch.uint8)
+    sam_predictor.set_torch_image(resized_images, original_image_size=original_image_size)
 
     # Create a set of prompt points around objects visible on the masks
-    input_mask = input_mask
-    edges = cv2.Canny(input_mask, threshold1=100, threshold2=200)
-    input_points = np.array(np.where(edges == 255)).transpose()[:, ::-1]
-    indices = np.linspace(0, input_points.shape[0] - 1, 100, dtype=int)
-    input_points = input_points[indices]
-    input_labels = np.ones_like(input_points[:, 0])
+    input_points_batch = []
+    input_labels_batch = []
+
+    for input_mask in input_masks:
+        edges = cv2.Canny(input_mask, threshold1=100, threshold2=200)
+        input_points = np.array(np.where(edges == 255)).transpose()[:, ::-1]
+        indices = np.linspace(0, input_points.shape[0] - 1, 100, dtype=int)
+        input_points = input_points[indices]
+        input_labels = np.ones_like(input_points[:, 0])
+
+        input_points_batch.append(input_points)
+        input_labels_batch.append(input_labels)
+
+    input_points = torch.tensor(np.concatenate(input_points_batch, axis=0), dtype=torch.float32).reshape(rendered_images.shape[0], 100, 1, -1).permute(1, 0, 2, 3)
+    scale_x = torch.tensor(1024 / original_image_size[0], dtype=torch.float32)
+    scale_y = torch.tensor(1024 / original_image_size[1], dtype=torch.float32)
+    input_points[..., 0] *= scale_x
+    input_points[..., 1] *= scale_y
+    input_labels = torch.tensor(np.concatenate(input_labels_batch, axis=0), dtype=torch.float32).reshape(rendered_images.shape[0], 100, -1).permute(1, 0, 2)
 
     # Predict masks for the points and refine input mask
     masks = []
-    for input_point, input_label in zip(input_points, input_labels):
-        mask, _, _ = sam_predictor.predict(
-            point_coords=np.array([input_point]),
-            point_labels=np.array([input_label]),
-            multimask_output=False,
-        )
-        masks.append(mask[0])
+    with torch.no_grad():
+        for input_point, input_label in zip(input_points, input_labels):
+            mask, _, _ = sam_predictor.predict_torch(
+                point_coords=input_point.to(device=sam_predictor.device),
+                point_labels=input_label.to(device=sam_predictor.device),
+                multimask_output=False,
+            )
 
-    masks = np.array(masks)
+            masks.append(mask)
 
-    sum_masks = np.clip(masks.sum(0), 0, 1)
-    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
-    sum_masks = cv2.morphologyEx((sum_masks * 255).astype(np.uint8), cv2.MORPH_CLOSE, kernel, iterations=2)[None, ...] / 255
+    # Release GPU memory
+    sam_predictor.reset_image()
 
-    refined_mask = np.array(np.logical_and(np.logical_xor(sum_masks[0], input_mask), input_mask)).astype(np.uint8) * 255
-    refined_mask = cv2.dilate(refined_mask, kernel)
+    masks = torch.concat(masks, dim=1)
+    sum_masks = np.clip(masks.sum(dim=1).cpu().detach().numpy(), 0, 1)
 
-    return refined_mask
+    refined_masks = []
+    for sum_mask in sum_masks:
+        sum_mask = cv2.resize(sum_mask, (input_mask.shape[1], input_mask.shape[0]), cv2.INTER_MAX)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+        sum_mask = cv2.morphologyEx((sum_mask * 255).astype(np.uint8), cv2.MORPH_CLOSE, kernel, iterations=2)[None, ...] / 255
+
+        refined_mask = np.array(np.logical_and(np.logical_xor(sum_mask[0], input_mask), input_mask)).astype(np.uint8) * 255
+        refined_mask = cv2.dilate(refined_mask, kernel)
+        refined_masks.append(refined_mask)
+
+    return refined_masks
 
 
 def get_images_from_grid(grid_image: npt.NDArray, size: Tuple[int, int]) -> List[npt.NDArray]:
 
+    # Split the grid image into 4 images
     height, width = int(size[0] / 2), int(size[1] / 2)
     images = []
     for i in range(2):
@@ -63,8 +91,18 @@ def get_images_from_grid(grid_image: npt.NDArray, size: Tuple[int, int]) -> List
     return images
 
 
-def get_image_grid(images: List[npt.NDArray]) -> npt.NDArray:
+def get_image_grid(images: List[npt.NDArray | torch.Tensor]) -> npt.NDArray:
 
+    # Check if the images are torch tensors and convert them to numpy arrays if necessary
+    converted_images = []
+    for image in images:
+        if isinstance(image, torch.Tensor):
+            converted_images.append(image.cpu().detach().numpy())
+        else:
+            converted_images.append(image)
+    images = converted_images
+
+    # Create a grid of images
     batch_size = len(images) // 4
     width = images[0].shape[0]
     height = images[0].shape[1]
@@ -99,55 +137,69 @@ def inpaint_images_in_grids(model: Model,
             group_logs_path = logs_path / f"{idx + 1}"
             os.makedirs(group_logs_path, exist_ok=True)
 
-        images, masks = [], []
-        image_names = []
-        for random_image in track(images_group, description=f"Rendering images for group {idx + 1}", transient=False):
-            image = render_preview_image(model, cameras, random_image[1], output_name=rendering_output_name)
-            mask = cv2.imread(str(output_path / f"temp_masks/{random_image[0]}"), cv2.IMREAD_GRAYSCALE)
-            kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
-            mask = cv2.dilate(mask, kernel, iterations=2)
-            downscale_factor = mask.shape[0] / image.shape[0]
-            mask = cv2.resize(mask, (int(mask.shape[1] / downscale_factor), int(mask.shape[0] / downscale_factor)), cv2.INTER_MAX)
+        all_images, all_masks = [], []
+        all_image_names = []
+        batch_size = 4
+        for i in track(range(int(len(images_group) / batch_size)), description=f"Rendering images for group {idx + 1}", transient=False):
+            idx_list = []
+            masks = []
+            image_names = []
+            for j in range(batch_size):
+                idx_list.append(images_group[j + (batch_size * i)][1])
+                mask = cv2.imread(str(output_path / f"temp_masks/{images_group[j + (batch_size * i)][0]}"), cv2.IMREAD_GRAYSCALE)
+                kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+                mask = cv2.dilate(mask, kernel, iterations=2)
+                downscale_factor = mask.shape[0] / cameras[j + (batch_size * i)].width
+                mask = cv2.resize(mask, (int(mask.shape[1] / downscale_factor), int(mask.shape[0] / downscale_factor)), cv2.INTER_MAX)
+                masks.append(mask)
+                image_names.append(images_group[j + (batch_size * i)][0])
+
+            images = render_preview_image(model, cameras, torch.tensor(idx_list), output_name=rendering_output_name)
 
             if refine_masks:
-                refined_mask = refine_mask(mask, image, sam_predictor)
+                refined_masks = refine_mask(masks, images, sam_predictor)
             else:
-                refined_mask = mask
+                refined_masks = masks
 
-            images.append(image)
-            masks.append(refined_mask)
-            image_names.append(random_image[0])
+            all_images.extend(images)
+            all_masks.extend(refined_masks)
+            all_image_names.extend(image_names)
 
-            mask = cv2.resize(mask, (int(mask.shape[1] * downscale_factor), int(mask.shape[0] * downscale_factor)), cv2.INTER_MAX)
-            refined_mask = cv2.resize(refined_mask, (int(refined_mask.shape[1] * downscale_factor), int(refined_mask.shape[0] * downscale_factor)), cv2.INTER_MAX)
-            cv2.imwrite(str(output_path / f"masks/{random_image[0]}"), mask)
+            for image, mask, refined_mask, name in zip(images, masks, refined_masks, image_names):
+                mask = cv2.resize(mask, (int(mask.shape[1] * downscale_factor), int(mask.shape[0] * downscale_factor)), cv2.INTER_MAX)
+                refined_mask = cv2.resize(refined_mask, (int(refined_mask.shape[1] * downscale_factor), int(refined_mask.shape[0] * downscale_factor)), cv2.INTER_MAX)
+                cv2.imwrite(str(output_path / f"masks/{name}"), mask)
 
-            if log_inpaint_images:
-                cv2.imwrite(str(group_logs_path / random_image[0]), image)
-                cv2.imwrite(str(group_logs_path / f"mask_{random_image[0]}"), mask)
-                cv2.imwrite(str(group_logs_path / f"refined_mask_{random_image[0]}"), refined_mask)
+                if log_inpaint_images:
+                    cv2.imwrite(str(group_logs_path / name), image.cpu().detach().numpy())
+                    cv2.imwrite(str(group_logs_path / f"mask_{name}"), mask)
+                    cv2.imwrite(str(group_logs_path / f"refined_mask_{name}"), refined_mask)
 
-        image_grids = get_image_grid(images)
-        mask_grids = get_image_grid(masks)
-        image_names = np.array(image_names).reshape(len(image_names) // 4, -1)
+        for i in range(int(len(images_group) / batch_size)):
 
-        for images_grid, masks_grid, image_name in zip(image_grids, mask_grids, image_names):
-            img_old_size = (int(images_grid.shape[1] * downscale_factor), int(images_grid.shape[0] * downscale_factor))
-            img_new_size = (1024, 1024)
-            images_grid = Image.fromarray(images_grid)
-            images_grid = images_grid.resize(img_new_size)
-            masks_grid = Image.fromarray(masks_grid)
-            masks_grid = masks_grid.resize(img_new_size)
+            batch_range = slice(i * batch_size, (i + 1) * batch_size)
 
-            CONSOLE.print(f"Inpainting images in group {idx + 1}")
-            reconstructed_grid_image = inpainting_pipeline(prompt="background", image=images_grid, mask_image=masks_grid, strength=strength).images[0]
-            reconstructed_grid_image = reconstructed_grid_image.resize(img_old_size)
-            reconstructed_grid_image = np.array(reconstructed_grid_image)
-            reconstructed_images = get_images_from_grid(reconstructed_grid_image, img_old_size)
+            image_grids = get_image_grid(all_images[batch_range])
+            mask_grids = get_image_grid(all_masks[batch_range])
+            image_names = np.array(all_image_names[batch_range]).reshape(len(all_image_names[batch_range]) // 4, -1)
 
-            for image, name in zip(reconstructed_images, image_name):
-                cv2.imwrite(str(output_path / f"images/{name}"), image)
-            
-            if log_inpaint_images:
+            for images_grid, masks_grid, image_name in zip(image_grids, mask_grids, image_names):
+                img_old_size = (int(images_grid.shape[1] * downscale_factor), int(images_grid.shape[0] * downscale_factor))
+                img_new_size = (1024, 1024)
+                images_grid = Image.fromarray(images_grid)
+                images_grid = images_grid.resize(img_new_size)
+                masks_grid = Image.fromarray(masks_grid)
+                masks_grid = masks_grid.resize(img_new_size)
+
+                CONSOLE.print(f"Inpainting images in group {idx + 1}")
+                reconstructed_grid_image = inpainting_pipeline(prompt="background", image=images_grid, mask_image=masks_grid, strength=strength).images[0]
+                reconstructed_grid_image = reconstructed_grid_image.resize(img_old_size)
+                reconstructed_grid_image = np.array(reconstructed_grid_image)
+                reconstructed_images = get_images_from_grid(reconstructed_grid_image, img_old_size)
+
                 for image, name in zip(reconstructed_images, image_name):
-                    cv2.imwrite(str(group_logs_path / f"reconstructed_{name}"), image)
+                    cv2.imwrite(str(output_path / f"images/{name}"), image)
+                
+                if log_inpaint_images:
+                    for image, name in zip(reconstructed_images, image_name):
+                        cv2.imwrite(str(group_logs_path / f"reconstructed_{name}"), image)
