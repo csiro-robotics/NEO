@@ -3,16 +3,12 @@ Neo pipeline.
 """
 import os
 import re
-import json
-import torch
 import typing
 import time
 
 from dataclasses import dataclass, field
-from typing import Literal, Optional, Type
+from typing import Literal, Optional, Type, Tuple
 from pathlib import Path
-from segment_anything import SamPredictor
-from diffusers import AutoPipelineForInpainting
 
 import torch.distributed as dist
 from torch.cuda.amp.grad_scaler import GradScaler
@@ -34,8 +30,8 @@ from nerfstudio.pipelines.base_pipeline import (
 )
 
 from neo.neo_model import NeoModel, NeoModelConfig
-from neo.utils.sparse_dataset import generate_sparse_dataset
-from neo.utils.sam_patch import sam_model_registry
+from neo.utils.sparse_dataset import SparseDataset, SparseDatasetConfig
+from neo.utils.config_utils import validate_transforms
 
 
 @dataclass
@@ -50,14 +46,8 @@ class NeoPipelineConfig(VanillaPipelineConfig):
     """specifies the datamanager config"""
     model: ModelConfig = NeoModelConfig()
     """specifies the model config"""
-    sam_checkpoint: str = "sam_vit_h_4b8939.pth"
-    """name of the SAM checkpoint"""
-    sam_model_type: str = "vit_h"
-    """SAM model type, vit_h by default"""
-    log_inpaint_images: bool = True
-    """If set to True images used for inpainting will be logged."""
-    inpainting_model: str = "diffusers/stable-diffusion-xl-1.0-inpainting-0.1"
-    """Model used for inpainting"""
+    sparse_dataset: SparseDatasetConfig = SparseDatasetConfig()
+    """specifies the sparse dataset config"""
 
     # TODO Add functionality described below
     loopback_model: bool = True
@@ -83,53 +73,21 @@ class NeoPipeline(VanillaPipeline):
         super(VanillaPipeline, self).__init__()
         self.config = config
 
-        # Load transforms
-        transforms = None
-        with open(self.config.datamanager.data / "transforms.json", 'r') as f:
-            transforms = json.load(f)
-
-        # Check if transfomrs have proper format
-        assert transforms is not None, "Transforms are not loaded properly."
-
-        if "fl_x" in transforms:
-            CONSOLE.print("[yellow]transforms.json has wrong format. Correcting the file")
-
-            for frame in transforms["frames"]:
-                frame["w"] = transforms["w"]
-                frame["h"] = transforms["h"]
-                frame["fl_x"] = transforms["fl_x"]
-                frame["fl_y"] = transforms["fl_y"]
-                frame["cx"] = transforms["cx"]
-                frame["cy"] = transforms["cy"]
-                frame["k1"] = transforms["k1"]
-                frame["k2"] = transforms["k2"]
-                frame["p1"] = transforms["p1"]
-                frame["p2"] = transforms["p2"]
-
-            del transforms["w"]
-            del transforms["h"]
-            del transforms["fl_x"]
-            del transforms["fl_y"]
-            del transforms["cx"]
-            del transforms["cy"]
-            del transforms["k1"]
-            del transforms["k2"]
-            del transforms["p1"]
-            del transforms["p2"]
-
-            with open(self.config.datamanager.data / "transforms.json", 'w') as f:
-                json.dump(transforms, f, indent=4)
-
+        # Initialze datamanager
         self.test_mode = test_mode
         self.datamanager: DataManager = config.datamanager.setup(
             device=device, test_mode=test_mode, world_size=world_size, local_rank=local_rank
         )
         self.datamanager.to(device)
+        assert self.datamanager.train_dataset is not None, "Missing input dataset"
+
+        # Validate transforms
+        validate_transforms(config.datamanager.data)
 
         # Obtain example dataparser output. Used for mask generation
         self.dataparser_output = self.datamanager.dataparser._generate_dataparser_outputs()
 
-        assert self.datamanager.train_dataset is not None, "Missing input dataset"
+        # Initialize model
         assert self.config.bbox_data_path is not None, "No bbox data please specify --pipeline.bbox_data_path 'PATH_TO_BBOX_JSON'"
         self._model = config.model.setup(
             scene_box=self.datamanager.train_dataset.scene_box,
@@ -149,21 +107,10 @@ class NeoPipeline(VanillaPipeline):
             )
             dist.barrier(device_ids=[local_rank])
 
-        # Initialize SAM predictor
-        sam_checkpoint = f"ckpts/{self.config.sam_checkpoint}"
-        sam = sam_model_registry[self.config.sam_model_type](checkpoint=sam_checkpoint)
-        sam.to(device=device)
-
-        self.sam_predictor = SamPredictor(sam)
-
-        # Initialize inpainting model
-        self.inpainting_pipeline = AutoPipelineForInpainting.from_pretrained(
-            self.config.inpainting_model, torch_dtype=torch.float16, variant="fp16"
+        # Initialize Sparse Dataset
+        self.sparse_dataset: SparseDataset = self.config.sparse_dataset.setup(
+            device=device
         )
-        self.inpainting_pipeline.enable_model_cpu_offload()
-        # If inpainted images are black uncomment below lines but it may produce NSFW content
-        # self.inpainting_pipeline.safety_checker = None
-        # self.inpainting_pipeline.requires_safety_checker = False
 
     def apply_changes_hook(self):
 
@@ -179,16 +126,13 @@ class NeoPipeline(VanillaPipeline):
 
         if not dry_run:
             self.model.eval()
-            generate_sparse_dataset(model=self.model, 
-                                    sam_predictor=self.sam_predictor,
-                                    inpainting_pipeline=self.inpainting_pipeline,
-                                    data_path=self.config.datamanager.data, 
-                                    bboxes_path=self.config.bbox_data_path, 
-                                    dataparser_config=self.config.datamanager.dataparser, 
-                                    dataparser_transform=self.dataparser_output.dataparser_transform, 
-                                    dataparser_scale=self.dataparser_output.dataparser_scale,
-                                    log_inpaint_images=self.config.log_inpaint_images,
-                                    )
+            self.sparse_dataset.generate(model=self.model, 
+                                         data_path=self.config.datamanager.data, 
+                                         bboxes_path=self.config.bbox_data_path, 
+                                         dataparser_config=self.config.datamanager.dataparser, 
+                                         dataparser_transform=self.dataparser_output.dataparser_transform, 
+                                         dataparser_scale=self.dataparser_output.dataparser_scale
+                                         )
             self.model.train()
 
         checkpoint_paths = (path / "nerfstudio_models").glob('*.ckpt')
