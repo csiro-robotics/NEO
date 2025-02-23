@@ -34,7 +34,7 @@ from nerfstudio.model_components.losses import (
 from neo.utils.bbox import BoundingBox
 from neo.utils.bbox_utils import BBoxData
 from neo.utils.cameras import get_cameras
-from neo.utils.inpainting import inpaint_images_in_grids
+from neo.utils.inpainting import Inpainter
 
 
 @dataclass
@@ -42,7 +42,7 @@ class SparseGuidedNeRFModelConfig(NerfactoModelConfig):
     """SparseGuidedNeRF Model Configuration."""
 
     _target: Type = field(default_factory=lambda: SparseGuidedNeRFModel)
-
+    """target class to instantiate"""
     bbox_path: Optional[Path] = None
     """Path to the bounding box"""
 
@@ -61,9 +61,8 @@ class SparseGuidedNeRFModel(NerfactoModel):
         super().__init__(config, scene_box, num_train_data, **kwargs)
 
         self.dataparser_config = dataparser_config
-        self.sam_predictor = kwargs['sam_predictor']
-        self.inpainting_pipeline = kwargs['inpainting_pipeline']
         self.reload_data_fn = kwargs['reload_data_fn']
+        self.inpainter: Inpainter = kwargs['inpainter']
 
     def populate_modules(self):
         super().populate_modules()
@@ -231,17 +230,14 @@ class SparseGuidedNeRFModel(NerfactoModel):
 
             if strength > 0:
                 self.eval()
-                inpaint_images_in_grids(model=self,
-                                        sam_predictor=self.sam_predictor,
-                                        inpainting_pipeline=self.inpainting_pipeline,
-                                        selected_frames=selected_frames,
-                                        cameras=cameras,
-                                        output_path=cache_path,
-                                        log_inpaint_images=True,
-                                        logs_path=logs_path / f"iteration_{step}_s_{strength}",
-                                        rendering_output_name='rgb',
-                                        strength=strength,
-                                        refine_masks=False)
+                self.inpainter.inpaint_images_in_grids(model=self,
+                                                       selected_frames=selected_frames,
+                                                       cameras=cameras,
+                                                       output_path=cache_path,
+                                                       log_name=f"iteration_{step}_s_{strength}",
+                                                       rendering_output_name='rgb',
+                                                       strength=strength,
+                                                       refine_masks=False)
                 self.train()
             
             # Reload dataset

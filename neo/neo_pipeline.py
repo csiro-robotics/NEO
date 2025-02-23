@@ -109,7 +109,8 @@ class NeoPipeline(VanillaPipeline):
 
         # Initialize Sparse Dataset
         self.sparse_dataset: SparseDataset = self.config.sparse_dataset.setup(
-            device=device
+            device=device,
+            output_path=self.config.bbox_data_path,
         )
 
     def apply_changes_hook(self):
@@ -128,7 +129,6 @@ class NeoPipeline(VanillaPipeline):
             self.model.eval()
             self.sparse_dataset.generate(model=self.model, 
                                          data_path=self.config.datamanager.data, 
-                                         bboxes_path=self.config.bbox_data_path, 
                                          dataparser_config=self.config.datamanager.dataparser, 
                                          dataparser_transform=self.dataparser_output.dataparser_transform, 
                                          dataparser_scale=self.dataparser_output.dataparser_scale

@@ -30,6 +30,7 @@ from nerfstudio.pipelines.base_pipeline import (
 )
 
 from neo.sparse_guided_nerf_model import SparseGuidedNeRFModel, SparseGuidedNeRFModelConfig
+from neo.utils.inpainting import InpainterConfig, Inpainter
 
 
 @dataclass
@@ -42,14 +43,8 @@ class SparseGuidedNeRFPipelineConfig(VanillaPipelineConfig):
     """specifies the datamanager config"""
     model: ModelConfig = SparseGuidedNeRFModelConfig()
     """specifies the model config"""
-    sam_checkpoint: str = "sam_vit_h_4b8939.pth"
-    """name of the SAM checkpoint"""
-    sam_model_type: str = "vit_h"
-    """SAM model type, vit_h by default"""
-    log_inpaint_images: bool = True
-    """If set to True images used for inpainting will be logged."""
-    inpainting_model: str = "diffusers/stable-diffusion-xl-1.0-inpainting-0.1"
-    """Model used for inpainting"""
+    inpainter: InpainterConfig = InpainterConfig()
+    """specifies the inpainter config"""
 
 
 class SparseGuidedNeRFPipeline(VanillaPipeline):
@@ -93,21 +88,8 @@ class SparseGuidedNeRFPipeline(VanillaPipeline):
         
         assert self.datamanager.train_dataset is not None, "Missing input dataset"
 
-        # Initialize SAM predictor
-        sam_checkpoint = f"ckpts/{self.config.sam_checkpoint}"
-        sam = sam_model_registry[self.config.sam_model_type](checkpoint=sam_checkpoint)
-        sam.to(device=device)
-
-        sam_predictor = SamPredictor(sam)
-
-        # Initialize inpainting model
-        inpainting_pipeline = AutoPipelineForInpainting.from_pretrained(
-            self.config.inpainting_model, torch_dtype=torch.float16, variant="fp16"
-        )
-        inpainting_pipeline.enable_model_cpu_offload()
-        # If inpainted images are black uncomment below lines but it may produce NSFW content
-        # inpainting_pipeline.safety_checker = None
-        # inpainting_pipeline.requires_safety_checker = False
+        # Setup inpainter
+        inpainter: Inpainter = self.config.inpainter.setup(device=device, output_path=self.config.model.bbox_path.parent)
 
         self._model = self.config.model.setup(
             scene_box=self.datamanager.train_dataset.scene_box,
@@ -116,8 +98,7 @@ class SparseGuidedNeRFPipeline(VanillaPipeline):
             metadata=self.datamanager.train_dataset.metadata,
             device=device,
             grad_scaler=grad_scaler,
-            sam_predictor=sam_predictor,
-            inpainting_pipeline=inpainting_pipeline,
+            inpainter=inpainter,
             reload_data_fn=self.datamanager.setup_train
         )
         self.model.to(device)
