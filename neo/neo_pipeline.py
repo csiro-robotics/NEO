@@ -48,6 +48,22 @@ class NeoPipelineConfig(VanillaPipelineConfig):
     """specifies the model config"""
     sparse_dataset: SparseDatasetConfig = SparseDatasetConfig()
     """specifies the sparse dataset config"""
+    max_num_iterations_sparse_guided_nerf: int = 5000
+    """max number of iterations for sparse guided NeRF"""
+    max_num_iterations_replace_nerf: int = 2000
+    """max number of iterations for replace NeRF"""
+    start_inpainting_strength_sparse_guided_nerf: float = 0.8
+    """Starting inpainting strength"""
+    strength_step_sparse_guided_nerf: float = 0.2
+    """Inpainting strength step"""
+    inpainting_start_iter_sparse_guided_nerf: float = 1000
+    """Inpainting start iteration"""
+    inpainting_repeat_iter_sparse_guided_nerf: float = 1000
+    """Inpainting repeat iteration"""
+    num_images_in_group_sparse_guided_nerf: int = 32
+    """Number of images in group"""
+    proposal_warmup_sparse_guided_nerf: int = 500
+    """Scales n from 1 to proposal_update_every over this many steps"""
 
     # TODO Add functionality described below
     loopback_model: bool = True
@@ -146,12 +162,8 @@ class NeoPipeline(VanillaPipeline):
         else:
             timestamp = ''
 
-        max_num_iterations = 5000
-
         method_name = "sparse-guided-nerf"
-
-        # TODO This shouldnt be hardcoded!
-        neo_variant = "neo-opt"
+        neo_variant = path.parent.name
 
         train_sparse_guided_nerf_cmd = [
             f"ns-train {method_name}",
@@ -159,12 +171,21 @@ class NeoPipeline(VanillaPipeline):
             "--experiment_name ''",
             f"--timestamp {timestamp}",
             f"--method-name {method_name}",
-            f"--max-num-iterations {max_num_iterations}",
+            f"--max-num-iterations {self.config.max_num_iterations_sparse_guided_nerf}",
             f"--neo-model-path {checkpoint_filenames[0]}",
             f"--pipeline.model.bbox-path {path}/bbox.json",
             "--viewer.quit-on-train-completion True",
             f"--output-dir {str(path).replace(f'{neo_variant}/', '').replace(timestamp, '')}",
             f"--pipeline.model.camera-optimizer.mode {self.config.model.camera_optimizer.mode}",
+            f"--pipeline.model.start-inpainting-strength {self.config.start_inpainting_strength_sparse_guided_nerf}",
+            f"--pipeline.model.strength-step {self.config.strength_step_sparse_guided_nerf}",
+            f"--pipeline.model.inpainting-start-iter {self.config.inpainting_start_iter_sparse_guided_nerf}",
+            f"--pipeline.model.inpainting-repeat-iter {self.config.inpainting_repeat_iter_sparse_guided_nerf}",
+            f"--pipeline.model.num-images-in-group {self.config.num_images_in_group_sparse_guided_nerf}",
+            f"--pipeline.model.proposal-warmup {self.config.proposal_warmup_sparse_guided_nerf}",
+            f"--pipeline.inpainter.inpainting-model {self.config.sparse_dataset.inpainter.inpainting_model}",
+            f"--pipeline.inpainter.inpainting-images-base-size {' '.join(map(str, self.config.sparse_dataset.inpainter.inpainting_images_base_size))}",
+            f"--pipeline.inpainter.inpaint-batch-size {self.config.sparse_dataset.inpainter.inpaint_batch_size}",
             "--viewer.websocket-port 7008",
             "nerfstudio-data",
             f"--orientation-method {self.config.datamanager.dataparser.orientation_method}",
@@ -195,8 +216,9 @@ class NeoPipeline(VanillaPipeline):
             "--experiment_name ''",
             f"--timestamp {timestamp}",
             f"--method-name {method_name}",
+            f"--max-num-iterations {self.config.max_num_iterations_replace_nerf}",
             f"--pipeline.model.field-path {checkpoint_filenames[0]}",
-            f"--pipeline.model.replace-field-path {str(path).replace(neo_variant, 'sparse-guided-nerf')}/nerfstudio_models/step-{str(max_num_iterations - 1).zfill(9)}.ckpt",
+            f"--pipeline.model.replace-field-path {str(path).replace(neo_variant, 'sparse-guided-nerf')}/nerfstudio_models/step-{str(self.config.max_num_iterations_sparse_guided_nerf - 1).zfill(9)}.ckpt",
             f"--pipeline.model.bbox-path {path}/bbox.json",
             "--pipeline.datamanager.pixel-sampler.ignore-mask True",
             "--viewer.quit-on-train-completion True",

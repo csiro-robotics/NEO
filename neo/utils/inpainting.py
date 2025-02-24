@@ -33,7 +33,6 @@ class InpainterConfig(InstantiateConfig):
     """name of the SAM checkpoint"""
     sam_model_type: str = "vit_h"
     """SAM model type, vit_h by default"""
-    # inpainting_model: str = "diffusers/stable-diffusion-xl-1.0-inpainting-0.1"
     inpainting_model: str = "runwayml/stable-diffusion-inpainting"
     """model used for inpainting"""
     inpainting_images_base_size: Tuple[int, int] = (512, 512)

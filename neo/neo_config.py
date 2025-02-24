@@ -25,6 +25,8 @@ from neo.sparse_guided_nerf_model import SparseGuidedNeRFModelConfig
 from neo.replace_nerf_model import ReplaceNeRFModelConfig
 from neo.replace_nerf_pipeline import ReplaceNeRFPipelineConfig
 from neo.data.pixel_samplers import NeoPixelSamplerConfig
+from neo.utils.sparse_dataset import SparseDatasetConfig
+from neo.utils.inpainting import InpainterConfig
 
 
 neo_method = MethodSpecification(
@@ -62,17 +64,23 @@ neo_method = MethodSpecification(
         viewer=ViewerConfig(num_rays_per_chunk=1 << 15),
         vis="viewer",
     ),
-    description="Neo method for fast nerf editing.",
+    description="Neo method for fast nerf editing. Optimized for working with 24GB GPUs.",
 )
 
-neo_opt_method = MethodSpecification(
+neo_big_method = MethodSpecification(
     config=NeoTrainerConfig(
-        method_name="neo-opt",
+        method_name="neo-big",
         steps_per_eval_batch=500,
         steps_per_save=2000,
         max_num_iterations=30000,
         mixed_precision=True,
         pipeline=NeoPipelineConfig(
+            max_num_iterations_sparse_guided_nerf=30000,
+            max_num_iterations_replace_nerf=10000,
+            strength_step_sparse_guided_nerf=0.1,
+            inpainting_start_iter_sparse_guided_nerf=5000,
+            inpainting_repeat_iter_sparse_guided_nerf=2500,
+            proposal_warmup_sparse_guided_nerf=5000,
             datamanager=VanillaDataManagerConfig(
                 dataparser=NerfstudioDataParserConfig(),
                 train_num_rays_per_batch=4096,
@@ -82,6 +90,14 @@ neo_opt_method = MethodSpecification(
                 eval_num_rays_per_chunk=1 << 15,
                 average_init_density=0.01,
             ),
+            sparse_dataset=SparseDatasetConfig(
+                inpainter=InpainterConfig(
+                    inpainting_model="diffusers/stable-diffusion-xl-1.0-inpainting-0.1",
+                    inpainting_images_base_size=(1024, 1024),
+                    inpaint_batch_size=4,
+                ),
+                hemisphera_camera_intrisnsics=(488, 488, 256, 256, 512, 512),
+            )
         ),
         optimizers={
             "proposal_networks": {
@@ -100,7 +116,7 @@ neo_opt_method = MethodSpecification(
         viewer=ViewerConfig(num_rays_per_chunk=1 << 15),
         vis="viewer",
     ),
-    description="Neo method for fast nerf editing. Optimized for working with 24GB GPUs.",
+    description="Neo method for fast nerf editing. Optimized for best quality.",
 )
 
 sparse_guided_nerf_method = MethodSpecification(
