@@ -30,13 +30,14 @@ class SparseDatasetConfig(InstantiateConfig):
     """specifies the inpainter config"""
     log_inpaint_images: bool = True
     """log inpaint images"""
-    hemisphere_radius: float = 0.5
+    hemisphere_radius: float = 0.4
     """radius of the hemisphere"""
     hemisphere_num_layers: int = 8
     """number of layers in the hemisphere"""
     hemisphere_img_per_layer: int = 4
     """number of images per layer in the hemisphere"""
-    hemisphera_camera_intrisnsics: Tuple[float] = (488, 488, 256, 256, 512, 512)
+    # hemisphera_camera_intrisnsics: Tuple[float] = (488, 488, 256, 256, 512, 512)
+    hemisphera_camera_intrisnsics: Tuple[float] = (246, 246, 128, 128, 256, 256)
     """camera intrinsics for hemisphere camera"""
 
 

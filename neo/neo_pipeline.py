@@ -120,20 +120,22 @@ class NeoPipeline(VanillaPipeline):
         logs_path = path / "logs"
 
         if os.path.exists(logs_path):
-            start_time = time.time()
+            total_start_time = time.time()
         
         verbose = True # If set to True prints training progress of separate models
         dry_run = False
 
         if not dry_run:
+            sparse_start_time = time.time()
             self.model.eval()
             self.sparse_dataset.generate(model=self.model, 
-                                         data_path=self.config.datamanager.data, 
-                                         dataparser_config=self.config.datamanager.dataparser, 
-                                         dataparser_transform=self.dataparser_output.dataparser_transform, 
-                                         dataparser_scale=self.dataparser_output.dataparser_scale
-                                         )
+                         data_path=self.config.datamanager.data, 
+                         dataparser_config=self.config.datamanager.dataparser, 
+                         dataparser_transform=self.dataparser_output.dataparser_transform, 
+                         dataparser_scale=self.dataparser_output.dataparser_scale)
             self.model.train()
+            sparse_end_time = time.time()
+            sparse_elapsed_time = sparse_end_time - sparse_start_time
 
         checkpoint_paths = (path / "nerfstudio_models").glob('*.ckpt')
         checkpoint_filenames = [path for path in checkpoint_paths if path.is_file()]
@@ -173,8 +175,11 @@ class NeoPipeline(VanillaPipeline):
         train_sparse_guided_nerf_cmd = " ".join(train_sparse_guided_nerf_cmd)
 
         if not dry_run:
+            train_sparse_start_time = time.time()
             with status(msg="[bold green]Training Sparse Guided NeRF", spinner="moon", verbose=verbose):
                 run_command(train_sparse_guided_nerf_cmd, verbose=verbose)
+            train_sparse_end_time = time.time()
+            train_sparse_elapsed_time = train_sparse_end_time - train_sparse_start_time
 
         else:
             print("----------------------------------------------------------------------------------------------------------------")
@@ -208,8 +213,11 @@ class NeoPipeline(VanillaPipeline):
         train_replace_nerf_cmd = " ".join(train_replace_nerf_cmd)
 
         if not dry_run:
+            train_replace_start_time = time.time()
             with status(msg="[bold green]Replacing objects", spinner="moon", verbose=verbose):
                 run_command(train_replace_nerf_cmd, verbose=verbose)
+            train_replace_end_time = time.time()
+            train_replace_elapsed_time = train_replace_end_time - train_replace_start_time
 
         else:
             print("----------------------------------------------------------------------------------------------------------------")
@@ -220,10 +228,19 @@ class NeoPipeline(VanillaPipeline):
         CONSOLE.print("[bold green]Editing finished!")
 
         if os.path.exists(logs_path):
-            end_time = time.time()
-            elapsed_time = end_time - start_time
+            total_end_time = time.time()
+            total_elapsed_time = total_end_time - total_start_time
             log_filename = f"logfile.log"
             with open(logs_path / log_filename, "a") as log_file:
-                elapsed_minutes = int(elapsed_time // 60)
-                elapsed_seconds = int(elapsed_time % 60)
-                log_file.write(f"[{time.strftime('%Y%m%d_%H%M%S')}] Editing time: {elapsed_minutes} min {elapsed_seconds} s\n")
+                sparse_minutes = int(sparse_elapsed_time // 60)
+                sparse_seconds = int(sparse_elapsed_time % 60)
+                train_sparse_minutes = int(train_sparse_elapsed_time // 60)
+                train_sparse_seconds = int(train_sparse_elapsed_time % 60)
+                train_replace_minutes = int(train_replace_elapsed_time // 60)
+                train_replace_seconds = int(train_replace_elapsed_time % 60)
+                total_minutes = int(total_elapsed_time // 60)
+                total_seconds = int(total_elapsed_time % 60)
+                log_file.write(f"[{time.strftime('%Y%m%d_%H%M%S')}] Sparse dataset generation time: {sparse_minutes} min {sparse_seconds} s\n")
+                log_file.write(f"[{time.strftime('%Y%m%d_%H%M%S')}] Training Sparse Guided NeRF time: {train_sparse_minutes} min {train_sparse_seconds} s\n")
+                log_file.write(f"[{time.strftime('%Y%m%d_%H%M%S')}] Replacing objects time: {train_replace_minutes} min {train_replace_seconds} s\n")
+                log_file.write(f"[{time.strftime('%Y%m%d_%H%M%S')}] Total editing time: {total_minutes} min {total_seconds} s\n")

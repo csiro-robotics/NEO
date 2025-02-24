@@ -42,7 +42,7 @@ class InpainterConfig(InstantiateConfig):
     """log inpaint images"""
     render_batch_size: int = 4
     """batch size for rendering images"""
-    inpaint_batch_size: int = 4
+    inpaint_batch_size: int = 8
     """batch size for inpainting images"""
     inpainting_prompt: str = "background"
     """prompt for inpainting images"""
