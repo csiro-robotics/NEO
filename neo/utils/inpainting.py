@@ -4,7 +4,6 @@ import torch
 import shutil
 
 import numpy as np
-import numpy.typing as npt
 import torch.nn as nn
 
 from dataclasses import dataclass, field
@@ -41,6 +40,12 @@ class InpainterConfig(InstantiateConfig):
     """base size of inpainting images"""
     log_inpaint_images: bool = True
     """log inpaint images"""
+    render_batch_size: int = 4
+    """batch size for rendering images"""
+    inpaint_batch_size: int = 4
+    """batch size for inpainting images"""
+    inpainting_prompt: str = "background"
+    """prompt for inpainting images"""
 
 
 class Inpainter(nn.Module):
@@ -78,7 +83,7 @@ class Inpainter(nn.Module):
         # self.inpainting_pipeline.requires_safety_checker = False
 
     @staticmethod
-    def refine_mask(input_masks: npt.NDArray, rendered_images: torch.Tensor, sam_predictor: SamPredictor) -> npt.NDArray:
+    def refine_mask(input_masks: np.ndarray, rendered_images: torch.Tensor, sam_predictor: SamPredictor) -> np.ndarray:
 
         # Generate features for rendered image
         rendered_images = rendered_images.permute(0, 3, 1, 2)
@@ -139,7 +144,7 @@ class Inpainter(nn.Module):
         return refined_masks
 
     @staticmethod
-    def get_images_from_grid(grid_image: npt.NDArray, size: Tuple[int, int]) -> List[npt.NDArray]:
+    def get_images_from_grid(grid_image: np.ndarray, size: Tuple[int, int]) -> List[np.ndarray]:
 
         # Split the grid image into 4 images
         height, width = int(size[0] / 2), int(size[1] / 2)
@@ -152,7 +157,7 @@ class Inpainter(nn.Module):
         return images
 
     @staticmethod
-    def get_image_grid(images: List[npt.NDArray | torch.Tensor]) -> npt.NDArray:
+    def get_image_grid(images: List[np.ndarray | torch.Tensor]) -> np.ndarray:
 
         # Check if the images are torch tensors and convert them to numpy arrays if necessary
         converted_images = []
@@ -182,7 +187,7 @@ class Inpainter(nn.Module):
 
     def inpaint_images_in_grids(self,
                                 model: Model,
-                                selected_frames: List[Tuple[npt.NDArray, int]], 
+                                selected_frames: List[Tuple[np.ndarray, int]], 
                                 cameras: Cameras,
                                 output_path: Path,
                                 log_name: str = "inpainting",
@@ -198,27 +203,26 @@ class Inpainter(nn.Module):
 
             all_images, all_masks = [], []
             all_image_names = []
-            batch_size = 4
-            for i in track(range(int(len(images_group) / batch_size)), description=f"Rendering images for group {idx + 1}", transient=False):
+            render_bath_size = self.config.render_batch_size
+            for i in track(range(int(len(images_group) / render_bath_size)), description=f"Rendering images for group {idx + 1}", transient=False):
                 idx_list = []
                 masks = []
                 image_names = []
-                for j in range(batch_size):
-                    idx_list.append(images_group[j + (batch_size * i)][1])
-                    mask = cv2.imread(str(output_path / f"temp_masks/{images_group[j + (batch_size * i)][0]}"), cv2.IMREAD_GRAYSCALE)
+                for j in range(render_bath_size):
+                    idx_list.append(images_group[j + (render_bath_size * i)][1])
+                    mask = cv2.imread(str(output_path / f"temp_masks/{images_group[j + (render_bath_size * i)][0]}"), cv2.IMREAD_GRAYSCALE)
                     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
                     mask = cv2.dilate(mask, kernel, iterations=2)
-                    downscale_factor = mask.shape[0] / cameras[j + (batch_size * i)].width
+                    downscale_factor = mask.shape[0] / cameras[j + (render_bath_size * i)].width
                     mask = cv2.resize(mask, (int(mask.shape[1] / downscale_factor), int(mask.shape[0] / downscale_factor)), cv2.INTER_MAX)
                     masks.append(mask)
-                    image_names.append(images_group[j + (batch_size * i)][0])
+                    image_names.append(images_group[j + (render_bath_size * i)][0])
 
                 images = render_preview_image(model, cameras, torch.tensor(idx_list), output_name=rendering_output_name)
 
+                refined_masks = masks
                 if refine_masks:
                     refined_masks = self.refine_mask(masks, images, self.sam_predictor)
-                else:
-                    refined_masks = masks
 
                 all_images.extend(images)
                 all_masks.extend(refined_masks)
@@ -234,31 +238,38 @@ class Inpainter(nn.Module):
                         cv2.imwrite(str(group_logs_path / f"mask_{name}"), mask)
                         cv2.imwrite(str(group_logs_path / f"refined_mask_{name}"), refined_mask)
 
-            for i in range(int(len(images_group) / batch_size)):
+            image_grids = self.get_image_grid(all_images)
+            mask_grids = self.get_image_grid(all_masks)
+            image_names = np.array(all_image_names).reshape(len(all_image_names) // 4, -1)
+            img_old_size = (int(image_grids.shape[2] * downscale_factor), int(image_grids.shape[1] * downscale_factor))
 
-                batch_range = slice(i * batch_size, (i + 1) * batch_size)
+            for i in range(int(len(image_grids) / self.config.inpaint_batch_size)):
+                image_range = slice(i * self.config.inpaint_batch_size, (i + 1) * self.config.inpaint_batch_size)
 
-                image_grids = self.get_image_grid(all_images[batch_range])
-                mask_grids = self.get_image_grid(all_masks[batch_range])
-                image_names = np.array(all_image_names[batch_range]).reshape(len(all_image_names[batch_range]) // 4, -1)
-
-                for images_grid, masks_grid, image_name in zip(image_grids, mask_grids, image_names):
-                    img_old_size = (int(images_grid.shape[1] * downscale_factor), int(images_grid.shape[0] * downscale_factor))
-                    img_new_size = (1024, 1024)
+                images_list = []
+                masks_list = []
+                for images_grid, masks_grid in zip(image_grids[image_range], mask_grids[image_range]):
                     images_grid = Image.fromarray(images_grid)
-                    images_grid = images_grid.resize(img_new_size)
                     masks_grid = Image.fromarray(masks_grid)
-                    masks_grid = masks_grid.resize(img_new_size)
 
-                    CONSOLE.print(f"Inpainting images in group {idx + 1}")
-                    reconstructed_grid_image = self.inpainting_pipeline(prompt="background", image=images_grid, mask_image=masks_grid, strength=strength).images[0]
+                    if images_grid.size != self.config.inpainting_images_base_size:
+                        images_grid = images_grid.resize(self.config.inpainting_images_base_size)
+                        masks_grid = masks_grid.resize(self.config.inpainting_images_base_size)
+
+                    images_list.append(images_grid)
+                    masks_list.append(masks_grid)
+
+                CONSOLE.print(f"Inpainting images in group {idx + 1}")
+                reconstructed_grid_images = self.inpainting_pipeline(prompt=[self.config.inpainting_prompt] * len(images_list), image=images_list, mask_image=masks_list, strength=strength).images
+
+                for reconstructed_grid_image, img_name in zip(reconstructed_grid_images, image_names[image_range]):
                     reconstructed_grid_image = reconstructed_grid_image.resize(img_old_size)
                     reconstructed_grid_image = np.array(reconstructed_grid_image)
                     reconstructed_images = self.get_images_from_grid(reconstructed_grid_image, img_old_size)
 
-                    for image, name in zip(reconstructed_images, image_name):
+                    for image, name in zip(reconstructed_images, img_name):
                         cv2.imwrite(str(output_path / f"images/{name}"), image)
                     
                     if self.config.log_inpaint_images:
-                        for image, name in zip(reconstructed_images, image_name):
+                        for image, name in zip(reconstructed_images, img_name):
                             cv2.imwrite(str(group_logs_path / f"reconstructed_{name}"), image)
