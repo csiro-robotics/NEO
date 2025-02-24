@@ -146,7 +146,7 @@ class NeoPipeline(VanillaPipeline):
         else:
             timestamp = ''
 
-        max_num_iterations = 30000
+        max_num_iterations = 5000
 
         method_name = "sparse-guided-nerf"
 

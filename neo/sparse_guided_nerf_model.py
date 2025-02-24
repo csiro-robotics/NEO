@@ -45,6 +45,18 @@ class SparseGuidedNeRFModelConfig(NerfactoModelConfig):
     """target class to instantiate"""
     bbox_path: Optional[Path] = None
     """Path to the bounding box"""
+    start_inpainting_strength: float = 0.8
+    """Starting inpainting strength"""
+    strength_step: float = 0.2
+    """Inpainting strength step"""
+    inpainting_start_iter: float = 1000
+    """Inpainting start iteration"""
+    inpainting_repeat_iter: float = 1000
+    """Inpainting repeat iteration"""
+    num_images_in_group: int = 32
+    """Number of images in group"""
+    proposal_warmup: int = 500
+    """Scales n from 1 to proposal_update_every over this many steps"""
 
 
 class SparseGuidedNeRFModel(NerfactoModel):
@@ -197,12 +209,9 @@ class SparseGuidedNeRFModel(NerfactoModel):
 
     def inpaint_images(self, step):
 
-        step_delay = 5000
-        inpaint_repeat = 2500
-        if step >= step_delay and step % inpaint_repeat == 0:
+        if step >= self.config.inpainting_start_iter and step % self.config.inpainting_repeat_iter == 0:
             # Create paths for generating dataset
             cache_path = self.config.bbox_path.parent / "cache"
-            logs_path = self.config.bbox_path.parent / "logs"
 
             # Get cameras for rendering
             cameras, image_names = get_cameras(self.dataparser_config)
@@ -217,16 +226,16 @@ class SparseGuidedNeRFModel(NerfactoModel):
 
             # Assign frames with names
             selected_frames = []
-            num_images_in_group = 32
-            num_image_groups = len(image_names) // num_images_in_group
+            num_img = self.config.num_images_in_group
+            num_image_groups = len(image_names) // num_img
             for num_group in range(num_image_groups):
                 frames = []
-                for image_name, idx in zip(image_names[num_group * num_images_in_group:(num_group + 1) * num_images_in_group], indices[num_group * num_images_in_group:(num_group + 1) * num_images_in_group]):
+                for image_name, idx in zip(image_names[num_group * num_img:(num_group + 1) * num_img], indices[num_group * num_img:(num_group + 1) * num_img]):
                     frames.append((image_name, idx))
                 selected_frames.append(frames)
 
             # Render images
-            strength = 0.8 - (0.1 * ((step - step_delay) // inpaint_repeat))
+            strength = self.config.start_inpainting_strength - (self.config.strength_step * ((step - self.config.inpainting_start_iter) // self.config.inpainting_repeat_iter))
 
             if strength > 0:
                 self.eval()
@@ -240,8 +249,8 @@ class SparseGuidedNeRFModel(NerfactoModel):
                                                        refine_masks=False)
                 self.train()
             
-            # Reload dataset
-            self.reload_data_fn()
+                # Reload dataset
+                self.reload_data_fn()
 
     def get_training_callbacks(
         self, training_callback_attributes: TrainingCallbackAttributes
