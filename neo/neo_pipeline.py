@@ -5,6 +5,7 @@ import os
 import re
 import typing
 import time
+import torch
 
 from dataclasses import dataclass, field
 from typing import Literal, Optional, Type, Tuple
@@ -64,8 +65,6 @@ class NeoPipelineConfig(VanillaPipelineConfig):
     """Number of images in group"""
     proposal_warmup_sparse_guided_nerf: int = 500
     """Scales n from 1 to proposal_update_every over this many steps"""
-
-    # TODO Add functionality described below
     loopback_model: bool = True
     """Load the model after editing for further editing"""
 
@@ -105,6 +104,7 @@ class NeoPipeline(VanillaPipeline):
 
         # Initialize model
         assert self.config.bbox_data_path is not None, "No bbox data please specify --pipeline.bbox_data_path 'PATH_TO_BBOX_JSON'"
+        self.grad_scaler = grad_scaler
         self._model = config.model.setup(
             scene_box=self.datamanager.train_dataset.scene_box,
             num_train_data=len(self.datamanager.train_dataset),
@@ -266,3 +266,23 @@ class NeoPipeline(VanillaPipeline):
                 log_file.write(f"[{time.strftime('%Y%m%d_%H%M%S')}] Training Sparse Guided NeRF time: {train_sparse_minutes} min {train_sparse_seconds} s\n")
                 log_file.write(f"[{time.strftime('%Y%m%d_%H%M%S')}] Replacing objects time: {train_replace_minutes} min {train_replace_seconds} s\n")
                 log_file.write(f"[{time.strftime('%Y%m%d_%H%M%S')}] Total editing time: {total_minutes} min {total_seconds} s\n")
+
+        # Loopback the model
+        if self.config.loopback_model:
+            edited_model_path = f"{str(path).replace(neo_variant, 'replace-nerf')}/nerfstudio_models/step-{str(self.config.max_num_iterations_replace_nerf - 1).zfill(9)}.ckpt"
+            loaded_state_dict = torch.load(edited_model_path, map_location=self.model.device)["pipeline"]
+
+            model_state = {}
+            for key, value in loaded_state_dict.items():
+                if any(x in key for x in ["copy", "replace"]):
+                    continue
+
+                if "camera_optimizer.pose_adjustment" in key:
+                    if value.shape != self.model.state_dict()[key[len("_model."):]].shape:
+                        value = value[-self.model.state_dict()[key[len("_model."):]].shape[0]:]
+                    model_state[key[len("_model.") :]] = value
+
+                if key.startswith("_model."):
+                    model_state[key[len("_model.") :]] = value
+
+            self.model.load_state_dict(model_state)
