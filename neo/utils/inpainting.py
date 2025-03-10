@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from diffusers import AutoPipelineForInpainting
 from segment_anything import SamPredictor
 from pathlib import Path
-from typing import Type, List, Tuple, Optional
+from typing import Type, List, Tuple, Optional, Union
 from rich.progress import track
 from PIL import Image
 
@@ -156,7 +156,7 @@ class Inpainter(nn.Module):
         return images
 
     @staticmethod
-    def get_image_grid(images: List[np.ndarray | torch.Tensor]) -> np.ndarray:
+    def get_image_grid(images: List[Union[np.ndarray, torch.Tensor]]) -> np.ndarray:
 
         # Check if the images are torch tensors and convert them to numpy arrays if necessary
         converted_images = []

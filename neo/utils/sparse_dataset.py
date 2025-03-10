@@ -36,7 +36,7 @@ class SparseDatasetConfig(InstantiateConfig):
     """number of layers in the hemisphere"""
     hemisphere_img_per_layer: int = 4
     """number of images per layer in the hemisphere"""
-    hemisphera_camera_intrisnsics: Tuple[float] = (246, 246, 128, 128, 256, 256)
+    hemisphera_camera_intrisnsics: Tuple[float, ...] = (246, 246, 128, 128, 256, 256)
     """camera intrinsics for hemisphere camera"""
 
 
