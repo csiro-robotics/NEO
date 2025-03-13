@@ -13,7 +13,7 @@ if __name__ == "__main__":
 
     # Argument parser
     parser = ArgumentParser()
-    parser.add_argument("--load_config", type=Path,
+    parser.add_argument("--load-config", type=Path,
                         help="path to config .yml file of neo model. Must have bboxes available present")
 
     args = parser.parse_args()
@@ -38,7 +38,7 @@ if __name__ == "__main__":
         if path.exists():
             for res_key in res_keys:
                 result = json.loads(path.read_text())[res_key]
-                result["Method name"] = method_name
+                result["method_name"] = method_name
                 for key in result.keys():
                     if key not in results[res_key].keys():
                         results[res_key][key] = [result[key]]

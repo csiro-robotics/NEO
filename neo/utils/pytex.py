@@ -12,7 +12,7 @@ class LatexTemplates:
 
     TABLE_TEMPLATE: str = \
     """
-    \\begin{table}[]
+    \\begin{table*}[]
         \\centering
         \\captionsetup{font=scriptsize}
         \\scriptsize
@@ -26,7 +26,7 @@ class LatexTemplates:
         \\end{tabular}
         \\caption{\\textbf{CAPTION_TITLE.} CAPTION_TEXT}
         \\label{tab:TABLE_LABEL}
-    \\end{table}
+    \\end{table*}
     """
 
 
@@ -36,30 +36,12 @@ class PyTex:
         
         self.templates = LatexTemplates()
 
-
     def remove_substrings(self, input_string: str, substrings: List[str]) -> str:
         pattern = '|'.join(map(re.escape, substrings))
 
         return re.sub(pattern, '', input_string)
 
-
-    def table(self,
-              columns: List[str], 
-              data: Dict[str, float], 
-              table_format: str = None,
-              digits: List[int] = None, 
-              caption_title: str = "caption title", 
-              table_label: str = "label", 
-              caption_text: str = "caption text",
-              skip_columns: List[int] = [],
-              name_map: Dict[str, str] = None
-              ) -> str:
-        
-        # Assign default table format
-        if table_format is None:
-            table_format = "l" * (len(columns) + 1)
-
-        # Add arrows to the columns
+    def get_table_columns(self, columns: List[str], skip_columns: List[int]) -> str:
         table_columns = "\n             "
         for i, column in enumerate(columns):
             if i in skip_columns:
@@ -74,16 +56,20 @@ class PyTex:
             else:
                 table_columns += f"{' & ' if i != 0 else ''}{column}"
 
-        # Find best values in the columns
+        return table_columns
+    
+    def get_best_values_in_columns(self, columns: List[str], data: Dict[str, float], digits: List[int] = None) -> np.ndarray:
         mat = []
-        names = data["Method name"]
         for key, value in data.items():
-            if "Method name" in key:
+            if "method_name" in key:
                 continue
             else:
                 mat.append(value)
 
         mat = np.array(mat, dtype=float).T
+
+        if digits is None:
+            digits = np.uint(np.ones(len(columns)) * 2)
 
         for i, dec in enumerate(digits):
             mat[:, i] = np.round(mat[:, i], decimals=dec)
@@ -91,17 +77,13 @@ class PyTex:
         min_vals = rankdata(mat, method='min', axis=0) - 1
         max_vals = mat.shape[0] - rankdata(mat, method='max', axis=0)
 
-        if digits is None:
-            digits = np.uint(np.ones(len(columns)) * 2)
-
-        # Prepare rows
+        return mat, min_vals, max_vals
+    
+    def prepare_rows(self, mat: np.ndarray, names: List[str], columns: List[str], skip_columns: List[int], digits: List[int], min_vals: np.ndarray, max_vals: np.ndarray, name_map: Dict[str, str]) -> List[str]:
         rows = []
         for i in range(mat.shape[0]):
 
             name = names[i]
-
-            if "SDXL" in name and "x4" in name and "Random" in name:
-                name = "Our Preview + Update"
 
             row = f"{name if name_map is None else name_map[name]} & "
             for j in range(mat.shape[1]):
@@ -110,9 +92,9 @@ class PyTex:
                     continue
 
                 idxs = None
-                if "+" in columns[j + 1]:
+                if "+" in columns[j + 2]:
                     idxs = max_vals
-                elif "-" in columns[j + 1]:
+                elif "-" in columns[j + 2]:
                     idxs = min_vals
                 else:
                     idxs = np.ones_like(mat) * 2
@@ -132,7 +114,35 @@ class PyTex:
             row = row[0:-2] + "\\\\ \n            "
             rows.append(row)
 
-        expeimrent_lanes = "".join(rows)
+        experiment_lines = "".join(rows)
+
+        return experiment_lines
+
+    def table(self,
+              columns: List[str], 
+              data: Dict[str, float], 
+              table_format: str = None,
+              digits: List[int] = None, 
+              caption_title: str = "caption title", 
+              table_label: str = "label", 
+              caption_text: str = "caption text",
+              skip_columns: List[int] = [],
+              name_map: Dict[str, str] = None
+              ) -> str:
+        
+        # Assign default table format
+        if table_format is None:
+            table_format = "l" * (len(columns) + 1)
+
+        # Add arrows to the columns
+        table_columns = self.get_table_columns(columns, skip_columns)
+
+        # Find best values in the columns
+        mat, min_vals, max_vals = self.get_best_values_in_columns(columns, data, digits)
+
+        # Prepare rows
+        names = data["method_name"]
+        expeimrent_lanes = self.prepare_rows(mat, names, columns, skip_columns, digits, min_vals, max_vals, name_map)
 
         # Fill the template
         s = self.templates.TABLE_TEMPLATE.replace("COLUMNS", table_columns)
@@ -143,5 +153,57 @@ class PyTex:
         s = s.replace("TABLE_LABEL", table_label)
 
         print(s)
+
+        return s
+    
+    def table_cv(self,
+                 columns: List[str], 
+                 data: Dict[str, Dict[str, float]], 
+                 table_format: str = None,
+                 digits: List[int] = None, 
+                 caption_title: str = "caption title", 
+                 table_label: str = "label", 
+                 caption_text: str = "caption text",
+                 skip_columns: List[int] = [],
+                 name_map: Dict[str, str] = None
+                 ) -> str:
+        
+        # Assign default table format
+        if table_format is None:
+            table_format = "l" * (len(columns) + 1)
+
+        # Add arrows to the columns
+        table_columns = self.get_table_columns(columns, skip_columns)
+
+        # Find best values in the columns
+        experiments_lines = [[], []]
+        for scene, data in data.items():
+            names = data["method_name"]
+            for idx, (data_type, digit) in enumerate(zip([key for key in data.keys() if isinstance(data[key], dict)], digits)):
+                mat, min_vals, max_vals = self.get_best_values_in_columns(columns, data[data_type], digit)
+                experiment_line = self.prepare_rows(mat, names, columns, skip_columns, digit, min_vals, max_vals, name_map)
+
+                experiment_line = f'\multirow{{{3}}}{{*}}{{{scene.replace("_", " "). capitalize()}}} & ' + experiment_line
+                experiment_line = re.sub(r' {12}', '             & ', experiment_line)
+                experiment_line = experiment_line[:-3]
+                experiment_line += "\\midrule\n            "
+                experiments_lines[idx].append(experiment_line)
+
+        table = []
+        for experiment_line in experiments_lines:
+            experiment_lines = "".join(experiment_line)
+
+            # Fill the template
+            s = self.templates.TABLE_TEMPLATE.replace("COLUMNS", table_columns)
+            s = s.replace("TABLE_FORMAT", table_format)
+            s = s.replace("EXPERIMENT_LINES", experiment_lines)
+            s = s.replace("CAPTION_TITLE", caption_title)
+            s = s.replace("CAPTION_TEXT", caption_text)
+            s = s.replace("TABLE_LABEL", table_label)
+
+            table.append(s)
+        table = "\n\n".join(table)
+
+        print(table)
 
         return s
