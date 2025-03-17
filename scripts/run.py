@@ -13,6 +13,7 @@ from nerfstudio.utils.rich_utils import CONSOLE
 
 from experiment_config import NeoDataConfig
 from extract_images import extract_images_rs
+from calculate_colmap import calculate_colmap
 
 import contextlib
 from io import StringIO
@@ -65,7 +66,7 @@ class Experiment():
 
     def run(self):
         process_bags = {"name": "Process Bags", "active": self.config.pipeline_elements.proces_bags, "idx": 1, "func": extract_images_rs}
-        colmap = {"name": "COLMAP", "active": self.config.pipeline_elements.colmap, "idx": 2, "func": not_implemented}
+        colmap = {"name": "COLMAP", "active": self.config.pipeline_elements.colmap, "idx": 2, "func": calculate_colmap}
         extract_arm_movement = {"name": "Extract Arm Movement", "active": self.config.pipeline_elements.extract_arm_movement, "idx": 3, "func": not_implemented}
         ready_datasets = {"name": "Ready Datasets", "active": True, "idx": 4, "func": not_implemented}
         
