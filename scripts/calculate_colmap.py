@@ -1,22 +1,10 @@
-import cv2
-import os
 import tyro
 import subprocess
-import json
-import pyrealsense2 as rs
-import numpy as np
-
-from pathlib import Path
-from argparse import ArgumentParser
-from tqdm import tqdm
-from copy import deepcopy
-from scipy.optimize import minimize
 
 from nerfstudio.configs.config_utils import convert_markup_to_ansi
 from nerfstudio.utils.rich_utils import CONSOLE
 
 from experiment_config import NeoDataConfig
-import threading
 
 
 def calculate_colmap(config: NeoDataConfig) -> None:
