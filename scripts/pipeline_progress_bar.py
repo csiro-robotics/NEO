@@ -16,9 +16,9 @@ class Status(Enum):
     FAILED = 4
 
 class PipelineProgress:
-    def __init__(self, pipeline_elements: List[List[Union[Dict, str]]]):
+    def __init__(self, pipeline_elements: List[List[Union[Dict, str]]], console: Union[None, Console] = None):
         self.current_idx = 1
-        self.console = Console(width=CONSOLE_WIDTH)
+        self.console = console if console else Console(width=CONSOLE_WIDTH)
         self.live = Live(console=self.console, refresh_per_second=10)
 
         self.pipeline_elements = pipeline_elements
@@ -55,13 +55,9 @@ class PipelineProgress:
         elif element["status"] == Status.INACTIVE:
             return f"[dim]{name:^{width}}[/dim]"
         elif element["status"] == Status.PROCESSING:
-            elapsed_time = element['elapsed_time']
-            elapsed_time_str = time.strftime("%Hh %Mm %Ss", time.gmtime(elapsed_time))
-            return f"[orange1]{name:^{width}}[/orange1] - {elapsed_time_str}"
+            return f"[orange1]{name:^{width}}[/orange1]"
         elif element["status"] == Status.FINISHED:
-            elapsed_time = element['elapsed_time']
-            elapsed_time_str = time.strftime("%Hh %Mm %Ss", time.gmtime(elapsed_time))
-            return f"[bold green]{name:^{width}}[/bold green] - {elapsed_time_str}"
+            return f"[bold green]{name:^{width}}[/bold green]"
         else:
             return f"{name:^{width}}"
 
@@ -110,12 +106,15 @@ class PipelineProgress:
     def __iter__(self):
         """Wraps the iterable and updates progress."""
         for item in self.pipeline:
-            yield item
-            self.current_idx += 1  # Track the progress
+            if item["status"] == Status.ACTIVE:
+                yield item
+                self.current_idx += 1  # Track the progress
 
     def _create_table(self):
         table = Table(show_header=False, box=None)
         columns_width = [0] * len(self.pipeline_elements[0])
+        
+        # Calculate the column widths first
         for row in range(len(self.pipeline_elements)):
             for column in range(len(self.pipeline_elements[row])):
                 if isinstance(self.pipeline_elements[row][column], dict):
@@ -129,22 +128,40 @@ class PipelineProgress:
                 else:
                     pass
 
+        # Create the table rows
         for row in range(len(self.pipeline_elements)):
             print_row = []
+            time_row = []  # A row for the elapsed time to be added beneath the current row
+
             for column in range(len(self.pipeline_elements[row])):
                 if isinstance(self.pipeline_elements[row][column], dict):
                     element = self.pipeline_elements[row][column]
                     row_to_append = self._status(element, width=columns_width[column])
+                    print_row.append(row_to_append)
+
+                    # Add a time row only for active or finished steps
+                    if element["status"] in [Status.PROCESSING, Status.FINISHED]:
+                        elapsed_time_str = time.strftime("%Hh %Mm %Ss", time.gmtime(element['elapsed_time']))
+                        time_row.append(f"{elapsed_time_str:^{columns_width[column]}}")
+                    else:
+                        time_row.append(f"{'':^{columns_width[column]}}")
                 elif isinstance(self.pipeline_elements[row][column], str):
                     row_to_append = f"{self.pipeline_elements[row][column]:^{columns_width[column] + 2}}"
+                    print_row.append(row_to_append)
+                    time_row.append(f"{'':^{columns_width[column]}}")  # No time for arrows or inactive elements
                 else:
                     row_to_append = f"{'':^{columns_width[column]}}"
-
-                print_row.append(row_to_append)
+                    print_row.append(row_to_append)
+                    time_row.append(f"{'':^{columns_width[column]}}")
 
             table.add_row(*print_row)
-        
+
+            # Add the time row directly below the current step row
+            if time_row:
+                table.add_row(*time_row)
+            
         return table
+
 
 if __name__ == "__main__":
 
