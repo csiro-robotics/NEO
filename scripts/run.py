@@ -4,8 +4,8 @@ import os
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from pipeline_progress_bar import PipelineProgress, Status
-from typing import Type, Literal, Union
+from pipeline_progress_bar import PipelineProgress
+from typing import Type, Union
 
 from nerfstudio.configs.base_config import InstantiateConfig
 from nerfstudio.configs.config_utils import convert_markup_to_ansi
@@ -15,11 +15,8 @@ from experiment_config import NeoDataConfig
 from extract_images import extract_images_rs
 from calculate_colmap import calculate_colmap
 from match_arucos import match_arucos
+from extract_arm_movement import extract_arm_movement
 
-import contextlib
-from io import StringIO
-from rich.layout import Layout
-from rich.panel import Panel
 import time
 
 
@@ -30,6 +27,8 @@ class PipelineElements():
     """Process bags"""
     colmap: bool = True
     """Run COLMAP"""
+    match_arucos: bool = True
+    """Match Arucos"""
     extract_arm_movement: bool = True
     """Extract arm movement"""
 
@@ -68,11 +67,11 @@ class Experiment():
     def run(self):
         process_bags = {"name": "Process Bags", "active": self.config.pipeline_elements.proces_bags, "idx": 1, "func": extract_images_rs}
         colmap = {"name": "COLMAP", "active": self.config.pipeline_elements.colmap, "idx": 2, "func": calculate_colmap}
-        extract_arm_movement = {"name": "Match Arucos", "active": self.config.pipeline_elements.extract_arm_movement, "idx": 3, "func": match_arucos}
-        ready_datasets = {"name": "Ready Datasets", "active": True, "idx": 4, "func": not_implemented}
+        matching_arucos = {"name": "Match Arucos", "active": self.config.pipeline_elements.match_arucos, "idx": 3, "func": match_arucos}
+        extracting_arm_movement = {"name": "Extract Arm Movement", "active": self.config.pipeline_elements.extract_arm_movement, "idx": 4, "func": extract_arm_movement}
         
-        pipeline_elements = [[process_bags, "→", colmap, "→", ready_datasets],
-                            [None, "", extract_arm_movement, "↗", None]]
+        pipeline_elements = [[process_bags, "→", colmap, "→", matching_arucos],
+                            [None, "", None, "↘", extracting_arm_movement]]
 
         with PipelineProgress(pipeline_elements, console=CONSOLE) as progress:
             for item in progress:
