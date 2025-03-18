@@ -18,6 +18,7 @@ from data_preparation.match_arucos import match_arucos
 from data_preparation.extract_arm_movement import extract_arm_movement
 from data_preparation.train_lerf import train_lerf
 from data_preparation.train_gt import train_gt
+from editing.generate_bbox import generate_bbox
 
 
 @dataclass
@@ -35,6 +36,8 @@ class PipelineElements():
     """Train LERF"""
     train_gt: bool = True
     """Train GT"""
+    generate_bbox: bool = True
+    """Generate BBoxes"""
 
 @dataclass
 class ExperimentConfig(NeoDataConfig, InstantiateConfig):
@@ -50,6 +53,8 @@ class ExperimentConfig(NeoDataConfig, InstantiateConfig):
     """Generate configuration file and exit program"""
     pipeline_elements: PipelineElements = field(default_factory=PipelineElements)
     """Pipeline elements to run"""
+    lerf_prompt: str = "What is the object in the scene?"
+    """Prompt for LERF-TOGO"""
 
     def save_config(self) -> None:
         """Save config to base directory"""
@@ -83,9 +88,18 @@ class Experiment():
         with PipelineProgress(pipeline_elements, console=CONSOLE) as progress:
             for item in progress:
                 progress.start_step()
-                
                 item["func"](self.config)
+                progress.end_step()
 
+        generating_bbox = {"name": "Generate BBox", "active": self.config.pipeline_elements.generate_bbox, "idx": 1, "func": generate_bbox}
+        
+        pipeline_elements = [[generating_bbox],
+                             [None]]
+        
+        with PipelineProgress(pipeline_elements, console=CONSOLE) as progress:
+            for item in progress:
+                progress.start_step()
+                item["func"](self.config)
                 progress.end_step()
 
 
