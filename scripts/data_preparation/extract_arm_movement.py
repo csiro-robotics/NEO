@@ -1,5 +1,4 @@
 import os
-import sys
 import json
 import tyro
 import numpy as np
@@ -23,14 +22,14 @@ def extract_arm_movement(config: NeoDataConfig) -> None:
 
     if config.action == "remove":
         CONSOLE.print(f"[bold yellow]Remove action, exiting arm movement extraction![/bold yellow]")
-        sys.exit()
+        return
 
     if os.path.exists(bag_file_path):
         CONSOLE.print(f"Loading .bag file: {bag_file_path}")
         b = bagreader(bag_file_path)
     else:
         CONSOLE.print(f"File '{bag_file_path}' does not exist. Exiting program.")
-        sys.exit()
+        return
 
     # Read arm data topic
     arm_topics = "/trolley/panda/armer/state"

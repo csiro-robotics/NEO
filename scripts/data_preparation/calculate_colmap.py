@@ -5,7 +5,7 @@ from nerfstudio.configs.config_utils import convert_markup_to_ansi
 from nerfstudio.utils.rich_utils import CONSOLE
 
 from experiment_config import NeoDataConfig
-
+from utils import run_subprocess
 
 def calculate_colmap(config: NeoDataConfig) -> None:
     """Main function."""
@@ -15,16 +15,6 @@ def calculate_colmap(config: NeoDataConfig) -> None:
     # Need both before and after to be present in order to perform final alignment
     for stage in ["before", "after"]:
         # Use COLMAP to get initial positions
-        def run_subprocess(command):
-            process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=1, universal_newlines=True)
-            for line in process.stdout:
-                CONSOLE.print(line, end="")
-            for line in process.stderr:
-                CONSOLE.print(line, end="", style="bold red")
-            process.stdout.close()
-            process.stderr.close()
-            process.wait()
-
         command = f"ns-process-data images --data {output_path / stage / 'rgb'} --output-dir {output_path / stage}"
         run_subprocess(command)
 

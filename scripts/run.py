@@ -1,5 +1,4 @@
 import tyro
-import time
 import yaml
 import os
 
@@ -17,6 +16,8 @@ from data_preparation.calculate_colmap import calculate_colmap
 from data_preparation.extract_images import extract_images_rs
 from data_preparation.match_arucos import match_arucos
 from data_preparation.extract_arm_movement import extract_arm_movement
+from data_preparation.train_lerf import train_lerf
+from data_preparation.train_gt import train_gt
 
 
 @dataclass
@@ -30,6 +31,10 @@ class PipelineElements():
     """Match Arucos"""
     extract_arm_movement: bool = True
     """Extract arm movement"""
+    train_lerf: bool = True
+    """Train LERF"""
+    train_gt: bool = True
+    """Train GT"""
 
 @dataclass
 class ExperimentConfig(NeoDataConfig, InstantiateConfig):
@@ -55,9 +60,9 @@ class ExperimentConfig(NeoDataConfig, InstantiateConfig):
         CONSOLE.log(f"Saving config to: {config_yaml_path}")
         config_yaml_path.write_text(yaml.dump(self), "utf8")
 
-def not_implemented(config: ExperimentConfig):
-    print("Not implemented")
-    time.sleep(3)
+def dummy_fnc(config: ExperimentConfig):
+
+    pass
 
 class Experiment():
     def __init__(self, config: ExperimentConfig):
@@ -68,9 +73,12 @@ class Experiment():
         colmap = {"name": "COLMAP", "active": self.config.pipeline_elements.colmap, "idx": 2, "func": calculate_colmap}
         matching_arucos = {"name": "Match Arucos", "active": self.config.pipeline_elements.match_arucos, "idx": 3, "func": match_arucos}
         extracting_arm_movement = {"name": "Extract Arm Movement", "active": self.config.pipeline_elements.extract_arm_movement, "idx": 4, "func": extract_arm_movement}
+        ready_datasets = {"name": "Ready Datasets", "active": True, "idx": 5, "func": dummy_fnc}
+        training_lerf = {"name": "Training LERF", "active": self.config.pipeline_elements.train_lerf, "idx": 6, "func": train_lerf}
+        training_gt = {"name": "Training GT", "active": self.config.pipeline_elements.train_gt, "idx": 7, "func": train_gt}
         
-        pipeline_elements = [[process_bags, "→", colmap, "→", matching_arucos],
-                            [None, "", None, "↘", extracting_arm_movement]]
+        pipeline_elements = [[process_bags, "→", colmap, "→", matching_arucos, "→", ready_datasets, "→", training_lerf],
+                             [None, "", None, "↘", extracting_arm_movement, "↗", None, "↘", training_gt]]
 
         with PipelineProgress(pipeline_elements, console=CONSOLE) as progress:
             for item in progress:
@@ -98,10 +106,13 @@ def main(config: ExperimentConfig) -> None:
 
     else:
         # Save configuration to file.
+        config.set_timestamp()
         config.save_config()
         
     config.print_to_terminal()
     if config.generate_config:
+        config.generate_config = False
+        config.save_config()
         CONSOLE.log("Configuration file generated. Exiting program.")
         return
 
