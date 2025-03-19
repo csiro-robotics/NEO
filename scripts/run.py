@@ -18,9 +18,12 @@ from data_preparation.match_arucos import match_arucos
 from data_preparation.extract_arm_movement import extract_arm_movement
 from data_preparation.train_lerf import train_lerf
 from data_preparation.train_gt import train_gt
+from data_preparation.prepare_nerfiller import prepare_nerfiller
 
 from editing.generate_bbox import generate_bbox
 from editing.edit import edit
+
+from evaluation.train_nerfiller import train_nerfiller
 
 
 @dataclass
@@ -42,6 +45,10 @@ class PipelineElements():
     """Generate BBoxes"""
     editing: bool = True
     """Editing"""
+    prepare_nerfiller: bool = True
+    """Prepare Nerfiller"""
+    train_nerfiller: bool = True
+    """Train Nerfiller"""
 
 @dataclass
 class ExperimentConfig(NeoDataConfig, InstantiateConfig):
@@ -99,6 +106,18 @@ class Experiment():
         editing = {"name": "Editing", "active": self.config.pipeline_elements.editing, "idx": 2, "func": edit}
         
         pipeline_elements = [[generating_bbox, "→", editing],
+                             [None, "", None]]
+        
+        with PipelineProgress(pipeline_elements, console=CONSOLE) as progress:
+            for item in progress:
+                progress.start_step()
+                item["func"](self.config)
+                progress.end_step()
+
+        preparing_nerfiller = {"name": "Prepare Nerfiller", "active": self.config.pipeline_elements.prepare_nerfiller, "idx": 1, "func": prepare_nerfiller}
+        training_nerfiller = {"name": "Training Nerfiller", "active": self.config.pipeline_elements.train_nerfiller, "idx": 2, "func": train_nerfiller}
+        
+        pipeline_elements = [[preparing_nerfiller, "→", training_nerfiller],
                              [None, "", None]]
         
         with PipelineProgress(pipeline_elements, console=CONSOLE) as progress:
