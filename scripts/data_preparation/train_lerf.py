@@ -4,9 +4,9 @@ from pathlib import Path
 
 from nerfstudio.configs.config_utils import convert_markup_to_ansi
 from nerfstudio.utils.rich_utils import CONSOLE
+from nerfstudio.utils.scripts import run_command
 
 from experiment_config import NeoDataConfig
-from utils import run_subprocess
 
 
 def train_lerf(config: NeoDataConfig) -> None:
@@ -30,11 +30,11 @@ def train_lerf(config: NeoDataConfig) -> None:
     ]
     command = " ".join(command)
 
-    run_subprocess(command)
+    run_command(command, verbose=True)
 
     # Convert LERF to Neo
     CONSOLE.print("[bold green]Converting LERF to Neo...[/bold green]")
-    run_subprocess(f"ns-convert to-neo --input {str(base_dir).replace(str(config.root_input), 'outputs')}/before/lerf-lite/{config.get_timestamp()}")
+    run_command(f"ns-convert to-neo --input {str(base_dir).replace(str(config.root_input), 'outputs')}/before/lerf-lite/{config.get_timestamp()}", verbose=True)
 
 def entrypoint():
     """Entrypoint for CLI."""

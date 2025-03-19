@@ -19,7 +19,7 @@ class PipelineProgress:
     def __init__(self, pipeline_elements: List[List[Union[Dict, str]]], console: Union[None, Console] = None):
         self.current_idx = 1
         self.console = console if console else Console(width=CONSOLE_WIDTH)
-        self.live = Live(console=self.console, refresh_per_second=10)
+        self.live = Live(console=self.console, refresh_per_second=4)
 
         self.pipeline_elements = pipeline_elements
         self.pipeline = sorted(
@@ -78,7 +78,7 @@ class PipelineProgress:
                     elapsed_time = time.time() - element["start_time"]
                     element["elapsed_time"] = elapsed_time
             self.live.update(self._create_table())
-            time.sleep(0.1)  # Update every 0.1 seconds
+            time.sleep(0.25)
 
     def end_step(self):
         for element in self.pipeline:

@@ -3,9 +3,9 @@ import subprocess
 
 from nerfstudio.configs.config_utils import convert_markup_to_ansi
 from nerfstudio.utils.rich_utils import CONSOLE
+from nerfstudio.utils.scripts import run_command
 
 from experiment_config import NeoDataConfig
-from utils import run_subprocess
 
 def calculate_colmap(config: NeoDataConfig) -> None:
     """Main function."""
@@ -16,7 +16,7 @@ def calculate_colmap(config: NeoDataConfig) -> None:
     for stage in ["before", "after"]:
         # Use COLMAP to get initial positions
         command = f"ns-process-data images --data {output_path / stage / 'rgb'} --output-dir {output_path / stage}"
-        run_subprocess(command)
+        run_command(command, verbose=True)
 
         subprocess.run(f"rm -rf {output_path / stage /'rgb'}", shell=True)
         subprocess.run(f"cp {output_path / stage / 'transforms.json'} {output_path / stage / 'raw_transforms.json'}", shell=True)
