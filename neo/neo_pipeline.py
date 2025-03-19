@@ -93,7 +93,6 @@ class NeoPipeline(VanillaPipeline):
         self.datamanager: DataManager = config.datamanager.setup(
             device=device, test_mode=test_mode, world_size=world_size, local_rank=local_rank
         )
-        self.datamanager.to(device)
         assert self.datamanager.train_dataset is not None, "Missing input dataset"
 
         # Validate transforms
@@ -270,7 +269,7 @@ class NeoPipeline(VanillaPipeline):
         # Loopback the model
         if self.config.loopback_model:
             edited_model_path = f"{str(path).replace(neo_variant, 'replace-nerf')}/nerfstudio_models/step-{str(self.config.max_num_iterations_replace_nerf - 1).zfill(9)}.ckpt"
-            loaded_state_dict = torch.load(edited_model_path, map_location=self.model.device)["pipeline"]
+            loaded_state_dict = torch.load(edited_model_path, map_location=self.model.device, weights_only=False)["pipeline"]
 
             model_state = {}
             for key, value in loaded_state_dict.items():

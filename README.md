@@ -1,5 +1,5 @@
-# Neo: NeRF it once, edit twice
 
+# Neo: NeRF it once, edit twice
 Fast editing pipeline for nerfacto models
 
 Register the method within Nerfstudio
@@ -26,7 +26,6 @@ Neo/
 ```bash
 conda create --name nerfstudio -y python=3.10
 conda activate nerfstudio
-git clone https://github.com/nerfstudio-project/nerfstudio.git
 pip3 install torch torchvision torchaudio
 conda install -c "nvidia/label/cuda-12.4.0" cuda-toolkit
 conda install ninja git
@@ -36,6 +35,11 @@ export PATH=$CUDA_HOME/bin:$PATH
 export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
 export LD_LIBRARY_PATH=/usr/lib64:$LD_LIBRARY_PATH
 ln -s /usr/lib64/libcuda.so.565.77 ~/.conda/envs/nerfstudio/lib/libcuda.so
+
+git clone https://github.com/nerfstudio-project/nerfstudio.git
+cd nerfstudio
+pip install --upgrade pip setuptools
+pip install -e .
 ```
 
 

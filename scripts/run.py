@@ -18,7 +18,9 @@ from data_preparation.match_arucos import match_arucos
 from data_preparation.extract_arm_movement import extract_arm_movement
 from data_preparation.train_lerf import train_lerf
 from data_preparation.train_gt import train_gt
+
 from editing.generate_bbox import generate_bbox
+from editing.edit import edit
 
 
 @dataclass
@@ -38,6 +40,8 @@ class PipelineElements():
     """Train GT"""
     generate_bbox: bool = True
     """Generate BBoxes"""
+    editing: bool = True
+    """Editing"""
 
 @dataclass
 class ExperimentConfig(NeoDataConfig, InstantiateConfig):
@@ -92,9 +96,10 @@ class Experiment():
                 progress.end_step()
 
         generating_bbox = {"name": "Generate BBox", "active": self.config.pipeline_elements.generate_bbox, "idx": 1, "func": generate_bbox}
+        editing = {"name": "Editing", "active": self.config.pipeline_elements.editing, "idx": 2, "func": edit}
         
-        pipeline_elements = [[generating_bbox],
-                             [None]]
+        pipeline_elements = [[generating_bbox, "→", editing],
+                             [None, "", None]]
         
         with PipelineProgress(pipeline_elements, console=CONSOLE) as progress:
             for item in progress:

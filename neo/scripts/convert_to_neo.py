@@ -167,7 +167,7 @@ class ConvertToNerfacto(BaseConvert):
 
         # Load the .ckpt torch model
         ckpt_path = next((self.config.get_base_dir() / "nerfstudio_models").glob("*.ckpt"))
-        model = torch.load(ckpt_path)
+        model = torch.load(ckpt_path, weights_only=False)
 
         keys_to_delete = []
         for line in model["pipeline"]:
