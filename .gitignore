@@ -11,6 +11,7 @@
 /renders
 /eval
 /exports
+/experiments
 
 # Pytohn
 __pycache__

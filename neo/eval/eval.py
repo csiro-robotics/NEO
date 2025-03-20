@@ -3,6 +3,7 @@ import tyro
 import yaml
 import json
 import shutil
+import numpy as np
 
 from abc import abstractmethod
 from dataclasses import dataclass
@@ -133,10 +134,23 @@ class EvalBaseConfig:
                        dataparser_transform=dataparser_output.dataparser_transform,
                        dataparser_scale=dataparser_output.dataparser_scale)
         
+        # Load the transforms.json file as camera_data
+        transforms_path = Path(self.model_config.pipeline.datamanager.data) / "transforms.json"
+        with open(transforms_path, "r") as f:
+            camera_data = json.load(f)
+
+        # Get dataparser transformation matrix
+        dataparser_transform = dataparser_output.dataparser_transform.cpu().detach().numpy()
+        if "applied_transform" in camera_data:
+            dataparser_transform = dataparser_transform @ np.linalg.inv(np.concatenate([np.array(camera_data["applied_transform"]), np.array([[0, 0, 0, 1]])], axis=0))   
+        
+        
         frames = generate_hemisphere_transforms(radius=self.crop_radius,
                                                 num_layers=3,
                                                 num_per_layer=40,
-                                                origin=self.crop_center)
+                                                origin=self.crop_center,
+                                                dataparser_scale=dataparser_output.dataparser_scale,
+                                                dataparser_transform=dataparser_transform)
         image_names = [f"frame_{num:05d}" for num in range(len(frames))]
 
         frames_with_names = []
@@ -173,11 +187,17 @@ class EvalBaseConfig:
         # Load focal lengths and transforms
         with open(self.model_config.data / 'transforms.json') as f:
             transforms = json.load(f)
-            self.focal_lengths = (transforms['fl_x'], transforms['fl_y'])
+            if 'frames' in transforms and 'fl_x' in transforms['frames'][0]:
+                self.focal_lengths = (transforms['frames'][0]['fl_x'], transforms['frames'][0]['fl_y'])
+            else:
+                self.focal_lengths = (transforms['fl_x'], transforms['fl_y'])
 
-        with open(gt_data_path / 'transforms.json') as f:
-            transforms = json.load(f)
-            self.gt_focal_lengths = (transforms['fl_x'], transforms['fl_y'])
+            with open(gt_data_path / 'transforms.json') as f:
+                transforms = json.load(f)
+                if 'frames' in transforms and 'fl_x' in transforms['frames'][0]:
+                    self.gt_focal_lengths = (transforms['frames'][0]['fl_x'], transforms['frames'][0]['fl_y'])
+                else:
+                    self.gt_focal_lengths = (transforms['fl_x'], transforms['fl_y'])
 
         # Copy GT data to render output path
         shutil.copytree(gt_data_path, render_output_path / f"{exp_names[0]}_gt", dirs_exist_ok=True)

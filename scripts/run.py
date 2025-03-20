@@ -24,6 +24,7 @@ from editing.generate_bbox import generate_bbox
 from editing.edit import edit
 
 from evaluation.train_nerfiller import train_nerfiller
+from evaluation.eval import eval
 
 
 @dataclass
@@ -49,6 +50,8 @@ class PipelineElements():
     """Prepare Nerfiller"""
     train_nerfiller: bool = True
     """Train Nerfiller"""
+    evaluate: bool = True
+    """Evaluate"""
 
 @dataclass
 class ExperimentConfig(NeoDataConfig, InstantiateConfig):
@@ -116,9 +119,10 @@ class Experiment():
 
         preparing_nerfiller = {"name": "Prepare Nerfiller", "active": self.config.pipeline_elements.prepare_nerfiller, "idx": 1, "func": prepare_nerfiller}
         training_nerfiller = {"name": "Training Nerfiller", "active": self.config.pipeline_elements.train_nerfiller, "idx": 2, "func": train_nerfiller}
+        evaluating = {"name": "Evaluation", "active": self.config.pipeline_elements.evaluate, "idx": 3, "func": eval}
         
-        pipeline_elements = [[preparing_nerfiller, "→", training_nerfiller],
-                             [None, "", None]]
+        pipeline_elements = [[preparing_nerfiller, "→", training_nerfiller, "→", evaluating],
+                             [None, "", None, "", None]]
         
         with PipelineProgress(pipeline_elements, console=CONSOLE) as progress:
             for item in progress:
