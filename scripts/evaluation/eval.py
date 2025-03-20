@@ -40,7 +40,6 @@ def eval(config: NeoDataConfig) -> None:
 
     # Evaluate NeRFiller
     selected_dir = config_path.replace("replace-nerf", "grid-prior-du")
-    selected_dir = config_path.replace("replace-nerf", "nerfacto-nerfiller")
     command = [
         "ns-eval-neo",
         f"--config-path {selected_dir}",
