@@ -32,8 +32,12 @@ class PipelineElements():
 
     proces_bags: bool = True
     """Process bags"""
-    colmap: bool = True
+    colmap_1: bool = True
     """Run COLMAP"""
+    colmap_2: bool = True
+    """Run COLMAP"""
+    select_frames: bool = True
+    """Select frames"""
     match_arucos: bool = True
     """Match Arucos"""
     extract_arm_movement: bool = True
@@ -88,21 +92,26 @@ class Experiment():
         self.config = config
 
     def run(self):
-        process_bags = {"name": "Process Bags", "active": self.config.pipeline_elements.proces_bags, "idx": 1, "func": extract_images_rs}
-        colmap = {"name": "COLMAP", "active": self.config.pipeline_elements.colmap, "idx": 2, "func": calculate_colmap}
-        matching_arucos = {"name": "Match Arucos", "active": self.config.pipeline_elements.match_arucos, "idx": 3, "func": match_arucos}
-        extracting_arm_movement = {"name": "Extract Arm Movement", "active": self.config.pipeline_elements.extract_arm_movement, "idx": 4, "func": extract_arm_movement}
-        ready_datasets = {"name": "Ready Datasets", "active": True, "idx": 5, "func": dummy_fnc}
-        training_lerf = {"name": "Training LERF", "active": self.config.pipeline_elements.train_lerf, "idx": 6, "func": train_lerf}
-        training_gt = {"name": "Training GT", "active": self.config.pipeline_elements.train_gt, "idx": 7, "func": train_gt}
+        process_bags = {"name": "Process Bags", "active": self.config.pipeline_elements.proces_bags, "idx": 1, "func": extract_images_rs, "kwargs": {"skip_frames": 6, "select_frames": False, "num_frames": 250}}
+        colmap_1 = {"name": "COLMAP", "active": self.config.pipeline_elements.colmap_1, "idx": 2, "func": calculate_colmap}
+        selecting_frames = {"name": "Select Frames", "active": self.config.pipeline_elements.select_frames, "idx": 3, "func": extract_images_rs, "kwargs": {"skip_frames": 6, "select_frames": True, "num_frames": 250}}
+        colmap_2 = {"name": "COLMAP", "active": self.config.pipeline_elements.colmap_2, "idx": 4, "func": calculate_colmap}
+        matching_arucos = {"name": "Match Arucos", "active": self.config.pipeline_elements.match_arucos, "idx": 5, "func": match_arucos}
+        extracting_arm_movement = {"name": "Extract Arm Movement", "active": self.config.pipeline_elements.extract_arm_movement, "idx": 6, "func": extract_arm_movement}
+        ready_datasets = {"name": "Ready Datasets", "active": True, "idx": 7, "func": dummy_fnc}
+        training_lerf = {"name": "Training LERF", "active": self.config.pipeline_elements.train_lerf, "idx": 8, "func": train_lerf}
+        training_gt = {"name": "Training GT", "active": self.config.pipeline_elements.train_gt, "idx": 9, "func": train_gt}
         
-        pipeline_elements = [[process_bags, "→", colmap, "→", matching_arucos, "→", ready_datasets, "→", training_lerf],
-                             [None, "", None, "↘", extracting_arm_movement, "↗", None, "↘", training_gt]]
+        pipeline_elements = [[process_bags, "→", colmap_1, "→", selecting_frames, "→", colmap_2, "→", matching_arucos, "→", ready_datasets, "→", training_lerf],
+                             [None, "", None, "", None, "", None, "↘", extracting_arm_movement, "↗", None, "↘", training_gt]]
 
         with PipelineProgress(pipeline_elements, console=CONSOLE) as progress:
             for item in progress:
                 progress.start_step()
-                item["func"](self.config)
+                if item.get("kwargs"):
+                    item["func"](self.config, **item["kwargs"])
+                else:
+                    item["func"](self.config)
                 progress.end_step()
 
         generating_bbox = {"name": "Generate BBox", "active": self.config.pipeline_elements.generate_bbox, "idx": 1, "func": generate_bbox}
@@ -114,7 +123,10 @@ class Experiment():
         with PipelineProgress(pipeline_elements, console=CONSOLE) as progress:
             for item in progress:
                 progress.start_step()
-                item["func"](self.config)
+                if item.get("kwargs"):
+                    item["func"](self.config, **item["kwargs"])
+                else:
+                    item["func"](self.config)
                 progress.end_step()
 
         preparing_nerfiller = {"name": "Prepare Nerfiller", "active": self.config.pipeline_elements.prepare_nerfiller, "idx": 1, "func": prepare_nerfiller}
@@ -127,7 +139,10 @@ class Experiment():
         with PipelineProgress(pipeline_elements, console=CONSOLE) as progress:
             for item in progress:
                 progress.start_step()
-                item["func"](self.config)
+                if item.get("kwargs"):
+                    item["func"](self.config, **item["kwargs"])
+                else:
+                    item["func"](self.config)
                 progress.end_step()
 
 

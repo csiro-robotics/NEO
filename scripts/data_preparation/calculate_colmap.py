@@ -14,6 +14,16 @@ def calculate_colmap(config: NeoDataConfig) -> None:
 
     # Need both before and after to be present in order to perform final alignment
     for stage in ["before", "after"]:
+
+        # Check and remove any files or folders other than 'rgb'
+        for item in (output_path / stage).iterdir():
+            if item.name != "rgb":
+                CONSOLE.print(f"Removing {item}")
+                if item.is_dir():
+                    subprocess.run(f"rm -rf {item}", shell=True)
+                else:
+                    item.unlink()
+
         # Use COLMAP to get initial positions
         command = f"ns-process-data images --data {output_path / stage / 'rgb'} --output-dir {output_path / stage}"
         run_command(command, verbose=True)
