@@ -4,9 +4,9 @@ from pathlib import Path
 
 from nerfstudio.configs.config_utils import convert_markup_to_ansi
 from nerfstudio.utils.rich_utils import CONSOLE
+from nerfstudio.utils.scripts import run_command
 
 from experiment_config import NeoDataConfig
-from utils import run_subprocess
 
 
 def generate_bbox(config: NeoDataConfig) -> None:
@@ -26,7 +26,7 @@ def generate_bbox(config: NeoDataConfig) -> None:
     ]
     command = " ".join(command)
 
-    run_subprocess(command)
+    run_command(command, verbose=True)
 
 def entrypoint():
     """Entrypoint for CLI."""

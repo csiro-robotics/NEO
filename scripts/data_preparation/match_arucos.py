@@ -62,7 +62,8 @@ def get_arucos(images, transforms_dict):
             arucos.append(marker_pose)
     return arucos
 
-def aruco_objective(scale, arucos):
+def aruco_objective(scale, arucos = None, rand_0 = None, rand_1 = None, rand_2 = None, rand_3 = None):
+
     aruco_dict = {}
     for i in range(100):
         aruco_dict[i] = []
@@ -77,10 +78,21 @@ def aruco_objective(scale, arucos):
     marker_poses_2 = np.array(aruco_dict[2])
     marker_poses_3 = np.array(aruco_dict[3])
 
-    sum_0 = np.abs(np.sum(np.diff(marker_poses_0[:, :3, 3], axis=0)))
-    sum_1 = np.abs(np.sum(np.diff(marker_poses_1[:, :3, 3], axis=0)))
-    sum_2 = np.abs(np.sum(np.diff(marker_poses_2[:, :3, 3], axis=0)))
-    sum_3 = np.abs(np.sum(np.diff(marker_poses_3[:, :3, 3], axis=0)))
+    sum_0 = 0
+    for i in range(len(aruco_dict[0]) - 1):
+        sum_0 += np.linalg.norm(marker_poses_0[rand_0[i + 1], :3, 3] - marker_poses_0[rand_0[i], :3, 3])
+
+    sum_1 = 0
+    for i in range(len(aruco_dict[1]) - 1):
+        sum_1 += np.linalg.norm(marker_poses_1[rand_1[i + 1], :3, 3] - marker_poses_1[rand_1[i], :3, 3])
+
+    sum_2 = 0
+    for i in range(len(aruco_dict[2]) - 1):
+        sum_2 += np.linalg.norm(marker_poses_2[rand_2[i + 1], :3, 3] - marker_poses_2[rand_2[i], :3, 3])
+
+    sum_3 = 0
+    for i in range(len(aruco_dict[3]) - 1):
+        sum_3 += np.linalg.norm(marker_poses_3[rand_3[i + 1], :3, 3] - marker_poses_3[rand_3[i], :3, 3])
     
     return sum_0 + sum_1 + sum_2 + sum_3
 
@@ -232,10 +244,37 @@ def match_arucos(config: NeoDataConfig):
     # Optimize for best scale
     CONSOLE.print("Optimizing scale")
     scale_min, scale_max = 0, 20
+    n_nieghbours = 50
+
+    aruco_dict = {}
+    for i in range(100):
+        aruco_dict[i] = []
+
+    for _, _, idx in arucos["before"]:
+        aruco_dict[idx].append(idx)
+
+    rand_0 = np.random.randint(0, len(aruco_dict[0]), size=(len(aruco_dict[0]), n_nieghbours))
+    rand_1 = np.random.randint(0, len(aruco_dict[1]), size=(len(aruco_dict[1]), n_nieghbours))
+    rand_2 = np.random.randint(0, len(aruco_dict[2]), size=(len(aruco_dict[2]), n_nieghbours))
+    rand_3 = np.random.randint(0, len(aruco_dict[3]), size=(len(aruco_dict[3]), n_nieghbours))
+
     rand_start = scale_min + np.random.rand(1) * (scale_max - scale_min)
-    best_scale["before"] = minimize(aruco_objective, rand_start, arucos["before"], method='nelder-mead')['x']
+    best_scale["before"] = minimize(aruco_objective, rand_start, method='nelder-mead', options={'maxiter': 1000}, args=(arucos["before"], rand_0, rand_1, rand_2, rand_3))['x']
+
+    aruco_dict = {}
+    for i in range(100):
+        aruco_dict[i] = []
+
+    for _, _, idx in arucos["after"]:
+        aruco_dict[idx].append(idx)
+
+    rand_0 = np.random.randint(0, len(aruco_dict[0]), size=(len(aruco_dict[0]), n_nieghbours))
+    rand_1 = np.random.randint(0, len(aruco_dict[1]), size=(len(aruco_dict[1]), n_nieghbours))
+    rand_2 = np.random.randint(0, len(aruco_dict[2]), size=(len(aruco_dict[2]), n_nieghbours))
+    rand_3 = np.random.randint(0, len(aruco_dict[3]), size=(len(aruco_dict[3]), n_nieghbours))
+
     rand_start = scale_min + np.random.rand(1) * (scale_max - scale_min)
-    best_scale["after"] = minimize(aruco_objective, rand_start, arucos["after"], method='nelder-mead')['x']
+    best_scale["after"] = minimize(aruco_objective, rand_start, method='nelder-mead', options={'maxiter': 1000}, args=(arucos["after"], rand_0, rand_1, rand_2, rand_3))['x']
 
     CONSOLE.print(f"Best scales before: {best_scale['before']}, after {best_scale['after']}")
 

@@ -1,10 +1,13 @@
-import pyrealsense2 as rs
-import numpy as np
 import cv2
 import os
+import json
+import shutil
 import tyro
+import numpy as np
+import pyrealsense2 as rs
 
 from pathlib import Path
+from scipy.optimize import minimize_scalar
 
 from nerfstudio.configs.config_utils import convert_markup_to_ansi
 from nerfstudio.utils.rich_utils import CONSOLE
@@ -12,7 +15,7 @@ from nerfstudio.utils.rich_utils import CONSOLE
 from experiment_config import NeoDataConfig
 
 
-def read_realsense_bag(bag_file_path: Path, output_path: Path, rotate_images: bool, skip_frames: int=6):
+def read_realsense_bag(bag_file_path: Path, output_path: Path, rotate_images: bool, skip_frames: int=6, frame_list: list=None):
     # Configure the pipeline
     pipeline = rs.pipeline()
     config = rs.config()
@@ -24,6 +27,10 @@ def read_realsense_bag(bag_file_path: Path, output_path: Path, rotate_images: bo
     pipeline.start(config)
 
     os.makedirs(output_path, exist_ok=True)
+    if (output_path / 'rgb').exists():
+        shutil.rmtree(output_path / 'rgb')
+    if (output_path / 'depth').exists():
+        shutil.rmtree(output_path / 'depth')
     os.makedirs(output_path / 'rgb', exist_ok=True)
     os.makedirs(output_path / 'depth', exist_ok=True)
 
@@ -47,46 +54,164 @@ def read_realsense_bag(bag_file_path: Path, output_path: Path, rotate_images: bo
             # Convert images to numpy arrays
             color_image = cv2.cvtColor(np.asanyarray(color_frame.get_data()), cv2.COLOR_BGR2RGB)
             depth_image = np.asanyarray(depth_frame.get_data())
+            
+            if frame_list is not None:
+                if i in frame_list:
+                    num = str(j).zfill(4)
+                    if rotate_images:
+                        color_image = cv2.rotate(color_image, cv2.ROTATE_180)
+                        depth_image = cv2.rotate(depth_image, cv2.ROTATE_180)
 
-            if i % skip_frames == 0:
-                num = str(j)
-                while len(num) < 4:
-                    num = '0' + num
+                    # Save the images
+                    cv2.imwrite(str(output_path / f'rgb/{num}.png'), color_image)
+                    cv2.imwrite(str(output_path / f'depth/{num}.png'), depth_image)
 
-                if rotate_images:
-                    color_image = cv2.rotate(color_image, cv2.ROTATE_180)
-                    depth_image = cv2.rotate(depth_image, cv2.ROTATE_180)
+                    # Update progress
+                    CONSOLE.print(f"Extracted frame {i}")
+                    j += 1
+            else:
+                if i % skip_frames == 0:
 
-                # Save the images
-                cv2.imwrite(str(output_path / f'rgb/{num}.png'), color_image)
-                cv2.imwrite(str(output_path / f'depth/{num}.png'), depth_image)
+                    num = str(j).zfill(4)
+                    if rotate_images:
+                        color_image = cv2.rotate(color_image, cv2.ROTATE_180)
+                        depth_image = cv2.rotate(depth_image, cv2.ROTATE_180)
 
-                # Update progress
-                CONSOLE.print(f"Extracted frame {i}")
-                j += 1
+                    # Save the images
+                    cv2.imwrite(str(output_path / f'rgb/{num}.png'), color_image)
+                    cv2.imwrite(str(output_path / f'depth/{num}.png'), depth_image)
+
+                    # Update progress
+                    CONSOLE.print(f"Extracted frame {i}")
+                    j += 1
             i += 1
     finally:
         # Stop the pipeline
         CONSOLE.print(f"[bold green]Number of Frames:[/bold green] {j}")
         pipeline.stop()
 
-def extract_images_rs(config: NeoDataConfig, skip_frames: int = 6) -> None:
+def read_mp4_file(mp4_file_path: Path, output_path: Path, skip_frames: int=6, frame_list: list=None):
+    cap = cv2.VideoCapture(str(mp4_file_path))
+    os.makedirs(output_path, exist_ok=True)
+    if (output_path / 'rgb').exists():
+        shutil.rmtree(output_path / 'rgb')
+    os.makedirs(output_path / 'rgb', exist_ok=True)
+
+    frame_count = 0
+    saved_frame_count = 1
+
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        if frame_list is not None:
+            if frame_count in frame_list:
+                num = str(saved_frame_count).zfill(4)
+                cv2.imwrite(str(output_path / f'rgb/{num}.png'), frame)
+                CONSOLE.print(f"Extracted frame {frame_count}")
+                saved_frame_count += 1
+        
+        else:
+            if frame_count % skip_frames == 0:
+                num = str(saved_frame_count).zfill(4)
+                cv2.imwrite(str(output_path / f'rgb/{num}.png'), frame)
+                CONSOLE.print(f"Extracted frame {frame_count}")
+                saved_frame_count += 1
+
+        frame_count += 1
+
+    cap.release()
+    CONSOLE.print(f"[bold green]Number of Frames:[/bold green] {saved_frame_count}")
+
+def select_frames_to_extract(config: NeoDataConfig, stage: str, num_frames: int = 250) -> list:
+
+    path = config.get_base_dir() / stage
+
+    assert path.exists(), "Before and After directories must exist."
+
+    # Load the transforms
+    with open(path / 'transforms.json', 'r') as file:
+        transforms = json.load(file)
+
+    # Sort frames by file path
+    transforms["frames"] = sorted(transforms["frames"], key=lambda x: x["file_path"])
+
+    # Calculate distance between frames
+    distances = []
+    for i in range(len(transforms["frames"]) - 1):
+        first = np.array(transforms["frames"][i]["transform_matrix"])[:3, 3]
+        second = np.array(transforms["frames"][i + 1]["transform_matrix"])[:3, 3]
+        distances.append(np.linalg.norm(second - first))
+
+    # Interpolate distances
+    def interpolate_distances(distances):
+        interpolated = []
+        for i in range(len(distances) - 1):
+            interpolated.append(distances[i])
+            interpolated.extend(np.linspace(distances[i], distances[i + 1], num=6, endpoint=False)[1:])
+        interpolated.append(distances[-1])
+        return interpolated
+
+    distances_inerpolated = interpolate_distances(distances)
+
+    # Reduce number of frames
+    def optimize_dist(dist, distances):
+        selected_frames = []
+        current_distance = 0
+
+        for idx, distance in enumerate(distances):
+            current_distance += distance
+            if current_distance >= dist:
+                selected_frames.append(idx)
+                current_distance = 0
+
+        return abs(len(selected_frames) - num_frames)
+
+    result = minimize_scalar(optimize_dist, args=(distances_inerpolated))
+    dist = result.x
+
+    # Recalculate selected_frames with optimized dist_before
+    selected_frames = []
+    current_distance = 0
+
+    for idx, distance in enumerate(distances_inerpolated):
+        current_distance += distance
+        if current_distance >= dist:
+            selected_frames.append(idx)
+            current_distance = 0
+
+    CONSOLE.print(f"Selected {len(selected_frames)} frames out of {len(distances_inerpolated)}")
+
+    return selected_frames
+
+def extract_images_rs(config: NeoDataConfig, skip_frames: int = 6, select_frames: list = True, num_frames: int = 250) -> None:
     """Main function."""
 
     output_path = config.get_base_dir()
 
     # Need both before and after to be present in order to perform final alignment
     for stage in ["before", "after"]:
+
+        frame_list = None
+        if select_frames:
+            frame_list = select_frames_to_extract(config, stage=stage, num_frames=num_frames)
+
         bag_file_path = Path(f"{str(output_path).replace(str(config.root_input), f'{str(config.root_input)}/raw_bagfiles')}_{stage}.bag")
+        mp4_file_path = Path(f"{str(output_path).replace(str(config.root_input), f'{str(config.root_input)}/raw_bagfiles')}_{stage}.mp4")
 
         if bag_file_path.exists():
-            CONSOLE.print(f"[bold green]Output Path:[/bold green] {output_path}")
-            CONSOLE.print(f"[bold green]Bag File Path:[/bold green] {bag_file_path}")
+            CONSOLE.print("Bag file found, processing...")
             
-            read_realsense_bag(bag_file_path, output_path / stage, True, skip_frames=skip_frames)
+            read_realsense_bag(bag_file_path, output_path / stage, True, skip_frames=skip_frames, frame_list=frame_list)
+            
+        elif mp4_file_path.exists():
+            CONSOLE.print("MP4 file found, processing...")
+
+            read_mp4_file(mp4_file_path, output_path / stage, skip_frames=skip_frames, frame_list=frame_list)
 
         else:
-            CONSOLE.print(f"Bag file does not exist: {bag_file_path}")
+            CONSOLE.print("No bag or mp4 file found.")
             return
 
 
