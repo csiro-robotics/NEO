@@ -530,11 +530,25 @@ class SpiralRender(BaseRender):
         )
         camera_start, _ = pipeline.datamanager.eval_dataloader.get_camera(image_idx=0)
 
+        # Load the transforms.json file as camera_data
+        transforms_path = Path(pipeline.config.datamanager.data) / "transforms.json"
+        with open(transforms_path, "r") as f:
+            camera_data = json.load(f)
+
+        # Get dataparser transformation matrix
+        dataparser_output = pipeline.datamanager.dataparser._generate_dataparser_outputs()
+        dataparser_transform = dataparser_output.dataparser_transform.cpu().detach().numpy()
+        if "applied_transform" in camera_data:
+            dataparser_transform = dataparser_transform @ np.linalg.inv(np.concatenate([np.array(camera_data["applied_transform"]), np.array([[0, 0, 0, 1]])], axis=0))   
+        
+
         c2ws = generate_hemisphere_transforms(
             radius=self.radius,
             num_layers=3,
             num_per_layer=40,
             origin=np.array(self.crop_center),
+            dataparser_scale=dataparser_output.dataparser_scale,
+            dataparser_transform=dataparser_transform,
             dtype=torch.Tensor,
             shape=(3, 4)
             )

@@ -65,7 +65,7 @@ class SparseGuidedNeRFTrainer(Trainer):
         load_path: Path = self.config.neo_model_path
         assert load_path is not None, "Please specify --neo-model-path"
         assert load_path.exists(), f"Checkpoint {load_path} does not exist"
-        loaded_state = torch.load(load_path, map_location="cpu")
+        loaded_state = torch.load(load_path, map_location="cpu", weights_only=False)
         if self.config.pipeline.model.camera_optimizer.mode != "off":
             camera_opt = {"camera_opt": loaded_state["optimizers"]["camera_opt"]}
             self.optimizers.load_optimizers(camera_opt)

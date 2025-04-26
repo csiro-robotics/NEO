@@ -141,17 +141,17 @@ class ReplaceNeRFModel(NerfactoModel):
         CONSOLE.print(f"- {field_path}")
         CONSOLE.print(f"- {replace_field_path}")
 
-        field_state = torch.load(field_path, map_location="cpu")
+        field_state = torch.load(field_path, map_location="cpu", weights_only=False)
         field_state = {
             (key[len("_model.field.") :] if key.startswith("_model.field.") else key): value for key, value in field_state["pipeline"].items() if key.startswith("_model.field.")
         }
 
-        field_copy_state = torch.load(field_path, map_location="cpu")
+        field_copy_state = torch.load(field_path, map_location="cpu", weights_only=False)
         field_copy_state = {
             (key[len("_model.field.") :] if key.startswith("_model.field.") else key): value for key, value in field_copy_state["pipeline"].items() if key.startswith("_model.field.")
         }
 
-        replace_field_state = torch.load(replace_field_path, map_location="cpu")
+        replace_field_state = torch.load(replace_field_path, map_location="cpu", weights_only=False)
         replace_field_state = {
             (key[len("_model.field.") :] if key.startswith("_model.field.") else key): value for key, value in replace_field_state["pipeline"].items() if key.startswith("_model.field.")
         }
@@ -264,7 +264,7 @@ class ReplaceNeRFModel(NerfactoModel):
         CONSOLE.print(f"- {field_path}")
         CONSOLE.print(f"- {replace_field_path}")
 
-        proposal_networks_state = torch.load(field_path, map_location="cpu")
+        proposal_networks_state = torch.load(field_path, map_location="cpu", weights_only=False)
         proposal_networks_state = {
             (key[len("_model.proposal_networks.") :] if key.startswith("_model.proposal_networks.") else key): value for key, value in proposal_networks_state["pipeline"].items() if key.startswith("_model.proposal_networks.")
         }
@@ -272,7 +272,7 @@ class ReplaceNeRFModel(NerfactoModel):
         self.proposal_networks_copy.load_state_dict(proposal_networks_state)
         self.proposal_networks_copy.eval()
 
-        replace_proposal_networks_state = torch.load(replace_field_path, map_location="cpu")
+        replace_proposal_networks_state = torch.load(replace_field_path, map_location="cpu", weights_only=False)
         replace_proposal_networks_state = {
             (key[len("_model.proposal_networks.") :] if key.startswith("_model.proposal_networks.") else key): value for key, value in replace_proposal_networks_state["pipeline"].items() if key.startswith("_model.proposal_networks.")
         }
