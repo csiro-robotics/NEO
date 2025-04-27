@@ -88,40 +88,16 @@ class ReplaceNeRFModel(NerfactoModel):
             (key[len("_model.field.") :] if key.startswith("_model.field.") else key): value for key, value in field_state["pipeline"].items() if key.startswith("_model.field.")
         }
 
-        field_copy_state = torch.load(field_path, map_location="cpu", weights_only=False)
-        field_copy_state = {
-            (key[len("_model.field.") :] if key.startswith("_model.field.") else key): value for key, value in field_copy_state["pipeline"].items() if key.startswith("_model.field.")
-        }
-
         replace_field_state = torch.load(replace_field_path, map_location="cpu", weights_only=False)
         replace_field_state = {
             (key[len("_model.field.") :] if key.startswith("_model.field.") else key): value for key, value in replace_field_state["pipeline"].items() if key.startswith("_model.field.")
         }
 
-        # Set the number of cameras
+        # Set the number of images
         self.num_images = field_state["embedding_appearance.embedding.weight"].shape[0]
 
         # Fields
         self.field = NerfactoField(
-            self.scene_box.aabb,
-            hidden_dim=self.config.hidden_dim,
-            num_levels=self.config.num_levels,
-            max_res=self.config.max_res,
-            base_res=self.config.base_res,
-            features_per_level=self.config.features_per_level,
-            log2_hashmap_size=self.config.log2_hashmap_size,
-            hidden_dim_color=self.config.hidden_dim_color,
-            hidden_dim_transient=self.config.hidden_dim_transient,
-            spatial_distortion=scene_contraction,
-            num_images=self.num_images,
-            use_pred_normals=self.config.predict_normals,
-            use_average_appearance_embedding=self.config.use_average_appearance_embedding,
-            appearance_embedding_dim=appearance_embedding_dim,
-            average_init_density=self.config.average_init_density,
-            implementation=self.config.implementation,
-        )
-
-        self.field_copy = NerfactoField(
             self.scene_box.aabb,
             hidden_dim=self.config.hidden_dim,
             num_levels=self.config.num_levels,
@@ -161,7 +137,7 @@ class ReplaceNeRFModel(NerfactoModel):
 
         # Load the state dicts from the fields
         self.field.load_state_dict(field_state)
-        self.field_copy.load_state_dict(field_copy_state)
+        self.field_copy = deepcopy(self.field)
         self.field_copy.eval()
         self.replace_field.load_state_dict(replace_field_state)
         self.replace_field.eval()
