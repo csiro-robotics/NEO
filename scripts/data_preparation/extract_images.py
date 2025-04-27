@@ -6,6 +6,8 @@ import tyro
 import numpy as np
 import pyrealsense2 as rs
 
+from rosbags.highlevel import AnyReader
+from rosbags.image import message_to_cvimage
 from pathlib import Path
 from scipy.optimize import minimize_scalar
 
@@ -124,6 +126,82 @@ def read_mp4_file(mp4_file_path: Path, output_path: Path, skip_frames: int=6, fr
     cap.release()
     CONSOLE.print(f"[bold green]Number of Frames:[/bold green] {saved_frame_count}")
 
+def read_ros2_bag(bag_file_path: Path, output_path: Path, rotate_images: bool, skip_frames: int=2, frame_list: list=None):
+
+    # Create a directory for the output
+    os.makedirs(output_path, exist_ok=True)
+    if (output_path / 'rgb').exists():
+        shutil.rmtree(output_path / 'rgb')
+    if (output_path / 'depth').exists():
+        shutil.rmtree(output_path / 'depth')
+    os.makedirs(output_path / 'rgb', exist_ok=True)
+    os.makedirs(output_path / 'depth', exist_ok=True)
+
+    print("Reading bag2 file:", bag_file_path)
+    with AnyReader([bag_file_path]) as reader:
+        print("Available topics:")
+        topics = sorted([(connection.topic, connection.msgtype) for connection in reader.connections])
+        for topic, msgtype in topics:
+            print(topic, msgtype)
+
+        rgb_count = 0
+        depth_count = 0
+        saved_rgb_count = 1
+        saved_depth_count = 1
+        for connection, timestamp, rawdata in reader.messages():
+
+            if connection.topic == '/camera/color/image_raw':
+                if frame_list is not None:
+                    if rgb_count in frame_list:
+                        msg = reader.deserialize(rawdata, connection.msgtype)
+                        img = message_to_cvimage(msg, 'bgr8')
+                        if rotate_images:
+                            img = cv2.rotate(img, cv2.ROTATE_180)
+                        num = str(saved_rgb_count).zfill(4)
+                        cv2.imwrite(f"{output_path}/rgb/frame_{num}.png", img)
+                        saved_rgb_count += 1
+                        rgb_count += 1
+                    else:
+                        rgb_count += 1
+                else:
+                    if rgb_count % skip_frames == 0:
+                        msg = reader.deserialize(rawdata, connection.msgtype)
+                        img = message_to_cvimage(msg, 'bgr8')
+                        if rotate_images:
+                            img = cv2.rotate(img, cv2.ROTATE_180)
+                        num = str(saved_rgb_count).zfill(4)
+                        cv2.imwrite(f"{output_path}/rgb/frame_{num}.png", img)
+                        saved_rgb_count += 1
+                        rgb_count += 1
+                    else:
+                        rgb_count += 1
+
+            if connection.topic == '/camera/depth/image_raw':
+                if frame_list is not None:
+                    if depth_count in frame_list:
+                        msg = reader.deserialize(rawdata, connection.msgtype)
+                        img = message_to_cvimage(msg, '16UC1')
+                        if rotate_images:
+                            img = cv2.rotate(img, cv2.ROTATE_180)
+                        num = str(saved_depth_count).zfill(4)
+                        cv2.imwrite(f"{output_path}/depth/frame_{num}.png", img)
+                        saved_depth_count += 1
+                        depth_count += 1
+                    else:
+                        depth_count += 1
+                else:
+                    if depth_count % skip_frames == 0:
+                        msg = reader.deserialize(rawdata, connection.msgtype)
+                        img = message_to_cvimage(msg, '16UC1')
+                        if rotate_images:
+                            img = cv2.rotate(img, cv2.ROTATE_180)
+                        num = str(saved_depth_count).zfill(4)
+                        cv2.imwrite(f"{output_path}/depth/frame_{num}.png", img)
+                        saved_depth_count += 1
+                        depth_count += 1
+                    else:
+                        depth_count += 1
+
 def select_frames_to_extract(config: NeoDataConfig, stage: str, num_frames: int = 250) -> list:
 
     path = config.get_base_dir() / stage
@@ -185,7 +263,7 @@ def select_frames_to_extract(config: NeoDataConfig, stage: str, num_frames: int 
 
     return selected_frames
 
-def extract_images_rs(config: NeoDataConfig, skip_frames: int = 6, select_frames: list = True, num_frames: int = 250) -> None:
+def extract_images(config: NeoDataConfig, skip_frames: int = 6, select_frames: list = True, num_frames: int = 250) -> None:
     """Main function."""
 
     output_path = config.get_base_dir()
@@ -198,12 +276,18 @@ def extract_images_rs(config: NeoDataConfig, skip_frames: int = 6, select_frames
             frame_list = select_frames_to_extract(config, stage=stage, num_frames=num_frames)
 
         bag_file_path = Path(f"{str(output_path).replace(str(config.root_input), f'{str(config.root_input)}/raw_bagfiles')}_{stage}.bag")
+        bag2_file_path = Path(f"{str(output_path).replace(str(config.root_input), f'{str(config.root_input)}/raw_bagfiles')}_{stage}/{config.object_name}_{stage}_0.db3")
         mp4_file_path = Path(f"{str(output_path).replace(str(config.root_input), f'{str(config.root_input)}/raw_bagfiles')}_{stage}.mp4")
 
         if bag_file_path.exists():
             CONSOLE.print("Bag file found, processing...")
             
             read_realsense_bag(bag_file_path, output_path / stage, True, skip_frames=skip_frames, frame_list=frame_list)
+
+        elif bag2_file_path.exists():
+            CONSOLE.print("Bag2 file found, processing...")
+
+            read_ros2_bag(bag2_file_path.parent, output_path / stage, True, skip_frames=skip_frames, frame_list=frame_list)
             
         elif mp4_file_path.exists():
             CONSOLE.print("MP4 file found, processing...")
@@ -211,8 +295,7 @@ def extract_images_rs(config: NeoDataConfig, skip_frames: int = 6, select_frames
             read_mp4_file(mp4_file_path, output_path / stage, skip_frames=skip_frames, frame_list=frame_list)
 
         else:
-            CONSOLE.print("No bag or mp4 file found.")
-            return
+            raise FileNotFoundError(f"No bag or mp4 file found.")
 
 
 def entrypoint():
@@ -220,7 +303,7 @@ def entrypoint():
     # Choose a base configuration and override values.
     tyro.extras.set_accent_color("bright_yellow")
 
-    extract_images_rs(
+    extract_images(
         tyro.cli(
             NeoDataConfig,
             description=convert_markup_to_ansi(__doc__),

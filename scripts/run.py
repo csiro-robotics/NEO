@@ -13,7 +13,7 @@ from nerfstudio.utils.rich_utils import CONSOLE
 from pipeline_progress_bar import PipelineProgress
 from experiment_config import NeoDataConfig
 from data_preparation.calculate_colmap import calculate_colmap
-from data_preparation.extract_images import extract_images_rs
+from data_preparation.extract_images import extract_images
 from data_preparation.match_arucos import match_arucos
 from data_preparation.extract_arm_movement import extract_arm_movement
 from data_preparation.train_lerf import train_lerf
@@ -92,9 +92,9 @@ class Experiment():
         self.config = config
 
     def run(self):
-        process_bags = {"name": "Process Bags", "active": self.config.pipeline_elements.proces_bags, "idx": 1, "func": extract_images_rs, "kwargs": {"skip_frames": 6, "select_frames": False, "num_frames": 250}}
+        process_bags = {"name": "Process Bags", "active": self.config.pipeline_elements.proces_bags, "idx": 1, "func": extract_images, "kwargs": {"skip_frames": 6, "select_frames": False, "num_frames": 250}}
         colmap_1 = {"name": "COLMAP", "active": self.config.pipeline_elements.colmap_1, "idx": 2, "func": calculate_colmap}
-        selecting_frames = {"name": "Select Frames", "active": self.config.pipeline_elements.select_frames, "idx": 3, "func": extract_images_rs, "kwargs": {"skip_frames": 6, "select_frames": True, "num_frames": 250}}
+        selecting_frames = {"name": "Select Frames", "active": self.config.pipeline_elements.select_frames, "idx": 3, "func": extract_images, "kwargs": {"skip_frames": 6, "select_frames": True, "num_frames": 250}}
         colmap_2 = {"name": "COLMAP", "active": self.config.pipeline_elements.colmap_2, "idx": 4, "func": calculate_colmap}
         matching_arucos = {"name": "Match Arucos", "active": self.config.pipeline_elements.match_arucos, "idx": 5, "func": match_arucos}
         extracting_arm_movement = {"name": "Extract Arm Movement", "active": self.config.pipeline_elements.extract_arm_movement, "idx": 6, "func": extract_arm_movement}

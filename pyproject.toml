@@ -13,7 +13,9 @@ dependencies=[
     "torchtyping",
     "diffusers",
     "accelerate",
-    "segment_anything @ git+https://github.com/facebookresearch/segment-anything.git"
+    "segment_anything @ git+https://github.com/facebookresearch/segment-anything.git",
+    "rosbags",
+    "rosbags-image"
 ]
 
 [tool.setuptools.packages.find]
