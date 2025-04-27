@@ -74,6 +74,33 @@ class ReplaceNeRFModel(NerfactoModel):
         # Bboxes
         self.bboxes = self.kwargs["bboxes"]
 
+        # Load pretrained fields
+        CONSOLE.print("Loading Fields from: ")
+
+        field_path = self.config.field_path
+        replace_field_path = self.config.replace_field_path
+
+        CONSOLE.print(f"- {field_path}")
+        CONSOLE.print(f"- {replace_field_path}")
+
+        field_state = torch.load(field_path, map_location="cpu", weights_only=False)
+        field_state = {
+            (key[len("_model.field.") :] if key.startswith("_model.field.") else key): value for key, value in field_state["pipeline"].items() if key.startswith("_model.field.")
+        }
+
+        field_copy_state = torch.load(field_path, map_location="cpu", weights_only=False)
+        field_copy_state = {
+            (key[len("_model.field.") :] if key.startswith("_model.field.") else key): value for key, value in field_copy_state["pipeline"].items() if key.startswith("_model.field.")
+        }
+
+        replace_field_state = torch.load(replace_field_path, map_location="cpu", weights_only=False)
+        replace_field_state = {
+            (key[len("_model.field.") :] if key.startswith("_model.field.") else key): value for key, value in replace_field_state["pipeline"].items() if key.startswith("_model.field.")
+        }
+
+        # Set the number of cameras
+        self.num_images = field_state["embedding_appearance.embedding.weight"].shape[0]
+
         # Fields
         self.field = NerfactoField(
             self.scene_box.aabb,
@@ -86,7 +113,7 @@ class ReplaceNeRFModel(NerfactoModel):
             hidden_dim_color=self.config.hidden_dim_color,
             hidden_dim_transient=self.config.hidden_dim_transient,
             spatial_distortion=scene_contraction,
-            num_images=self.num_train_data - (len(self.bboxes) * 32) + 1,
+            num_images=self.num_images,
             use_pred_normals=self.config.predict_normals,
             use_average_appearance_embedding=self.config.use_average_appearance_embedding,
             appearance_embedding_dim=appearance_embedding_dim,
@@ -105,7 +132,7 @@ class ReplaceNeRFModel(NerfactoModel):
             hidden_dim_color=self.config.hidden_dim_color,
             hidden_dim_transient=self.config.hidden_dim_transient,
             spatial_distortion=scene_contraction,
-            num_images=self.num_train_data - (len(self.bboxes) * 32) + 1,
+            num_images=self.num_images,
             use_pred_normals=self.config.predict_normals,
             use_average_appearance_embedding=self.config.use_average_appearance_embedding,
             appearance_embedding_dim=appearance_embedding_dim,
@@ -132,30 +159,7 @@ class ReplaceNeRFModel(NerfactoModel):
             implementation=self.config.implementation,
         )
 
-        # Load pretrained fields
-        CONSOLE.print("Loading Fields from: ")
-
-        field_path = self.config.field_path
-        replace_field_path = self.config.replace_field_path
-
-        CONSOLE.print(f"- {field_path}")
-        CONSOLE.print(f"- {replace_field_path}")
-
-        field_state = torch.load(field_path, map_location="cpu", weights_only=False)
-        field_state = {
-            (key[len("_model.field.") :] if key.startswith("_model.field.") else key): value for key, value in field_state["pipeline"].items() if key.startswith("_model.field.")
-        }
-
-        field_copy_state = torch.load(field_path, map_location="cpu", weights_only=False)
-        field_copy_state = {
-            (key[len("_model.field.") :] if key.startswith("_model.field.") else key): value for key, value in field_copy_state["pipeline"].items() if key.startswith("_model.field.")
-        }
-
-        replace_field_state = torch.load(replace_field_path, map_location="cpu", weights_only=False)
-        replace_field_state = {
-            (key[len("_model.field.") :] if key.startswith("_model.field.") else key): value for key, value in replace_field_state["pipeline"].items() if key.startswith("_model.field.")
-        }
-
+        # Load the state dicts from the fields
         self.field.load_state_dict(field_state)
         self.field_copy.load_state_dict(field_copy_state)
         self.field_copy.eval()
