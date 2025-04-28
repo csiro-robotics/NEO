@@ -22,7 +22,8 @@ def generate_bbox(config: NeoDataConfig) -> None:
         f"--action {config.action}",
         f"--scene_type {config.scene_type}",
         f"--object_name {config.object_name}",
-        f"--lerf_prompt \'{config.lerf_prompt}\'"
+        f"--lerf_prompt \'{config.lerf_prompt}\'",
+        f"--model_types neo neo-big"
     ]
     command = " ".join(command)
 

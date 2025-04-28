@@ -32,10 +32,6 @@ def train_lerf(config: NeoDataConfig) -> None:
 
     run_command(command, verbose=True)
 
-    # Convert LERF to Neo
-    CONSOLE.print("[bold green]Converting LERF to Neo...[/bold green]")
-    run_command(f"ns-convert to-neo --input {str(base_dir).replace(str(config.root_input), 'outputs')}/before/lerf-lite/{config.get_timestamp()}", verbose=True)
-
 def entrypoint():
     """Entrypoint for CLI."""
     tyro.extras.set_accent_color("bright_yellow")

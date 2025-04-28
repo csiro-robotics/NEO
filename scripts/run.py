@@ -46,6 +46,10 @@ class PipelineElements():
     """Train LERF"""
     train_gt: bool = True
     """Train GT"""
+    train_neo: bool = True
+    """Train Neo"""
+    train_neo_big: bool = True
+    """Train Neo Big"""
     generate_bbox: bool = True
     """Generate BBoxes"""
     editing: bool = True
@@ -92,6 +96,7 @@ class Experiment():
         self.config = config
 
     def run(self):
+        # Experiment setupe
         process_bags = {"name": "Process Bags", "active": self.config.pipeline_elements.proces_bags, "idx": 1, "func": extract_images, "kwargs": {"skip_frames": 6, "select_frames": False, "num_frames": 250}}
         colmap_1 = {"name": "COLMAP", "active": self.config.pipeline_elements.colmap_1, "idx": 2, "func": calculate_colmap}
         selecting_frames = {"name": "Select Frames", "active": self.config.pipeline_elements.select_frames, "idx": 3, "func": extract_images, "kwargs": {"skip_frames": 6, "select_frames": True, "num_frames": 250}}
@@ -114,11 +119,13 @@ class Experiment():
                     item["func"](self.config)
                 progress.end_step()
 
+        # Training editing networks
         generating_bbox = {"name": "Generate BBox", "active": self.config.pipeline_elements.generate_bbox, "idx": 1, "func": generate_bbox}
-        editing = {"name": "Editing", "active": self.config.pipeline_elements.editing, "idx": 2, "func": edit}
+        train_neo = {"name": "Editing Neo", "active": self.config.pipeline_elements.train_neo, "idx": 2, "func": edit, "kwargs": {"model_type": "neo"}}
+        train_neo_big = {"name": "Editing Neo-Big", "active": self.config.pipeline_elements.train_neo_big, "idx": 3, "func": edit, "kwargs": {"model_type": "neo-big"}}
         
-        pipeline_elements = [[generating_bbox, "→", editing],
-                             [None, "", None]]
+        pipeline_elements = [[generating_bbox, "→", train_neo],
+                             [None, "↘", train_neo_big]]
         
         with PipelineProgress(pipeline_elements, console=CONSOLE) as progress:
             for item in progress:
@@ -129,6 +136,7 @@ class Experiment():
                     item["func"](self.config)
                 progress.end_step()
 
+        # Evaluation
         preparing_nerfiller = {"name": "Prepare Nerfiller", "active": self.config.pipeline_elements.prepare_nerfiller, "idx": 1, "func": prepare_nerfiller}
         training_nerfiller = {"name": "Training Nerfiller", "active": self.config.pipeline_elements.train_nerfiller, "idx": 2, "func": train_nerfiller}
         evaluating = {"name": "Evaluation", "active": self.config.pipeline_elements.evaluate, "idx": 3, "func": eval}

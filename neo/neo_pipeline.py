@@ -168,13 +168,13 @@ class NeoPipeline(VanillaPipeline):
             f"ns-train {method_name}",
             f"--data {dataset_path}",
             "--experiment_name ''",
-            f"--timestamp {timestamp}",
+            f"--timestamp ''",
             f"--method-name {method_name}",
             f"--max-num-iterations {self.config.max_num_iterations_sparse_guided_nerf}",
             f"--neo-model-path {checkpoint_filenames[0]}",
             f"--pipeline.model.bbox-path {path}/bbox.json",
             "--viewer.quit-on-train-completion True",
-            f"--output-dir {str(path).replace(f'{neo_variant}/', '').replace(timestamp, '')}",
+            f"--output-dir {path}",
             f"--pipeline.model.camera-optimizer.mode {self.config.model.camera_optimizer.mode}",
             f"--pipeline.model.start-inpainting-strength {self.config.start_inpainting_strength_sparse_guided_nerf}",
             f"--pipeline.model.strength-step {self.config.strength_step_sparse_guided_nerf}",
@@ -213,15 +213,15 @@ class NeoPipeline(VanillaPipeline):
             f"ns-train {method_name}",
             f"--data {dataset_path}",
             "--experiment_name ''",
-            f"--timestamp {timestamp}",
+            f"--timestamp ''",
             f"--method-name {method_name}",
             f"--max-num-iterations {self.config.max_num_iterations_replace_nerf}",
             f"--pipeline.model.field-path {checkpoint_filenames[0]}",
-            f"--pipeline.model.replace-field-path {str(path).replace(neo_variant, 'sparse-guided-nerf')}/nerfstudio_models/step-{str(self.config.max_num_iterations_sparse_guided_nerf - 1).zfill(9)}.ckpt",
+            f"--pipeline.model.replace-field-path {path}/sparse-guided-nerf/nerfstudio_models/step-{str(self.config.max_num_iterations_sparse_guided_nerf - 1).zfill(9)}.ckpt",
             f"--pipeline.model.bbox-path {path}/bbox.json",
             "--pipeline.datamanager.pixel-sampler.ignore-mask True",
             "--viewer.quit-on-train-completion True",
-            f"--output-dir {str(path).replace(f'{neo_variant}/', '').replace(timestamp, '')}",
+            f"--output-dir {path}",
             f"--pipeline.model.camera-optimizer.mode {self.config.model.camera_optimizer.mode}",
             "--viewer.websocket-port 7009",
             "nerfstudio-data",
@@ -268,7 +268,7 @@ class NeoPipeline(VanillaPipeline):
 
         # Loopback the model
         if self.config.loopback_model:
-            edited_model_path = f"{str(path).replace(neo_variant, 'replace-nerf')}/nerfstudio_models/step-{str(self.config.max_num_iterations_replace_nerf - 1).zfill(9)}.ckpt"
+            edited_model_path = f"{path}/replace-nerf/nerfstudio_models/step-{str(self.config.max_num_iterations_replace_nerf - 1).zfill(9)}.ckpt"
             loaded_state_dict = torch.load(edited_model_path, map_location=self.model.device, weights_only=False)["pipeline"]
 
             model_state = {}
