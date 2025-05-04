@@ -43,7 +43,7 @@ class InpainterConfig(InstantiateConfig):
     """batch size for rendering images"""
     inpaint_batch_size: int = 8
     """batch size for inpainting images"""
-    inpainting_prompt: str = "background"
+    inpainting_prompt: str = "background" # TODO: test with prompt "highly detailed, 4K, hdr, sharp focus, image"
     """prompt for inpainting images"""
 
 

@@ -24,13 +24,17 @@ from editing.generate_bbox import generate_bbox
 from editing.edit import edit
 
 from evaluation.train_nerfiller import train_nerfiller
+from evaluation.train_nerfiller_no_depth import train_nerfiller_no_depth
 from evaluation.eval import eval
 
 
 @dataclass
-class PipelineElements():
+class DataPreperationElements():
+    """Data preparation elements to run"""
 
-    proces_bags: bool = True
+    _execute_all: bool = True
+    """Execute all data preparation elements"""
+    process_bags: bool = True
     """Process bags"""
     colmap_1: bool = True
     """Run COLMAP"""
@@ -46,20 +50,44 @@ class PipelineElements():
     """Train LERF"""
     train_gt: bool = True
     """Train GT"""
+
+@dataclass
+class TrainingElements():
+    """Training elements to run"""
+
+    _execute_all: bool = True
+    """Execute all training elements"""
+    generate_bbox: bool = True
+    """Generate BBoxes"""
     train_neo: bool = True
     """Train Neo"""
     train_neo_big: bool = True
     """Train Neo Big"""
-    generate_bbox: bool = True
-    """Generate BBoxes"""
-    editing: bool = True
-    """Editing"""
+
+@dataclass
+class EvaluationElements():
+    """Evaluation elements to run"""
+
+    _execute_all: bool = True
+    """Execute all evaluation elements"""
     prepare_nerfiller: bool = True
     """Prepare Nerfiller"""
     train_nerfiller: bool = True
     """Train Nerfiller"""
+    train_nerfiller_no_depth: bool = True
+    """Train Nerfiller without depth"""
     evaluate: bool = True
     """Evaluate"""
+
+@dataclass
+class PipelineElements():
+
+    data_preparation: DataPreperationElements = field(default_factory=DataPreperationElements)
+    """Data preparation elements to run"""
+    training: TrainingElements = field(default_factory=TrainingElements)
+    """Training elements to run"""
+    evaluation: EvaluationElements = field(default_factory=EvaluationElements)
+    """Evaluation elements to run"""
 
 @dataclass
 class ExperimentConfig(NeoDataConfig, InstantiateConfig):
@@ -88,70 +116,68 @@ class ExperimentConfig(NeoDataConfig, InstantiateConfig):
         config_yaml_path.write_text(yaml.dump(self), "utf8")
 
 def dummy_fnc(config: ExperimentConfig):
-
     pass
 
 class Experiment():
     def __init__(self, config: ExperimentConfig):
         self.config = config
 
+    def _execute_pipeline(self, pipeline_elements):
+        """Execute a pipeline of elements."""
+        with PipelineProgress(pipeline_elements, console=CONSOLE) as progress:
+            for item in progress:
+                progress.start_step()
+                if item.get("kwargs"):
+                    item["func"](self.config, **item["kwargs"])
+                else:
+                    item["func"](self.config)
+                progress.end_step()
+
     def run(self):
         # Experiment setupe
-        process_bags = {"name": "Process Bags", "active": self.config.pipeline_elements.proces_bags, "idx": 1, "func": extract_images, "kwargs": {"skip_frames": 6, "select_frames": False, "num_frames": 250}}
-        colmap_1 = {"name": "COLMAP", "active": self.config.pipeline_elements.colmap_1, "idx": 2, "func": calculate_colmap}
-        selecting_frames = {"name": "Select Frames", "active": self.config.pipeline_elements.select_frames, "idx": 3, "func": extract_images, "kwargs": {"skip_frames": 6, "select_frames": True, "num_frames": 250}}
-        colmap_2 = {"name": "COLMAP", "active": self.config.pipeline_elements.colmap_2, "idx": 4, "func": calculate_colmap}
-        matching_arucos = {"name": "Match Arucos", "active": self.config.pipeline_elements.match_arucos, "idx": 5, "func": match_arucos}
-        extracting_arm_movement = {"name": "Extract Arm Movement", "active": self.config.pipeline_elements.extract_arm_movement, "idx": 6, "func": extract_arm_movement}
-        ready_datasets = {"name": "Ready Datasets", "active": True, "idx": 7, "func": dummy_fnc}
-        training_lerf = {"name": "Training LERF", "active": self.config.pipeline_elements.train_lerf, "idx": 8, "func": train_lerf}
-        training_gt = {"name": "Training GT", "active": self.config.pipeline_elements.train_gt, "idx": 9, "func": train_gt}
-        
-        pipeline_elements = [[process_bags, "→", colmap_1, "→", selecting_frames, "→", colmap_2, "→", matching_arucos, "→", ready_datasets, "→", training_lerf],
-                             [None, "", None, "", None, "", None, "↘", extracting_arm_movement, "↗", None, "↘", training_gt]]
+        if self.config.pipeline_elements.data_preparation._execute_all:
+            elements = self.config.pipeline_elements.data_preparation
 
-        with PipelineProgress(pipeline_elements, console=CONSOLE) as progress:
-            for item in progress:
-                progress.start_step()
-                if item.get("kwargs"):
-                    item["func"](self.config, **item["kwargs"])
-                else:
-                    item["func"](self.config)
-                progress.end_step()
+            process_bags = {"name": "Process Bags", "active": elements.process_bags, "idx": 1, "func": extract_images, "kwargs": {"skip_frames": 6, "select_frames": False, "num_frames": 250}}
+            colmap_1 = {"name": "COLMAP", "active": elements.colmap_1, "idx": 2, "func": calculate_colmap}
+            selecting_frames = {"name": "Select Frames", "active": elements.select_frames, "idx": 3, "func": extract_images, "kwargs": {"skip_frames": 6, "select_frames": True, "num_frames": 250}}
+            colmap_2 = {"name": "COLMAP", "active": elements.colmap_2, "idx": 4, "func": calculate_colmap}
+            matching_arucos = {"name": "Match Arucos", "active": elements.match_arucos, "idx": 5, "func": match_arucos}
+            extracting_arm_movement = {"name": "Extract Arm Movement", "active": elements.extract_arm_movement, "idx": 6, "func": extract_arm_movement}
+            ready_datasets = {"name": "Ready Datasets", "active": True, "idx": 7, "func": dummy_fnc}
+            training_lerf = {"name": "Training LERF", "active": elements.train_lerf, "idx": 8, "func": train_lerf}
+            training_gt = {"name": "Training GT", "active": elements.train_gt, "idx": 9, "func": train_gt}
+            
+            pipeline_elements = [[process_bags, "→", colmap_1, "→", selecting_frames, "→", colmap_2, "→", matching_arucos, "→", ready_datasets, "→", training_lerf],
+                                [None, "", None, "", None, "", None, "↘", extracting_arm_movement, "↗", None, "↘", training_gt]]
+
+            self._execute_pipeline(pipeline_elements)
 
         # Training editing networks
-        generating_bbox = {"name": "Generate BBox", "active": self.config.pipeline_elements.generate_bbox, "idx": 1, "func": generate_bbox}
-        train_neo = {"name": "Editing Neo", "active": self.config.pipeline_elements.train_neo, "idx": 2, "func": edit, "kwargs": {"model_type": "neo"}}
-        train_neo_big = {"name": "Editing Neo-Big", "active": self.config.pipeline_elements.train_neo_big, "idx": 3, "func": edit, "kwargs": {"model_type": "neo-big"}}
-        
-        pipeline_elements = [[generating_bbox, "→", train_neo],
-                             [None, "↘", train_neo_big]]
-        
-        with PipelineProgress(pipeline_elements, console=CONSOLE) as progress:
-            for item in progress:
-                progress.start_step()
-                if item.get("kwargs"):
-                    item["func"](self.config, **item["kwargs"])
-                else:
-                    item["func"](self.config)
-                progress.end_step()
+        if self.config.pipeline_elements.training._execute_all:
+            elements = self.config.pipeline_elements.training
+
+            generating_bbox = {"name": "Generate BBox", "active": elements.generate_bbox, "idx": 1, "func": generate_bbox}
+            train_neo = {"name": "Editing Neo", "active": elements.train_neo, "idx": 2, "func": edit, "kwargs": {"model_type": "neo"}}
+            train_neo_big = {"name": "Editing Neo-Big", "active": elements.train_neo_big, "idx": 3, "func": edit, "kwargs": {"model_type": "neo-big"}}
+            
+            pipeline_elements = [[generating_bbox, "→", train_neo],
+                                [None, "↘", train_neo_big]]
+            
+            self._execute_pipeline(pipeline_elements)
 
         # Evaluation
-        preparing_nerfiller = {"name": "Prepare Nerfiller", "active": self.config.pipeline_elements.prepare_nerfiller, "idx": 1, "func": prepare_nerfiller}
-        training_nerfiller = {"name": "Training Nerfiller", "active": self.config.pipeline_elements.train_nerfiller, "idx": 2, "func": train_nerfiller}
-        evaluating = {"name": "Evaluation", "active": self.config.pipeline_elements.evaluate, "idx": 3, "func": eval}
-        
-        pipeline_elements = [[preparing_nerfiller, "→", training_nerfiller, "→", evaluating],
-                             [None, "", None, "", None]]
-        
-        with PipelineProgress(pipeline_elements, console=CONSOLE) as progress:
-            for item in progress:
-                progress.start_step()
-                if item.get("kwargs"):
-                    item["func"](self.config, **item["kwargs"])
-                else:
-                    item["func"](self.config)
-                progress.end_step()
+        if self.config.pipeline_elements.evaluation._execute_all:
+            elements = self.config.pipeline_elements.evaluation
+            preparing_nerfiller = {"name": "Prepare Nerfiller", "active": elements.prepare_nerfiller, "idx": 1, "func": prepare_nerfiller}
+            training_nerfiller = {"name": "Training Nerfiller", "active": elements.train_nerfiller, "idx": 2, "func": train_nerfiller}
+            training_nerfiller_no_depth = {"name": "Training Nerfiller No Depth", "active": elements.train_nerfiller_no_depth, "idx": 3, "func": train_nerfiller_no_depth}
+            evaluating = {"name": "Evaluation", "active": elements.evaluate, "idx": 4, "func": eval}
+            
+            pipeline_elements = [[preparing_nerfiller, "→", training_nerfiller, "→", evaluating],
+                                [None, "↘", training_nerfiller_no_depth, "↗", None]]
+            
+            self._execute_pipeline(pipeline_elements)
 
 
 def main(config: ExperimentConfig) -> None:

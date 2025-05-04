@@ -59,14 +59,14 @@ def read_realsense_bag(bag_file_path: Path, output_path: Path, rotate_images: bo
             
             if frame_list is not None:
                 if i in frame_list:
-                    num = str(j).zfill(4)
+                    num = str(j).zfill(5)
                     if rotate_images:
                         color_image = cv2.rotate(color_image, cv2.ROTATE_180)
                         depth_image = cv2.rotate(depth_image, cv2.ROTATE_180)
 
                     # Save the images
-                    cv2.imwrite(str(output_path / f'rgb/{num}.png'), color_image)
-                    cv2.imwrite(str(output_path / f'depth/{num}.png'), depth_image)
+                    cv2.imwrite(str(output_path / f'rgb/frame_{num}.png'), color_image)
+                    cv2.imwrite(str(output_path / f'depth/frame_{num}.png'), depth_image)
 
                     # Update progress
                     CONSOLE.print(f"Extracted frame {i}")
@@ -74,14 +74,14 @@ def read_realsense_bag(bag_file_path: Path, output_path: Path, rotate_images: bo
             else:
                 if i % skip_frames == 0:
 
-                    num = str(j).zfill(4)
+                    num = str(j).zfill(5)
                     if rotate_images:
                         color_image = cv2.rotate(color_image, cv2.ROTATE_180)
                         depth_image = cv2.rotate(depth_image, cv2.ROTATE_180)
 
                     # Save the images
-                    cv2.imwrite(str(output_path / f'rgb/{num}.png'), color_image)
-                    cv2.imwrite(str(output_path / f'depth/{num}.png'), depth_image)
+                    cv2.imwrite(str(output_path / f'rgb/frame_{num}.png'), color_image)
+                    cv2.imwrite(str(output_path / f'depth/frame_{num}.png'), depth_image)
 
                     # Update progress
                     CONSOLE.print(f"Extracted frame {i}")
@@ -109,15 +109,15 @@ def read_mp4_file(mp4_file_path: Path, output_path: Path, skip_frames: int=6, fr
 
         if frame_list is not None:
             if frame_count in frame_list:
-                num = str(saved_frame_count).zfill(4)
-                cv2.imwrite(str(output_path / f'rgb/{num}.png'), frame)
+                num = str(saved_frame_count).zfill(5)
+                cv2.imwrite(str(output_path / f'rgb/frame_{num}.png'), frame)
                 CONSOLE.print(f"Extracted frame {frame_count}")
                 saved_frame_count += 1
         
         else:
             if frame_count % skip_frames == 0:
-                num = str(saved_frame_count).zfill(4)
-                cv2.imwrite(str(output_path / f'rgb/{num}.png'), frame)
+                num = str(saved_frame_count).zfill(5)
+                cv2.imwrite(str(output_path / f'rgb/frame_{num}.png'), frame)
                 CONSOLE.print(f"Extracted frame {frame_count}")
                 saved_frame_count += 1
 
@@ -137,12 +137,8 @@ def read_ros2_bag(bag_file_path: Path, output_path: Path, rotate_images: bool, s
     os.makedirs(output_path / 'rgb', exist_ok=True)
     os.makedirs(output_path / 'depth', exist_ok=True)
 
-    print("Reading bag2 file:", bag_file_path)
+    CONSOLE.print("Reading bag2 file:", bag_file_path)
     with AnyReader([bag_file_path]) as reader:
-        print("Available topics:")
-        topics = sorted([(connection.topic, connection.msgtype) for connection in reader.connections])
-        for topic, msgtype in topics:
-            print(topic, msgtype)
 
         rgb_count = 0
         depth_count = 0
@@ -157,10 +153,11 @@ def read_ros2_bag(bag_file_path: Path, output_path: Path, rotate_images: bool, s
                         img = message_to_cvimage(msg, 'bgr8')
                         if rotate_images:
                             img = cv2.rotate(img, cv2.ROTATE_180)
-                        num = str(saved_rgb_count).zfill(4)
+                        num = str(saved_rgb_count).zfill(5)
                         cv2.imwrite(f"{output_path}/rgb/frame_{num}.png", img)
                         saved_rgb_count += 1
                         rgb_count += 1
+                        CONSOLE.print(f"Extracted frame {rgb_count}")
                     else:
                         rgb_count += 1
                 else:
@@ -169,10 +166,11 @@ def read_ros2_bag(bag_file_path: Path, output_path: Path, rotate_images: bool, s
                         img = message_to_cvimage(msg, 'bgr8')
                         if rotate_images:
                             img = cv2.rotate(img, cv2.ROTATE_180)
-                        num = str(saved_rgb_count).zfill(4)
+                        num = str(saved_rgb_count).zfill(5)
                         cv2.imwrite(f"{output_path}/rgb/frame_{num}.png", img)
                         saved_rgb_count += 1
                         rgb_count += 1
+                        CONSOLE.print(f"Extracted frame {rgb_count}")
                     else:
                         rgb_count += 1
 
@@ -183,7 +181,7 @@ def read_ros2_bag(bag_file_path: Path, output_path: Path, rotate_images: bool, s
                         img = message_to_cvimage(msg, '16UC1')
                         if rotate_images:
                             img = cv2.rotate(img, cv2.ROTATE_180)
-                        num = str(saved_depth_count).zfill(4)
+                        num = str(saved_depth_count).zfill(5)
                         cv2.imwrite(f"{output_path}/depth/frame_{num}.png", img)
                         saved_depth_count += 1
                         depth_count += 1
@@ -195,12 +193,14 @@ def read_ros2_bag(bag_file_path: Path, output_path: Path, rotate_images: bool, s
                         img = message_to_cvimage(msg, '16UC1')
                         if rotate_images:
                             img = cv2.rotate(img, cv2.ROTATE_180)
-                        num = str(saved_depth_count).zfill(4)
+                        num = str(saved_depth_count).zfill(5)
                         cv2.imwrite(f"{output_path}/depth/frame_{num}.png", img)
                         saved_depth_count += 1
                         depth_count += 1
                     else:
                         depth_count += 1
+
+        CONSOLE.print(f"[bold green]Number of Frames:[/bold green] {saved_rgb_count}")
 
 def select_frames_to_extract(config: NeoDataConfig, stage: str, num_frames: int = 250) -> list:
 

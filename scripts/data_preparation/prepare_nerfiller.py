@@ -35,6 +35,7 @@ def prepare_nerfiller(config: NeoDataConfig) -> None:
     output_path = Path(str(masks_path).replace("neo", "nerfacto-nerfiller"))
 
     # Copy masks, images, depth and transforms.json to the new folder
+    CONSOLE.print(f"[bold green]Preparing Nerfiller...[/bold green]")
     CONSOLE.print(f"Copying masks, images, depth and transforms.json to {output_path}")
     shutil.copytree(masks_path / "masks", output_path / "masks", dirs_exist_ok=True)
     shutil.copytree(config.data / "images", output_path / "images", dirs_exist_ok=True)
@@ -53,9 +54,26 @@ def prepare_nerfiller(config: NeoDataConfig) -> None:
 
     for frame in transforms["frames"]:
         frame["mask_path"] = frame["file_path"].replace("images", "masks")
-        frame["depth_file_path"] = frame["file_path"].replace("depth/frame_", "")
+        frame["depth_file_path"] = frame["file_path"].replace("images", "depth")
 
     with open(output_path / "transforms.json", "w") as f:
+        json.dump(transforms, f, indent=4)
+
+    # Prepare Nerfiller without depth
+    CONSOLE.print(f"[bold green]Preparing Nerfiller without depth...[/bold green]")
+    output_path_no_depth = Path(str(output_path).replace("nerfacto-nerfiller", "nerfacto-nerfiller-no-depth"))
+    shutil.copytree(output_path, output_path_no_depth, dirs_exist_ok=True)
+    shutil.rmtree(output_path_no_depth / "depth")
+
+    # Read json file update and save it
+    CONSOLE.print(f"Updating transforms.json")
+    with open(output_path_no_depth / "transforms.json", "r") as f:
+        transforms = json.load(f)
+
+    for frame in transforms["frames"]:
+        del frame["depth_file_path"]
+
+    with open(output_path_no_depth / "transforms.json", "w") as f:
         json.dump(transforms, f, indent=4)
 
     CONSOLE.print(f"[bold green]Done![/bold green]")

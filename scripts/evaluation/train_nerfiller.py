@@ -13,7 +13,7 @@ def train_nerfiller(config: NeoDataConfig) -> None:
     """Main function that executes the training pipeline."""
     base_dir = Path(config.get_base_dir())
 
-    # Train LERF
+    # Train NeRFiller baseline
     CONSOLE.print("[bold green]Training Nerfiller base...[/bold green]")
     command = [
         "ns-train nerfacto-nerfiller",
@@ -23,8 +23,8 @@ def train_nerfiller(config: NeoDataConfig) -> None:
         f"--timestamp {config.get_timestamp()}",
         "--viewer.quit-on-train-completion True",
         "--pipeline.model.camera-optimizer.mode off",
-        "--pipeline.datamanager.masks-on-gpu True",
-        "--pipeline.datamanager.images-on-gpu True",
+        # "--pipeline.datamanager.masks-on-gpu True",
+        # "--pipeline.datamanager.images-on-gpu True",
         "nerfstudio-data",
         "--orientation-method none",
         "--center-method none",
@@ -35,6 +35,7 @@ def train_nerfiller(config: NeoDataConfig) -> None:
 
     run_command(command, verbose=True)
 
+    # Train NeRFiller
     CONSOLE.print("[bold green]Training Nerfiller...[/bold green]")
     command = [
         "ns-train grid-prior-du",
@@ -44,8 +45,8 @@ def train_nerfiller(config: NeoDataConfig) -> None:
         f"--timestamp {config.get_timestamp()}",
         "--viewer.quit-on-train-completion True",
         "--pipeline.model.camera-optimizer.mode off",
-        "--pipeline.datamanager.masks-on-gpu True",
-        "--pipeline.datamanager.images-on-gpu True",
+        # "--pipeline.datamanager.masks-on-gpu True",
+        # "--pipeline.datamanager.images-on-gpu True",
         "nerfstudio-data",
         "--orientation-method none",
         "--center-method none",

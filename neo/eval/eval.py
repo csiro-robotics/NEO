@@ -72,9 +72,13 @@ class EvalBaseConfig:
         """
         Render full images.
         """
+        config_path = str(self.config_path)
+        if "neo" in str(self.config_path):
+            config_path = str(self.config_path.parent)
+
         render_command = [
             "ns-render-neo render-from-transforms",
-            f"--load-config {self.config_path if is_edited else str(self.config_path).replace('before', 'after').replace(self.model_config.method_name, 'nerfacto')}",
+            f"--load-config {self.config_path if is_edited else config_path.replace('before', 'after').replace(self.model_config.method_name, 'nerfacto')}",
             f"--output-path {render_output_path}/full_{'edited' if is_edited else 'gt'}",
             "--output-format images",
             "--image-format png",
@@ -89,9 +93,13 @@ class EvalBaseConfig:
         """
         Render cropped images.
         """
+        config_path = str(self.config_path)
+        if "neo" in str(self.config_path):
+            config_path = str(self.config_path.parent)
+
         render_command = [
             "ns-render-neo spiral",
-            f"--load-config {self.config_path if is_edited else str(self.config_path).replace('before', 'after').replace(self.model_config.method_name, 'nerfacto')}",
+            f"--load-config {self.config_path if is_edited else config_path.replace('before', 'after').replace(self.model_config.method_name, 'nerfacto')}",
             f"--output-path {render_output_path}/cropped_{'edited' if is_edited else 'gt'}",
             "--output-format images",
             "--image-format png",
@@ -181,6 +189,8 @@ class EvalBaseConfig:
 
         # Get rendering command
         base_path = str(self.model_config.get_base_dir())
+        if "neo" in base_path:
+            base_path = str(self.model_config.get_base_dir().parent)
         gt_data_path = Path(base_path.replace('outputs', 'data').replace('before', 'after')).parents[1]
         render_output_path = Path(base_path.replace('outputs', 'renders'))
 

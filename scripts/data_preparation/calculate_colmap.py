@@ -17,7 +17,7 @@ def calculate_colmap(config: NeoDataConfig) -> None:
 
         # Check and remove any files or folders other than 'rgb'
         for item in (output_path / stage).iterdir():
-            if item.name != "rgb":
+            if item.name != "rgb" and item.name != "depth":
                 CONSOLE.print(f"Removing {item}")
                 if item.is_dir():
                     subprocess.run(f"rm -rf {item}", shell=True)
