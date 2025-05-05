@@ -1,0 +1,55 @@
+import os
+import subprocess
+import torch
+
+from typing import List
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from queue import Queue
+
+def check_available_gpus():
+    # Check the number of available GPUs
+    available_gpus = torch.cuda.device_count()
+    print(f"Number of available GPUs: {available_gpus}")
+    return available_gpus
+
+def run_script_on_gpu(gpu_id, command_queue):
+    while not command_queue.empty():
+        # Get the next command from the queue
+        command = command_queue.get()
+        print(f"Running: {command} on GPU {gpu_id}")
+        # Set the GPU and run the training script
+        command_with_gpu = f"CUDA_VISIBLE_DEVICES={gpu_id} {command}"
+        subprocess.run(command_with_gpu, shell=True)
+        print(f"Finished: {command} on GPU {gpu_id}")
+
+def run_on_multiple_gpus(commands: List[str]):
+    available_gpus = check_available_gpus()
+
+    # Create a queue and add all commands to it
+    command_queue = Queue()
+    for command in commands:
+        command_queue.put(command)
+
+    # Use ThreadPoolExecutor to manage GPU workers
+    with ThreadPoolExecutor(max_workers=available_gpus) as executor:
+        futures = []
+        # Assign one GPU per worker
+        for gpu_id in range(available_gpus):
+            futures.append(executor.submit(run_script_on_gpu, gpu_id, command_queue))
+
+        # Wait for all futures to complete (i.e., all tasks to finish)
+        for future in as_completed(futures):
+            future.result()
+
+if __name__ == "__main__":
+
+    # Example commands to run on multiple GPUs
+    commands = [
+        "python3 run.py --load-config gamepad.yml",
+        "python3 run.py --load-config rubiks_cube.yml",
+        "python3 run.py --load-config tomato_soup_can.yml",
+        "python3 run.py --load-config orange.yml",
+        "python3 run.py --load-config spam.yml"
+    ]
+
+    run_on_multiple_gpus(commands)

@@ -73,12 +73,12 @@ class EvalBaseConfig:
         Render full images.
         """
         config_path = str(self.config_path)
-        if "neo" in str(self.config_path):
-            config_path = str(self.config_path.parent)
+        if self.model_config.method_name == "replace-nerf" and not is_edited:
+            config_path = f"{str(self.config_path.parents[3])}/replace-nerf/{self.config_path.parents[1].name}/config.yml"
 
         render_command = [
             "ns-render-neo render-from-transforms",
-            f"--load-config {self.config_path if is_edited else config_path.replace('before', 'after').replace(self.model_config.method_name, 'nerfacto')}",
+            f"--load-config {config_path if is_edited else config_path.replace('before', 'after').replace(self.model_config.method_name, 'nerfacto')}",
             f"--output-path {render_output_path}/full_{'edited' if is_edited else 'gt'}",
             "--output-format images",
             "--image-format png",
@@ -94,12 +94,12 @@ class EvalBaseConfig:
         Render cropped images.
         """
         config_path = str(self.config_path)
-        if "neo" in str(self.config_path):
-            config_path = str(self.config_path.parent)
+        if self.model_config.method_name == "replace-nerf" and not is_edited:
+            config_path = f"{str(self.config_path.parents[3])}/replace-nerf/{self.config_path.parents[1].name}/config.yml"
 
         render_command = [
             "ns-render-neo spiral",
-            f"--load-config {self.config_path if is_edited else config_path.replace('before', 'after').replace(self.model_config.method_name, 'nerfacto')}",
+            f"--load-config {config_path if is_edited else config_path.replace('before', 'after').replace(self.model_config.method_name, 'nerfacto')}",
             f"--output-path {render_output_path}/cropped_{'edited' if is_edited else 'gt'}",
             "--output-format images",
             "--image-format png",
@@ -131,6 +131,9 @@ class EvalBaseConfig:
         dataparser_output = datamanager.dataparser._generate_dataparser_outputs()
 
         bboxes_path = (Path(str(self.config_path).replace(self.model_config.method_name, 'neo')).parent / "bbox.json")
+        if self.model_config.method_name == "replace-nerf":
+            bboxes_path = self.config_path.parents[1] / "bbox.json"
+
         if bboxes_path.is_file():
             bboxes = json.load(bboxes_path.open())['bboxes']
         else:
@@ -189,7 +192,7 @@ class EvalBaseConfig:
 
         # Get rendering command
         base_path = str(self.model_config.get_base_dir())
-        if "neo" in base_path:
+        if self.model_config.method_name == "replace-nerf":
             base_path = str(self.model_config.get_base_dir().parent)
         gt_data_path = Path(base_path.replace('outputs', 'data').replace('before', 'after')).parents[1]
         render_output_path = Path(base_path.replace('outputs', 'renders'))
