@@ -2,13 +2,12 @@
 Neo pipeline.
 """
 import os
-import re
 import typing
 import time
 import torch
 
 from dataclasses import dataclass, field
-from typing import Literal, Optional, Type, Tuple
+from typing import Literal, Optional, Type
 from pathlib import Path
 
 import torch.distributed as dist
@@ -124,8 +123,9 @@ class NeoPipeline(VanillaPipeline):
 
         # Initialize Sparse Dataset
         self.sparse_dataset: SparseDataset = self.config.sparse_dataset.setup(
-            device=device,
             output_path=self.config.bbox_data_path,
+            split_fraction=self.config.datamanager.dataparser.train_split_fraction,
+            device=device
         )
 
     def apply_changes_hook(self):
@@ -155,14 +155,7 @@ class NeoPipeline(VanillaPipeline):
         checkpoint_paths = (path / "nerfstudio_models").glob('*.ckpt')
         checkpoint_filenames = [path for path in checkpoint_paths if path.is_file()]
 
-        timestamp_pattern = r'\d{4}-\d{2}-\d{2}_\d{6}'
-        if re.match(timestamp_pattern, path.name) or path.name == "latest":
-            timestamp = path.name
-        else:
-            timestamp = ''
-
         method_name = "sparse-guided-nerf"
-        neo_variant = path.parent.name
 
         train_sparse_guided_nerf_cmd = [
             f"ns-train {method_name}",
@@ -187,10 +180,11 @@ class NeoPipeline(VanillaPipeline):
             f"--pipeline.inpainter.inpaint-batch-size {self.config.sparse_dataset.inpainter.inpaint_batch_size}",
             "--viewer.websocket-port 7008",
             "nerfstudio-data",
-            f"--orientation-method {self.config.datamanager.dataparser.orientation_method}",
-            f"--center-method {self.config.datamanager.dataparser.center_method}",
-            f"--auto-scale-poses {self.config.datamanager.dataparser.auto_scale_poses}",
-            f"--train-split-fraction {self.config.datamanager.dataparser.train_split_fraction}"
+            "--orientation-method none",
+            "--center-method none",
+            "--auto-scale-poses False",
+            "--eval-mode filename"
+            # f"--train-split-fraction {self.config.datamanager.dataparser.train_split_fraction}"
         ]
         train_sparse_guided_nerf_cmd = " ".join(train_sparse_guided_nerf_cmd)
 
@@ -225,10 +219,11 @@ class NeoPipeline(VanillaPipeline):
             f"--pipeline.model.camera-optimizer.mode {self.config.model.camera_optimizer.mode}",
             "--viewer.websocket-port 7009",
             "nerfstudio-data",
-            f"--orientation-method {self.config.datamanager.dataparser.orientation_method}",
-            f"--center-method {self.config.datamanager.dataparser.center_method}",
-            f"--auto-scale-poses {self.config.datamanager.dataparser.auto_scale_poses}",
-            f"--train-split-fraction {self.config.datamanager.dataparser.train_split_fraction}"
+            "--orientation-method none",
+            "--center-method none",
+            "--auto-scale-poses False",
+            "--eval-mode filename"
+            # f"--train-split-fraction {self.config.datamanager.dataparser.train_split_fraction}"
         ]
 
         train_replace_nerf_cmd = " ".join(train_replace_nerf_cmd)

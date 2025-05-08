@@ -7,11 +7,12 @@ import numpy as np
 import torch.nn as nn
 
 from dataclasses import dataclass, field
-from typing import Type, Dict, Any, Tuple, List
+from typing import Type, Dict, Any, Tuple, Optional
 from pathlib import Path
 
 from nerfstudio.configs.base_config import InstantiateConfig
 from nerfstudio.models.base_model import Model
+from nerfstudio.data.utils.dataparsers_utils import get_train_eval_split_fraction
 from nerfstudio.utils.rich_utils import CONSOLE
 
 from neo.render.camera_paths import generate_hemisphere_transforms
@@ -42,11 +43,12 @@ class SparseDatasetConfig(InstantiateConfig):
 
 class SparseDataset(nn.Module):
 
-    def __init__(self, config: SparseDatasetConfig, output_path: Path, device: str = "cpu") -> None:
+    def __init__(self, config: SparseDatasetConfig, output_path: Path, split_fraction: Optional[int] = None, device: str = "cpu") -> None:
         super().__init__()
         self.config = config
         self.output_path = output_path
         self.device = device
+        self.split_fraction = split_fraction
 
         # Setup inpainter
         self.inpainter: Inpainter = self.config.inpainter.setup(device=device,
@@ -67,17 +69,45 @@ class SparseDataset(nn.Module):
         shutil.copy(data_path / "transforms.json", output_path / "transforms.json")
         shutil.copy(self.output_path / "bbox.json", output_path / "bbox.json")
 
+        # Read image names
+        if self.split_fraction is not None:
+            image_names = []
+            for image in os.listdir(data_path / "images"):
+                if "train" not in image and "eval" not in image:
+                    image_names.append(image)
+
+            image_names = sorted(image_names)
+
+            i_train, i_eval = get_train_eval_split_fraction(image_names, self.split_fraction)
+
+        # Rename images based on train and eval indices
+        for idx in i_train:
+            old_name = image_names[idx]
+            new_name = f"train_{old_name}"
+            os.rename(output_path / "images" / old_name, output_path / "images" / new_name)
+
+        for idx in i_eval:
+            old_name = image_names[idx]
+            new_name = f"eval_{old_name}"
+            os.rename(output_path / "images" / old_name, output_path / "images" / new_name)
+
         # Load camera data and generate masks
         with open(output_path / "transforms.json", "r") as file:
             camera_data = json.load(file)
 
-        # Sort frames data by image name
+        # Sort frames data by image number
         filepaths = []
+        image_names = np.array(image_names)
         for frame in camera_data["frames"]:
             filename = Path(frame["file_path"]).name
-            filepaths.append(filename)
-            frame["mask_path"] = f"masks/{filename}"
-        inds = np.argsort(filepaths)
+            if filename in image_names[i_eval]:
+                new_filename = f"eval_{filename}"
+            else:
+                new_filename = f"train_{filename}"
+            filepaths.append(new_filename)
+            frame["file_path"] = f"images/{new_filename}"
+            frame["mask_path"] = f"masks/{new_filename}"
+        inds = np.argsort([int(''.join(filter(str.isdigit, Path(filepath).stem))) for filepath in filepaths])
         camera_data["frames"] = [camera_data["frames"][ind] for ind in inds]
 
         # Add masks paths to the transforms file
@@ -130,12 +160,12 @@ class SparseDataset(nn.Module):
             group_views = []
             for j, dedicated_transform in enumerate(dedicated_transforms):
                 num = str((j + 1) + (len(dedicated_transforms) * i))
-                while len(num) < 4:
+                while len(num) < 5:
                     num = '0' + num 
 
                 frame = {}
-                frame["file_path"] = f"images/dedicated_{num}.png"
-                frame["mask_path"] = f"masks/dedicated_{num}.png"
+                frame["file_path"] = f"images/dedicated_train_{num}.png"
+                frame["mask_path"] = f"masks/dedicated_train_{num}.png"
                 frame["transform_matrix"] = dedicated_transform.tolist()
                 frame["fl_x"] = self.config.hemisphera_camera_intrisnsics[0]
                 frame["fl_y"] = self.config.hemisphera_camera_intrisnsics[1]
@@ -145,7 +175,7 @@ class SparseDataset(nn.Module):
                 frame["h"] = self.config.hemisphera_camera_intrisnsics[5]
                     
                 camera_data["frames"].append(frame)
-                group_views.append(f"dedicated_{num}.png")
+                group_views.append(f"dedicated_train_{num}.png")
 
             selected_views.append(group_views) 
 
