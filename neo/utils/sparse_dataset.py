@@ -30,8 +30,8 @@ class SparseDatasetConfig(InstantiateConfig):
     """specifies the inpainter config"""
     log_inpaint_images: bool = True
     """log inpaint images"""
-    hemisphere_radius: float = 0.4
-    """radius of the hemisphere"""
+    hemisphere_radius: float = -1
+    """radius of the hemisphere, set to -1 for adaptive radius"""
     hemisphere_num_layers: int = 8
     """number of layers in the hemisphere"""
     hemisphere_img_per_layer: int = 4
@@ -115,6 +115,11 @@ class SparseDataset(nn.Module):
         selected_views = []
         for i, group in enumerate(collision_groups):
             boxes_centre = np.mean(np.vstack([box["data"]["position"] for box in bboxes if box['idx'] in group]), axis=0)
+
+            # Generate adaptive hemisphere radius
+            if self.config.hemisphere_radius == -1:
+                self.config.hemisphere_radius = np.max([box["data"]["dimensions"] for box in bboxes if box['idx'] in group]) * 2.5
+
             dedicated_transforms = generate_hemisphere_transforms(self.config.hemisphere_radius, 
                                                                   self.config.hemisphere_num_layers, 
                                                                   boxes_centre, 

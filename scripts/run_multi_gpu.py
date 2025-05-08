@@ -45,11 +45,11 @@ if __name__ == "__main__":
 
     # Example commands to run on multiple GPUs
     commands = [
-        "python3 run.py --load-config gamepad.yml",
-        "python3 run.py --load-config rubiks_cube.yml",
-        "python3 run.py --load-config tomato_soup_can.yml",
-        "python3 run.py --load-config orange.yml",
-        "python3 run.py --load-config spam.yml"
+        "python3 scripts/run.py --load-config gamepad.yml",
+        "python3 scripts/run.py --load-config rubiks_cube.yml",
+        "python3 scripts/run.py --load-config tomato_soup_can.yml",
+        "python3 scripts/run.py --load-config orange.yml",
+        "python3 scripts/run.py --load-config spam.yml"
     ]
 
     run_on_multiple_gpus(commands)
