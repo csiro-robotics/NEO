@@ -100,6 +100,10 @@ class NeoPipeline(VanillaPipeline):
         # Obtain example dataparser output. Used for mask generation
         self.dataparser_output = self.datamanager.dataparser._generate_dataparser_outputs()
 
+        print("Dataparser output:")
+        print(self.dataparser_output)
+        print(a)
+
         # Initialize model
         assert self.config.bbox_data_path is not None, "No bbox data please specify --pipeline.bbox_data_path 'PATH_TO_BBOX_JSON'"
         self.grad_scaler = grad_scaler
