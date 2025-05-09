@@ -214,7 +214,9 @@ class SparseGuidedNeRFModel(NerfactoModel):
             cache_path = self.config.bbox_path.parent / "cache"
 
             # Get cameras for rendering
-            cameras, image_names = get_cameras(self.dataparser_config)
+            dataparser_config = self.dataparser_config
+            dataparser_config.eval_mode = "filename"
+            cameras, image_names = get_cameras(dataparser_config)
 
             # Extract dedicated cameras
             indices = []
@@ -235,7 +237,7 @@ class SparseGuidedNeRFModel(NerfactoModel):
                 selected_frames.append(frames)
 
             # Render images
-            strength = self.config.start_inpainting_strength - (self.config.strength_step * ((step - self.config.inpainting_start_iter) // self.config.inpainting_repeat_iter))
+            strength = round(self.config.start_inpainting_strength - (self.config.strength_step * ((step - self.config.inpainting_start_iter) // self.config.inpainting_repeat_iter)), 2)
 
             if strength > 0:
                 self.eval()

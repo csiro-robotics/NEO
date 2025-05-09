@@ -191,6 +191,7 @@ class SparseDataset(nn.Module):
 
         # Get cameras for rendering
         dataparser_config.data = output_path
+        dataparser_config.eval_mode = "filename"
         cameras, image_names = get_cameras(dataparser_config)
 
         # Pair cameras with appriopriate indices

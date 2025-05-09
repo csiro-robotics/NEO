@@ -27,6 +27,9 @@ neo-big = 'neo.neo_config:neo_big_method'
 sparse_guided_nerf = 'neo.neo_config:sparse_guided_nerf_method'
 replace_nerf = 'neo.neo_config:replace_nerf_method'
 
+[project.entry-points.'nerfstudio.dataparser_configs']
+neo-data = 'neo.data.dataparser_configs:neo_dataparser'
+
 [project.scripts]
 ns-convert = "neo.scripts.convert_to_neo:entrypoint"
 ns-eval-neo = "neo.eval.eval:entrypoint"

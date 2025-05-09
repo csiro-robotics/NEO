@@ -25,6 +25,7 @@ from neo.sparse_guided_nerf_model import SparseGuidedNeRFModelConfig
 from neo.replace_nerf_model import ReplaceNeRFModelConfig
 from neo.replace_nerf_pipeline import ReplaceNeRFPipelineConfig
 from neo.data.pixel_samplers import NeoPixelSamplerConfig
+from neo.data.neo_dataparser import NeoDataParserConfig
 from neo.utils.sparse_dataset import SparseDatasetConfig
 from neo.utils.inpainting import InpainterConfig
 
@@ -128,7 +129,7 @@ sparse_guided_nerf_method = MethodSpecification(
         mixed_precision=True,
         pipeline=SparseGuidedNeRFPipelineConfig(
             datamanager=ParallelDataManagerConfig(
-                dataparser=NerfstudioDataParserConfig(),
+                dataparser=NeoDataParserConfig(),
                 train_num_rays_per_batch=4096,
                 eval_num_rays_per_batch=4096,
                 pixel_sampler=NeoPixelSamplerConfig(),
@@ -168,7 +169,7 @@ replace_nerf_method = MethodSpecification(
         mixed_precision=True,
         pipeline=ReplaceNeRFPipelineConfig(
             datamanager=ParallelDataManagerConfig(
-                dataparser=NerfstudioDataParserConfig(),
+                dataparser=NeoDataParserConfig(),
                 train_num_rays_per_batch=4096,
                 eval_num_rays_per_batch=4096,
                 pixel_sampler=NeoPixelSamplerConfig(),

@@ -100,10 +100,6 @@ class NeoPipeline(VanillaPipeline):
         # Obtain example dataparser output. Used for mask generation
         self.dataparser_output = self.datamanager.dataparser._generate_dataparser_outputs()
 
-        print("Dataparser output:")
-        print(self.dataparser_output)
-        print(a)
-
         # Initialize model
         assert self.config.bbox_data_path is not None, "No bbox data please specify --pipeline.bbox_data_path 'PATH_TO_BBOX_JSON'"
         self.grad_scaler = grad_scaler
@@ -183,12 +179,8 @@ class NeoPipeline(VanillaPipeline):
             f"--pipeline.inpainter.inpainting-images-base-size {' '.join(map(str, self.config.sparse_dataset.inpainter.inpainting_images_base_size))}",
             f"--pipeline.inpainter.inpaint-batch-size {self.config.sparse_dataset.inpainter.inpaint_batch_size}",
             "--viewer.websocket-port 7008",
-            "nerfstudio-data",
-            "--orientation-method none",
-            "--center-method none",
-            "--auto-scale-poses False",
+            "neo-data",
             "--eval-mode filename"
-            # f"--train-split-fraction {self.config.datamanager.dataparser.train_split_fraction}"
         ]
         train_sparse_guided_nerf_cmd = " ".join(train_sparse_guided_nerf_cmd)
 
@@ -222,12 +214,8 @@ class NeoPipeline(VanillaPipeline):
             f"--output-dir {path}",
             f"--pipeline.model.camera-optimizer.mode {self.config.model.camera_optimizer.mode}",
             "--viewer.websocket-port 7009",
-            "nerfstudio-data",
-            "--orientation-method none",
-            "--center-method none",
-            "--auto-scale-poses False",
+            "neo-data",
             "--eval-mode filename"
-            # f"--train-split-fraction {self.config.datamanager.dataparser.train_split_fraction}"
         ]
 
         train_replace_nerf_cmd = " ".join(train_replace_nerf_cmd)

@@ -1,14 +1,18 @@
 import torch
+import math
 import numpy as np
 
 from PIL import Image
-from typing import Dict, Any
+from jaxtyping import Float
+from torch import Tensor
+from typing import Dict, Any, Literal, Tuple
 from pathlib import Path
 
-from nerfstudio.utils.io import load_from_json
-from nerfstudio.data.scene_box import SceneBox
+from nerfstudio.cameras.camera_utils import focus_of_attention, rotation_matrix_between
 from nerfstudio.cameras import camera_utils
 from nerfstudio.cameras.cameras import CAMERA_MODEL_TO_TYPE, Cameras, CameraType
+from nerfstudio.data.scene_box import SceneBox
+from nerfstudio.utils.io import load_from_json
 from nerfstudio.utils.rich_utils import CONSOLE
 
 from nerfstudio.data.utils.dataparsers_utils import (
@@ -17,6 +21,7 @@ from nerfstudio.data.utils.dataparsers_utils import (
     get_train_eval_split_fraction,
     get_train_eval_split_interval,
 )
+
 
 MAX_AUTO_RESOLUTION = 1600
 
@@ -286,3 +291,97 @@ def _get_fname(dataparser_config: Dict[str, Any], filepath: Path, data_dir: Path
     if dataparser_config.downscale_factor > 1:
         return data_dir / f"{downsample_folder_prefix}{dataparser_config.downscale_factor}" / filepath.name
     return data_dir / filepath
+
+
+def auto_orient_and_center_poses(
+    poses: Float[Tensor, "*num_poses 4 4"],
+    poses_no_dedicated: Float[Tensor, "*num_poses 4 4"],
+    method: Literal["pca", "up", "vertical", "none"] = "up",
+    center_method: Literal["poses", "focus", "none"] = "poses",
+) -> Tuple[Float[Tensor, "*num_poses 3 4"], Float[Tensor, "3 4"]]:
+    """Orients and centers the poses.
+
+    We provide three methods for orientation:
+
+    - pca: Orient the poses so that the principal directions of the camera centers are aligned
+        with the axes, Z corresponding to the smallest principal component.
+        This method works well when all of the cameras are in the same plane, for example when
+        images are taken using a mobile robot.
+    - up: Orient the poses so that the average up vector is aligned with the z axis.
+        This method works well when images are not at arbitrary angles.
+    - vertical: Orient the poses so that the Z 3D direction projects close to the
+        y axis in images. This method works better if cameras are not all
+        looking in the same 3D direction, which may happen in camera arrays or in LLFF.
+
+    There are two centering methods:
+
+    - poses: The poses are centered around the origin.
+    - focus: The origin is set to the focus of attention of all cameras (the
+        closest point to cameras optical axes). Recommended for inward-looking
+        camera configurations.
+
+    Args:
+        poses: The poses to orient.
+        method: The method to use for orientation.
+        center_method: The method to use to center the poses.
+
+    Returns:
+        Tuple of the oriented poses and the transform matrix.
+    """
+
+    origins = poses_no_dedicated[..., :3, 3]
+
+    mean_origin = torch.mean(origins, dim=0)
+    translation_diff = origins - mean_origin
+
+    if center_method == "poses":
+        translation = mean_origin
+    elif center_method == "focus":
+        translation = focus_of_attention(poses_no_dedicated, mean_origin)
+    elif center_method == "none":
+        translation = torch.zeros_like(mean_origin)
+    else:
+        raise ValueError(f"Unknown value for center_method: {center_method}")
+
+    if method == "pca":
+        _, eigvec = torch.linalg.eigh(translation_diff.T @ translation_diff)
+        eigvec = torch.flip(eigvec, dims=(-1,))
+
+        if torch.linalg.det(eigvec) < 0:
+            eigvec[:, 2] = -eigvec[:, 2]
+
+        transform = torch.cat([eigvec, eigvec @ -translation[..., None]], dim=-1)
+        oriented_poses = transform @ poses
+        oriented_poses_no_dedicated = transform @ poses_no_dedicated
+
+        if oriented_poses.mean(dim=0)[2, 1] < 0:
+            oriented_poses[1:3, :] = -1 * oriented_poses[1:3, :]
+            oriented_poses_no_dedicated[1:3, :] = -1 * oriented_poses_no_dedicated[1:3, :]
+            transform[1:3, :] = -1 * transform[1:3, :]
+    elif method in ("up", "vertical"):
+        up = torch.mean(poses_no_dedicated[:, :3, 1], dim=0)
+        up = up / torch.linalg.norm(up)
+        if method == "vertical":
+            x_axis_matrix = poses_no_dedicated[:, :3, 0]
+            _, S, Vh = torch.linalg.svd(x_axis_matrix, full_matrices=False)
+            if S[1] > 0.17 * math.sqrt(poses_no_dedicated.shape[0]):
+                up_vertical = Vh[2, :]
+                up = up_vertical if torch.dot(up_vertical, up) > 0 else -up_vertical
+            else:
+                up = up - Vh[0, :] * torch.dot(up, Vh[0, :])
+                up = up / torch.linalg.norm(up)
+
+        rotation = rotation_matrix_between(up, torch.Tensor([0, 0, 1]))
+        transform = torch.cat([rotation, rotation @ -translation[..., None]], dim=-1)
+        oriented_poses = transform @ poses
+        oriented_poses_no_dedicated = transform @ poses_no_dedicated
+    elif method == "none":
+        transform = torch.eye(4)
+        transform[:3, 3] = -translation
+        transform = transform[:3, :]
+        oriented_poses = transform @ poses
+        oriented_poses_no_dedicated = transform @ poses_no_dedicated
+    else:
+        raise ValueError(f"Unknown value for method: {method}")
+
+    return oriented_poses, oriented_poses_no_dedicated, transform

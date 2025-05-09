@@ -103,7 +103,8 @@ class ReplaceNeRFPipeline(VanillaPipeline):
 
         # Copy model settings
         for field in fields(NerfstudioDataParserConfig):
-            setattr(self.config.datamanager.dataparser, field.name, getattr(nerfacto_config.pipeline.datamanager.dataparser, field.name))
+            if field.name != '_target' and field.name != 'eval_mode':
+                setattr(self.config.datamanager.dataparser, field.name, getattr(nerfacto_config.pipeline.datamanager.dataparser, field.name))
 
         for field in fields(NerfactoModelConfig):
             if field.name != '_target':

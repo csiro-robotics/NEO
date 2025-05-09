@@ -74,10 +74,11 @@ class SparseGuidedNeRFPipeline(VanillaPipeline):
 
         # Copy model settings
         for field in fields(NerfstudioDataParserConfig):
-            setattr(self.config.datamanager.dataparser, field.name, getattr(nerfacto_config.pipeline.datamanager.dataparser, field.name))
+            if field.name != '_target' and field.name != 'eval_mode':
+                setattr(self.config.datamanager.dataparser, field.name, getattr(nerfacto_config.pipeline.datamanager.dataparser, field.name))
 
         for field in fields(NerfactoModelConfig):
-            if field.name != '_target' and field.name != 'near_plane' and field.name != 'far_plane':
+            if field.name != '_target':
                 setattr(self.config.model, field.name, getattr(nerfacto_config.pipeline.model, field.name))
 
         self.test_mode = test_mode
