@@ -192,7 +192,13 @@ class Inpainter(nn.Module):
                                 log_name: str = "inpainting",
                                 rendering_output_name: str = 'rgb_rm_preview', 
                                 strength: int = 0.99,
-                                refine_masks: bool = True):
+                                refine_masks: bool = True,
+                                initial_inpaint: bool = False) -> None:
+        
+        # Create output directories
+        renders_output_path = output_path / "renders"
+        if initial_inpaint:
+            os.makedirs(renders_output_path, exist_ok=True)
 
         # Inpaint selected images
         for idx, images_group in enumerate(selected_frames):
@@ -207,6 +213,7 @@ class Inpainter(nn.Module):
                 idx_list = []
                 masks = []
                 image_names = []
+                hq_images = []
                 for j in range(render_bath_size):
                     idx_list.append(images_group[j + (render_bath_size * i)][1])
                     mask = cv2.imread(str(output_path / f"temp_masks/{images_group[j + (render_bath_size * i)][0]}"), cv2.IMREAD_GRAYSCALE)
@@ -217,15 +224,28 @@ class Inpainter(nn.Module):
                     masks.append(mask)
                     image_names.append(images_group[j + (render_bath_size * i)][0])
 
+                    if not initial_inpaint:
+                        hq_images.append(cv2.imread(renders_output_path / images_group[j + (render_bath_size * i)][0]))
+
                 images = render_preview_image(model, cameras, torch.tensor(idx_list), output_name=rendering_output_name)
 
                 refined_masks = masks
                 if refine_masks:
                     refined_masks = self.refine_mask(masks, images, self.sam_predictor)
 
+                if not initial_inpaint:
+                    hq_images_tensor = torch.tensor(hq_images, device=self.device)
+                    masks_tensor = torch.tensor(masks, device=self.device)[..., None] / 255.0
+
+                    images = images * masks_tensor + hq_images_tensor * (1 - masks_tensor)
+
                 all_images.extend(images)
                 all_masks.extend(refined_masks)
                 all_image_names.extend(image_names)
+
+                if initial_inpaint:
+                    for image, mask, refined_mask, name in zip(images, masks, refined_masks, image_names):
+                        cv2.imwrite(str(renders_output_path / name), image.cpu().detach().numpy())
 
                 for image, mask, refined_mask, name in zip(images, masks, refined_masks, image_names):
                     mask = cv2.resize(mask, (int(mask.shape[1] * downscale_factor), int(mask.shape[0] * downscale_factor)), cv2.INTER_MAX)

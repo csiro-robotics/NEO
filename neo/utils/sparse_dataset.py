@@ -203,7 +203,7 @@ class SparseDataset(nn.Module):
             selected_frames.append(frames)
 
         # Inpaint selected images
-        self.inpainter.inpaint_images_in_grids(model, selected_frames, cameras, output_path)
+        self.inpainter.inpaint_images_in_grids(model, selected_frames, cameras, output_path, initial_inpaint=True)
 
         # Remove temporary masks
         # shutil.rmtree(output_path / "temp_masks")
