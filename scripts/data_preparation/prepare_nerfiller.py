@@ -37,9 +37,22 @@ def prepare_nerfiller(config: NeoDataConfig) -> None:
     # Copy masks, images, depth and transforms.json to the new folder
     CONSOLE.print(f"[bold green]Preparing Nerfiller...[/bold green]")
     CONSOLE.print(f"Copying masks, images, depth and transforms.json to {output_path}")
-    shutil.copytree(masks_path / "masks", output_path / "masks", dirs_exist_ok=True)
-    shutil.copytree(config.data / "images", output_path / "images", dirs_exist_ok=True)
-    shutil.copytree(config.data / "depth", output_path / "depth", dirs_exist_ok=True)
+    
+    def copy_and_rename(src_dir, dst_dir):
+        dst_dir.mkdir(parents=True, exist_ok=True)
+        for file in src_dir.iterdir():
+            if file.is_file():
+                new_name = file.name
+                if new_name.startswith("train_"):
+                    new_name = new_name[len("train_") :]
+                elif new_name.startswith("eval_"):
+                    new_name = new_name[len("eval_") :]
+                shutil.copy(file, dst_dir / new_name)
+
+    # Copy masks, images, and depth, renaming files to remove "train_" and "eval_" from the beginning
+    copy_and_rename(masks_path / "masks", output_path / "masks")
+    copy_and_rename(config.data / "images", output_path / "images")
+    copy_and_rename(config.data / "depth", output_path / "depth")
     shutil.copy(config.data / "transforms.json", output_path / "transforms.json")
 
     # Remove only files from data_path containing "dedicated" in their name

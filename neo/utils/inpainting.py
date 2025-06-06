@@ -192,6 +192,7 @@ class Inpainter(nn.Module):
                                 log_name: str = "inpainting",
                                 rendering_output_name: str = 'rgb_rm_preview', 
                                 strength: int = 0.99,
+                                # shuffle_frames: bool = True,
                                 refine_masks: bool = True,
                                 initial_inpaint: bool = False) -> None:
         
@@ -199,6 +200,11 @@ class Inpainter(nn.Module):
         renders_output_path = output_path / "renders"
         if initial_inpaint:
             os.makedirs(renders_output_path, exist_ok=True)
+
+        # # Shuffle frames
+        # if shuffle_frames:
+        #     for group in selected_frames:
+        #         np.random.shuffle(group)
 
         # Inpaint selected images
         for idx, images_group in enumerate(selected_frames):
