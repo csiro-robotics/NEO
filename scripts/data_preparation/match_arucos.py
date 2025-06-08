@@ -11,11 +11,10 @@ from nerfstudio.utils.rich_utils import CONSOLE
 
 from experiment_config import NeoDataConfig
 
+MARKER_LENGTH = 0.1065
 
-def get_marker_pose(corners, camera_matrix, dist_coeffs):
+def get_marker_pose(corners, camera_matrix, dist_coeffs, marker_length=0.1):
     """ Compute the pose of a marker given its corners. """
-    # Define the length of the marker's side (in meters or other units)
-    marker_length = 0.1  # Adjust based on your marker size
     # Create an object point array (3D points in the marker's coordinate system)
     obj_points = np.array([
         [-marker_length / 2, marker_length / 2, 0],
@@ -28,7 +27,7 @@ def get_marker_pose(corners, camera_matrix, dist_coeffs):
     _, rvec, tvec = cv2.solvePnP(obj_points, corners, camera_matrix, dist_coeffs, False, cv2.SOLVEPNP_IPPE_SQUARE)
     return rvec, tvec
 
-def get_arucos(images, transforms_dict):
+def get_arucos(images, transforms_dict, marker_length=0.1):
     # Define ArUco dictionary and parameters
     dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_100)
     parameters = cv2.aruco.DetectorParameters()
@@ -42,7 +41,7 @@ def get_arucos(images, transforms_dict):
         corners, ids, _ = detector.detectMarkers(image)
         for i in range(len(corners)):
             # Compute poses
-            rvec, tvec = get_marker_pose(corners[i], camera_matrix, dist_coeffs)
+            rvec, tvec = get_marker_pose(corners[i], camera_matrix, dist_coeffs, marker_length=marker_length)
 
             R, _ = cv2.Rodrigues(rvec)
             
@@ -238,8 +237,8 @@ def match_arucos(config: NeoDataConfig):
 
     # Detect Aruco markers
     CONSOLE.print("Detecting arucos")
-    arucos["before"] = get_arucos(frames["before"], transform_dicts["before"])
-    arucos["after"] = get_arucos(frames["after"], transform_dicts["after"])
+    arucos["before"] = get_arucos(frames["before"], transform_dicts["before"], marker_length=MARKER_LENGTH)
+    arucos["after"] = get_arucos(frames["after"], transform_dicts["after"], marker_length=MARKER_LENGTH)
 
     # Optimize for best scale
     CONSOLE.print("Optimizing scale")

@@ -146,7 +146,7 @@ def read_ros2_bag(bag_file_path: Path, output_path: Path, rotate_images: bool, s
         saved_depth_count = 1
         for connection, timestamp, rawdata in reader.messages():
 
-            if connection.topic == '/camera/color/image_raw':
+            if connection.topic == '/camera/camera/color/image_raw':
                 if frame_list is not None:
                     if rgb_count in frame_list:
                         msg = reader.deserialize(rawdata, connection.msgtype)
@@ -174,7 +174,7 @@ def read_ros2_bag(bag_file_path: Path, output_path: Path, rotate_images: bool, s
                     else:
                         rgb_count += 1
 
-            if connection.topic == '/camera/depth/image_raw':
+            if connection.topic == '/camera/camera/aligned_depth_to_color/image_raw':
                 if frame_list is not None:
                     if depth_count in frame_list:
                         msg = reader.deserialize(rawdata, connection.msgtype)
@@ -281,17 +281,14 @@ def extract_images(config: NeoDataConfig, skip_frames: int = 6, select_frames: l
 
         if bag_file_path.exists():
             CONSOLE.print("Bag file found, processing...")
-            
             read_realsense_bag(bag_file_path, output_path / stage, True, skip_frames=skip_frames, frame_list=frame_list)
 
         elif bag2_file_path.exists():
             CONSOLE.print("Bag2 file found, processing...")
-
-            read_ros2_bag(bag2_file_path.parent, output_path / stage, True, skip_frames=skip_frames, frame_list=frame_list)
+            read_ros2_bag(bag2_file_path.parent, output_path / stage, True, skip_frames=8, frame_list=frame_list)
             
         elif mp4_file_path.exists():
             CONSOLE.print("MP4 file found, processing...")
-
             read_mp4_file(mp4_file_path, output_path / stage, skip_frames=skip_frames, frame_list=frame_list)
 
         else:

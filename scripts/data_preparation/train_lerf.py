@@ -9,7 +9,7 @@ from nerfstudio.utils.scripts import run_command
 from experiment_config import NeoDataConfig
 
 
-def train_lerf(config: NeoDataConfig) -> None:
+def train_lerf(config: NeoDataConfig, **kwargs) -> None:
     """Main function that executes the training pipeline."""
     base_dir = Path(config.get_base_dir())
 
@@ -22,12 +22,19 @@ def train_lerf(config: NeoDataConfig) -> None:
         f"--experiment-name {config.object_name}/before",
         f"--timestamp {config.get_timestamp()}",
         "--viewer.quit-on-train-completion True",
+    ]
+
+    if kwargs.get("camera_optimizer", False):
+        command.append(f"--pipeline.model.camera-optimizer.mode {kwargs['camera_optimizer']}")
+
+    command.extend([
         "nerfstudio-data",
         "--orientation-method none",
         "--center-method none",
         "--auto-scale-poses False",
         "--train-split-fraction 0.99"
-    ]
+    ])
+
     command = " ".join(command)
 
     run_command(command, verbose=True)

@@ -99,7 +99,7 @@ Arguments are:
 - `--lerf_prompt`: The prompt for the LERF model to identify the object.
 - `--dry_run`: Flag to skip the rendering of images in evaluation step.
 
-Last step is to update langiage field with the command
+Last step is to update the language field with the command
 
 ```bash
 ns-loopback lerf --input <data_directory>/<data_type>/<action>/<scene_type>/<scene_name>/<object_name>/befoe/replace-nerf/<timestamp> [--verbose bool]
