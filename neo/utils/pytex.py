@@ -14,7 +14,6 @@ class LatexTemplates:
     """
     \\begin{table*}[]
         \\centering
-        \\captionsetup{font=scriptsize}
         \\scriptsize
         \\small
         \\begin{tabular}{TABLE_FORMAT} % the number of columns needed
@@ -31,6 +30,26 @@ class LatexTemplates:
 
 
 class PyTex:
+    @staticmethod
+    def convert_nested_results_to_tablecv(scene_results, columns, exp_types=None):
+        # scene_results: {method: {exp_type: {metric: value, ...}, ...}, ...}
+        # columns: list of metric names
+        # exp_types: list of exp types to include (e.g. ['full', 'cropped'])
+        methods = list(scene_results.keys())
+        if exp_types is None:
+            # Find all exp_types present
+            exp_types = set()
+            for method in methods:
+                exp_types.update(scene_results[method].keys())
+            exp_types = list(exp_types)
+        table_data = {"method_name": methods}
+        for exp_type in exp_types:
+            table_data[exp_type] = []
+            for method in methods:
+                metrics = scene_results[method].get(exp_type, {})
+                row = {col: metrics.get(col, -1) for col in columns}
+                table_data[exp_type].append(row)
+        return table_data
     
     def __init__(self) -> None:
         

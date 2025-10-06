@@ -6,6 +6,7 @@
 /cache
 /ckpts
 /data
+/data_old
 /logs
 /outputs
 /renders

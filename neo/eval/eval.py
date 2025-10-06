@@ -37,7 +37,7 @@ class EvalBaseConfig:
 
     config_path: Path
     """Path to the edited Neo model config"""
-    batch_size: int = 32
+    batch_size: int = 1
     """Size of batch for calculating metrics. Bigger batch means faster calculation"""
     dry_run: bool = False
     """If True, only print the commands that would be executed"""
@@ -125,10 +125,10 @@ class EvalBaseConfig:
         """
         Generate masks for evaluation.
         """
-        datamanager = self.model_config.pipeline.datamanager.setup(
-            device='cuda:0', test_mode='test', world_size=1, local_rank=0
-        )
-        dataparser_output = datamanager.dataparser._generate_dataparser_outputs()
+        # datamanager = self.model_config.pipeline.datamanager.setup(
+        #     device='cuda:0', test_mode='val', world_size=1, local_rank=0
+        # )
+        # dataparser_output = datamanager.dataparser._generate_dataparser_outputs()
 
         bboxes_path = (Path(str(self.config_path).replace(self.model_config.method_name, 'neo')).parent / "bbox.json")
         if self.model_config.method_name == "replace-nerf":
@@ -138,30 +138,34 @@ class EvalBaseConfig:
             bboxes = json.load(bboxes_path.open())['bboxes']
         else:
             raise FileNotFoundError(f"File {bboxes_path} not found. Check if the file exists or train Neo model first.")
+        
+        dataparser_transform = np.eye(4)[0:3, :]
+        dataparser_scale = 1.0
 
         generate_masks(camera_data=transforms,
                        bboxes=bboxes,
                        output_path=render_output_path / f"{exp_names[0]}_masks",
-                       dataparser_transform=dataparser_output.dataparser_transform,
-                       dataparser_scale=dataparser_output.dataparser_scale)
+                       dataparser_transform=dataparser_transform,
+                       dataparser_scale=dataparser_scale)
         
-        # Load the transforms.json file as camera_data
-        transforms_path = Path(self.model_config.pipeline.datamanager.data) / "transforms.json"
-        with open(transforms_path, "r") as f:
-            camera_data = json.load(f)
+        # # Load the transforms.json file as camera_data
+        # transforms_path = Path(self.model_config.pipeline.datamanager.data) / "transforms.json"
+        # with open(transforms_path, "r") as f:
+        #     camera_data = json.load(f)
 
-        # Get dataparser transformation matrix
-        dataparser_transform = dataparser_output.dataparser_transform.cpu().detach().numpy()
-        if "applied_transform" in camera_data:
-            dataparser_transform = dataparser_transform @ np.linalg.inv(np.concatenate([np.array(camera_data["applied_transform"]), np.array([[0, 0, 0, 1]])], axis=0))   
+        # # Get dataparser transformation matrix
+        # dataparser_transform = dataparser_output.dataparser_transform.cpu().detach().numpy()
+        # if "applied_transform" in camera_data:
+        #     dataparser_transform = dataparser_transform @ np.linalg.inv(np.concatenate([np.array(camera_data["applied_transform"]), np.array([[0, 0, 0, 1]])], axis=0))   
         
         
         frames = generate_hemisphere_transforms(radius=self.crop_radius,
                                                 num_layers=3,
                                                 num_per_layer=40,
                                                 origin=self.crop_center,
-                                                dataparser_scale=dataparser_output.dataparser_scale,
+                                                dataparser_scale=dataparser_scale,
                                                 dataparser_transform=dataparser_transform)
+        
         image_names = [f"frame_{num:05d}" for num in range(len(frames))]
 
         frames_with_names = []
@@ -173,8 +177,8 @@ class EvalBaseConfig:
         generate_masks(camera_data=transforms,
                        bboxes=bboxes,
                        output_path=render_output_path / f"{exp_names[1]}_masks",
-                       dataparser_transform=dataparser_output.dataparser_transform,
-                       dataparser_scale=dataparser_output.dataparser_scale)
+                       dataparser_transform=dataparser_transform,
+                       dataparser_scale=dataparser_scale)
 
     def main(self) -> None:
         """
@@ -229,7 +233,7 @@ class EvalBaseConfig:
         dataloaders = self.create_dataloaders(render_output_path, exp_names)
 
         # Calculate metrics
-        metrics = [PSNRModule(), MAEModule()]
+        metrics = [PSNRModule(), LPIPSModule(), SSIMModule(), MAEModule()]
         results = {exp_names[0]: {}, exp_names[1]: {}}
         for dataloader in dataloaders:
             for mertic in metrics:

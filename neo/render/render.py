@@ -247,7 +247,16 @@ def _render_trajectory_video(
                 for idx, rendered_output_name in enumerate(rendered_output_names):
                     if output_format == "images":
                         if 'depth' in rendered_output_name:
-                            cv2.imwrite(output_image_dir / rendered_output_name / f"{image_names[camera_idx]}.png", render_image[idx])
+                            # Save true depth as 16-bit PNG (meters -> millimeters) to avoid 8-bit fallback.
+                            depth = render_image[idx]
+                            # Ensure 2D or single-channel depth; handle NaNs/Infs
+                            depth = np.nan_to_num(depth, nan=0.0, posinf=0.0, neginf=0.0)
+                            # If depth has a trailing singleton channel, squeeze it
+                            if depth.ndim == 3 and depth.shape[-1] == 1:
+                                depth = depth[..., 0]
+                            # Convert meters to millimeters and clip to uint16 range
+                            depth_mm = np.clip(depth * 1000.0, 0, np.iinfo(np.uint16).max).astype(np.uint16)
+                            cv2.imwrite(output_image_dir / rendered_output_name / f"{image_names[camera_idx]}.png", depth_mm)
                         elif image_format == "png":
                             media.write_image(output_image_dir / rendered_output_name / f"{image_names[camera_idx]}.png", render_image[idx], fmt="png")
                         elif image_format == "jpeg":

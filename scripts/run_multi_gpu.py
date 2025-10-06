@@ -23,7 +23,7 @@ def run_script_on_gpu(gpu_id, command_queue):
         print(f"Finished: {command} on GPU {gpu_id}")
 
 def run_on_multiple_gpus(commands: List[str]):
-    available_gpus = check_available_gpus()
+    available_gpus = 1 # check_available_gpus()
 
     # Create a queue and add all commands to it
     command_queue = Queue()
@@ -45,10 +45,10 @@ if __name__ == "__main__":
 
     # Example commands to run on multiple GPUs
     commands = [
-        "python3 scripts/run_removal.py --load-config gamepad.yml",
-        "python3 scripts/run_removal.py --load-config rubiks_cube.yml",
-        "python3 scripts/run_removal.py --load-config tomato_soup_can.yml",
         "python3 scripts/run_removal.py --load-config orange.yml",
+        "python3 scripts/run_removal.py --load-config red_robot.yml",
+        "python3 scripts/run_removal.py --load-config mustard_bottle.yml",
+        "python3 scripts/run_removal.py --load-config tomato_soup_can.yml",
         "python3 scripts/run_removal.py --load-config spam.yml"
     ]
 

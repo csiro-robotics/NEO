@@ -193,7 +193,7 @@ class Inpainter(nn.Module):
                                 rendering_output_name: str = 'rgb_rm_preview', 
                                 strength: int = 0.99,
                                 # shuffle_frames: bool = True,
-                                refine_masks: bool = True,
+                                refine_masks: bool = False,
                                 initial_inpaint: bool = False) -> None:
         
         # Create output directories
