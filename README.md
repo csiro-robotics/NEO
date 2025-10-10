@@ -47,7 +47,7 @@ pip install -e .
 
 If you want to use different Nerfacto based model just convert the config file with command
 ```bash
-ns-convert --input CONFIG_INPUT_PATH
+ns-convert --load-config CONFIG_INPUT_PATH
 ```
 Converted config will be saved at previous output location in neo folder
 
@@ -56,7 +56,7 @@ Converted config will be saved at previous output location in neo folder
 In order to load edited lerf model use the command:
 
 ```bash
-ns-loopback lerf --input <path_to_folder_containing__replace_nerf_config_file> [--verbose bool]
+ns-loopback lerf --load-config <path_to_folder_containing__replace_nerf_config_file> [--verbose bool]
 ```
 
 ## Time logging
@@ -102,6 +102,6 @@ Arguments are:
 Last step is to update the language field with the command
 
 ```bash
-ns-loopback lerf --input <data_directory>/<data_type>/<action>/<scene_type>/<scene_name>/<object_name>/befoe/replace-nerf/<timestamp> [--verbose bool]
+ns-loopback lerf --load-config <data_directory>/<data_type>/<action>/<scene_type>/<scene_name>/<object_name>/befoe/replace-nerf/<timestamp> [--verbose bool]
 ```
 Now this new field will be saved under the same lerf-lite directory under different timestamp

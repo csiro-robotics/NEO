@@ -292,7 +292,7 @@ def extract_images(config: NeoDataConfig, skip_frames: int = 6, select_frames: l
             read_mp4_file(mp4_file_path, output_path / stage, skip_frames=skip_frames, frame_list=frame_list)
 
         else:
-            raise FileNotFoundError(f"No bag or mp4 file found.")
+            raise FileNotFoundError(f"No bag or mp4 file found under the path {bag_file_path.parent}.")
 
 
 def entrypoint():

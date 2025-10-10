@@ -19,7 +19,7 @@ def edit(config: NeoDataConfig, model_type: Annotated["neo", "neo-big"] = "neo")
     # Convert LERF to Neo
     CONSOLE.print("[bold green]Converting LERF to Neo...[/bold green]")
     assert os.path.exists(f"{str(base_dir).replace(str(config.root_input), 'outputs')}/before/lerf-lite"), "LERF model not found. Please run the training script first."
-    run_command(f"ns-convert to-{model_type} --input {str(base_dir).replace(str(config.root_input), 'outputs')}/before/lerf-lite/{config.get_timestamp()}", verbose=True)
+    run_command(f"ns-convert to-{model_type} --load-config {str(base_dir).replace(str(config.root_input), 'outputs')}/before/lerf-lite/{config.get_timestamp()}/config.yml", verbose=True)
 
     # Load model
     CONSOLE.print("[bold green]Editing...[/bold green]")

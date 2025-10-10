@@ -156,8 +156,15 @@ class EvalBaseConfig:
         # # Get dataparser transformation matrix
         # dataparser_transform = dataparser_output.dataparser_transform.cpu().detach().numpy()
         # if "applied_transform" in camera_data:
-        #     dataparser_transform = dataparser_transform @ np.linalg.inv(np.concatenate([np.array(camera_data["applied_transform"]), np.array([[0, 0, 0, 1]])], axis=0))   
-        
+        #     dataparser_transform = dataparser_transform @ np.linalg.inv(np.concatenate([np.array(camera_data["applied_transform"]), np.array([[0, 0, 0, 1]])], axis=0))
+
+        if transforms.get("fl_x") is None:
+            transforms["fl_x"] = transforms["frames"][0]["fl_x"]
+            transforms["fl_y"] = transforms["frames"][0]["fl_y"]
+            transforms["cx"] = transforms["frames"][0]["cx"]
+            transforms["cy"] = transforms["frames"][0]["cy"]
+            transforms["w"] = transforms["frames"][0]["w"]
+            transforms["h"] = transforms["frames"][0]["h"]
         
         frames = generate_hemisphere_transforms(radius=self.crop_radius,
                                                 num_layers=3,
@@ -198,7 +205,12 @@ class EvalBaseConfig:
         base_path = str(self.model_config.get_base_dir())
         if self.model_config.method_name == "replace-nerf":
             base_path = str(self.model_config.get_base_dir().parent)
-        gt_data_path = Path(base_path.replace('outputs', 'data').replace('before', 'after')).parents[1]
+
+        if "lerf-lite" in base_path:
+            gt_data_path = Path(base_path.replace('outputs', 'data')).parents[1]
+        else:
+            gt_data_path = Path(base_path.replace('outputs', 'data').replace('before', 'after')).parents[1]
+
         render_output_path = Path(base_path.replace('outputs', 'renders'))
 
         # Load focal lengths and transforms
@@ -216,6 +228,9 @@ class EvalBaseConfig:
                 else:
                     self.gt_focal_lengths = (transforms['fl_x'], transforms['fl_y'])
 
+        # Generate masks
+        self.generate_masks_for_eval(transforms, render_output_path, exp_names)
+
         # Copy GT data to render output path
         shutil.copytree(gt_data_path, render_output_path / f"{exp_names[0]}_gt", dirs_exist_ok=True)
 
@@ -225,9 +240,6 @@ class EvalBaseConfig:
         # Render cropped images
         self.render_cropped(render_output_path)
         self.render_cropped(render_output_path, is_edited=False)
-
-        # Generate masks
-        self.generate_masks_for_eval(transforms, render_output_path, exp_names)
 
         # Create datasets and dataloaders
         dataloaders = self.create_dataloaders(render_output_path, exp_names)

@@ -26,18 +26,17 @@ from neo.utils.inpainting import InpainterConfig
 
 @dataclass
 class BaseConvert:
-    input: Path
+    load_config: Path
     """Path to the folder containing config.yaml file and nerfstudio_models"""
 
     @abstractmethod
     def main(self):
-        assert self.input is not None, "Please specify --input. Type 'ns-convert -h' for more help."
+        assert self.load_config is not None, "Please specify --load_config. Type 'ns-convert -h' for more help."
 
         # Load config
-        config_path = self.input / "config.yml"
-        self.config = yaml.load(config_path.read_text(), Loader=yaml.Loader)
+        self.config = yaml.load(self.load_config.read_text(), Loader=yaml.Loader)
 
-        assert self.config is not None, f"Could not find the config file in specified directory: {config_path}"
+        assert self.config is not None, f"Could not find the config file in specified directory: {self.load_config}"
         assert isinstance(self.config, TrainerConfig), "Config is not the instance of TrainerConfig and thus cannot be converted."
 
 
@@ -49,7 +48,7 @@ class ConvertToNeo(BaseConvert):
         """
         super().main()
 
-        # Change model name in config and copy the content of input folder to its new location 
+        # Change model name in config and copy the content of load_config folder to its new location 
         old_base_dir = self.config.get_base_dir()
         self.config.method_name = "neo"
         shutil.copytree(old_base_dir, self.config.get_base_dir(), dirs_exist_ok=True)
@@ -103,7 +102,7 @@ class ConvertToNeoBig(BaseConvert):
         """
         super().main()
 
-        # Change model name in config and copy the content of input folder to its new location 
+        # Change model name in config and copy the content of load_config folder to its new location 
         old_base_dir = self.config.get_base_dir()
         self.config.method_name = "neo-big"
         shutil.copytree(old_base_dir, self.config.get_base_dir(), dirs_exist_ok=True)
@@ -157,13 +156,14 @@ class ConvertToNerfacto(BaseConvert):
         """
         super().main()
 
-        # Change model name in config and copy the content of input folder to its new location 
+        # Change model name in config and copy the content of load_config folder to its new location
         old_base_dir = self.config.get_base_dir()
+        old_base_dir = Path(old_base_dir) / "replace-nerf"
         self.config.method_name = "nerfacto"
         shutil.copytree(old_base_dir, self.config.get_base_dir(), dirs_exist_ok=True)
 
         # Load the Neo config
-        neo_config = yaml.load(Path(str(old_base_dir / "config.yml").replace("replace-nerf", "neo")).read_text(), Loader=yaml.Loader)
+        neo_config = yaml.load(Path(str(old_base_dir.parent / "config.yml")).read_text(), Loader=yaml.Loader)
 
         # Load the .ckpt torch model
         ckpt_path = next((self.config.get_base_dir() / "nerfstudio_models").glob("*.ckpt"))
@@ -178,9 +178,10 @@ class ConvertToNerfacto(BaseConvert):
             del model["pipeline"][key]
 
         appearance_embedding = model["pipeline"]["_model.field.embedding_appearance.embedding.weight"]
-        pose_adjustment = model["pipeline"]["_model.camera_optimizer.pose_adjustment"]
+        pose_adjustment = model["pipeline"].get("_model.camera_optimizer.pose_adjustment", None)
 
-        model["pipeline"]["_model.camera_optimizer.pose_adjustment"] = pose_adjustment[:appearance_embedding.shape[0] - pose_adjustment.shape[0], :]
+        if pose_adjustment is not None:
+            model["pipeline"]["_model.camera_optimizer.pose_adjustment"] = pose_adjustment[:appearance_embedding.shape[0] - pose_adjustment.shape[0], :]
 
         # Save the modified model
         torch.save(model, ckpt_path)

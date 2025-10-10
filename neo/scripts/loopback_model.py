@@ -16,7 +16,7 @@ from datetime import datetime
 @dataclass
 class BaseLoopback:
 
-    input: Path
+    load_config: Path
     """Path to the folder containing config.yaml file and nerfstudio_models"""
     verbose: bool = False
     """If set to True, the output will be more verbose"""
@@ -33,7 +33,7 @@ class LoopbackNerfacto(BaseLoopback):
         
         convert_command = [
             f"ns-convert to-nerfacto",
-            f"--input {self.input}",
+            f"--load_config {self.load_config}",
         ]
         convert_command = " ".join(convert_command)
 
@@ -48,15 +48,18 @@ class LoopbackLERF(BaseLoopback):
         # Convert to Nerfacto
         convert_command = [
             f"ns-convert to-nerfacto",
-            f"--input {self.input}",
+            f"--load_config {self.load_config}",
         ]
         convert_command = " ".join(convert_command)
 
         run_command(convert_command, verbose=self.verbose)
 
         # Load config to get data path
-        neo_config = yaml.load(Path(str(self.input / "config.yml").replace("replace-nerf", "neo")).read_text(), Loader=yaml.Loader)
-        nerfacto_path = Path(str(self.input).replace("replace-nerf", 'nerfacto'))
+        neo_config = yaml.load(Path(str(self.load_config)).read_text(), Loader=yaml.Loader)
+        if "neo-big" in str(self.load_config):
+            nerfacto_path = Path(str(self.load_config.parent).replace("neo-big", "nerfacto"))
+        else:
+            nerfacto_path = Path(str(self.load_config.parent).replace("neo", "nerfacto"))
         render_path = nerfacto_path / "cache"
         os.makedirs(render_path, exist_ok=True)
         shutil.copy(neo_config.data / "transforms.json", render_path / "transforms.json")
@@ -86,7 +89,7 @@ class LoopbackLERF(BaseLoopback):
         train_command = [
             "ns-train lerf-lite-lan",
             f"--data {render_path}",
-            f"--output-dir {self.input.parents[3]}",
+            f"--output-dir {self.load_config.parents[4]}",
             f"--experiment_name {neo_config.experiment_name}",
             f"--timestamp {neo_config.timestamp}",
             "--max-num-iterations 3000",
@@ -103,7 +106,10 @@ class LoopbackLERF(BaseLoopback):
         run_command(train_command, verbose=self.verbose)
 
         # Move model to its new location
-        new_config_path = Path(str(self.input / "config.yml").replace("replace-nerf", "lerf-lite-lan"))
+        if "neo-big" in str(self.load_config):
+            new_config_path = Path(str(self.load_config).replace("neo-big", "lerf-lite-lan"))
+        else:
+            new_config_path = Path(str(self.load_config).replace("neo", "lerf-lite-lan"))
         lerf_lite_lan_config = yaml.load(new_config_path.read_text(), Loader=yaml.Loader)
         lerf_lite_lan_config.method_name = "lerf-lite"
 
@@ -128,7 +134,7 @@ class LoopbackLERF(BaseLoopback):
         # Convert to Neo
         convert_command = [
             f"ns-convert to-neo",
-            f"--input {output_path}",
+            f"--load_config {output_path + '/config.yml'}",
         ]
         convert_command = " ".join(convert_command)
 

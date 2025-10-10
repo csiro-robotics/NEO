@@ -303,6 +303,15 @@ def transforms_to_camerapath(
     # Load config
     transforms = json.loads(transforms_path.read_text())
 
+    if transforms.get("w", None) is None:
+        frames = transforms["frames"]
+        transforms["w"] = frames[0]["w"]
+        transforms["h"] = frames[0]["h"]
+        transforms["fl_x"] = frames[0]["fl_x"]
+        transforms["fl_y"] = frames[0]["fl_y"]
+        transforms["cx"] = frames[0]["cx"]
+        transforms["cy"] = frames[0]["cy"]
+
     fov_x = np.rad2deg(2 * np.arctan(transforms["h"] / (2 * transforms["fl_y"])))
     aspect = transforms["w"] / transforms["h"]
 
