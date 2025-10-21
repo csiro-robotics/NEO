@@ -7,13 +7,16 @@ from nerfstudio.utils.scripts import run_command
 
 from experiment_config import NeoDataConfig
 
-def calculate_colmap(config: NeoDataConfig) -> None:
+def calculate_colmap(config: NeoDataConfig, skip_after: bool = False) -> None:
     """Main function."""
 
     output_path = config.get_base_dir()
 
     # Need both before and after to be present in order to perform final alignment
     for stage in ["before", "after"]:
+
+        if stage == "after" and skip_after:
+            continue
 
         # Check and remove any files or folders other than 'rgb'
         for item in (output_path / stage).iterdir():

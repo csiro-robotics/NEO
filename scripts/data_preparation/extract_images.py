@@ -263,13 +263,16 @@ def select_frames_to_extract(config: NeoDataConfig, stage: str, num_frames: int 
 
     return selected_frames
 
-def extract_images(config: NeoDataConfig, skip_frames: int = 6, select_frames: list = True, num_frames: int = 250) -> None:
+def extract_images(config: NeoDataConfig, skip_frames: int = 6, select_frames: list = True, num_frames: int = 250, skip_after: bool = False) -> None:
     """Main function."""
 
     output_path = config.get_base_dir()
 
     # Need both before and after to be present in order to perform final alignment
     for stage in ["before", "after"]:
+
+        if stage == "after" and skip_after:
+            continue
 
         frame_list = None
         if select_frames:

@@ -38,11 +38,11 @@ def load_movement_from_manual(manual_file: Path) -> dict | None:
             key = key.strip().lower()
             if section == "translation":
                 if key == "x":
-                    translation[0] = np.round(value / 1000, 2)
+                    translation[0] = np.round(value / 1000, 3)
                 elif key == "y":
-                    translation[1] = np.round(value / 1000, 2)
+                    translation[1] = np.round(value / 1000, 3)
                 elif key == "z":
-                    translation[2] = np.round(value / 1000, 2)
+                    translation[2] = np.round(value / 1000, 3)
             elif section == "rotation":
                 if key == "z":
                     rotation_euler_deg[2] = value  # Only Z axis assumed

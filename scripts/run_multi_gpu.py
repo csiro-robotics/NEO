@@ -51,9 +51,12 @@ if __name__ == "__main__":
         # "python3 scripts/run_removal.py --load-config tomato_soup_can.yml",
         # "python3 scripts/run_removal.py --load-config spam.yml"
         # "python3 scripts/run_reconfiguration.py --load-config sugar.yml",
-        "python3 scripts/run_reconfiguration.py --load-config orange.yml",
-        "python3 scripts/run_reconfiguration.py --load-config rubiks_cube.yml",
-        "python3 scripts/run_reconfiguration.py --load-config tomato_soup_can.yml",
+        # "python3 scripts/run_reconfiguration.py --load-config orange.yml",
+        # "python3 scripts/run_reconfiguration.py --load-config rubiks_cube.yml",
+        # "python3 scripts/run_reconfiguration.py --load-config spam.yml",
+        # "python3 scripts/run_reconfiguration.py --load-config banana.yml",
+        # "python3 scripts/run_reconfiguration.py --load-config tomato_soup_can.yml",
+        "python3 scripts/run_assembly.py --load-config assembly.yml",
     ]
 
     run_on_multiple_gpus(commands)

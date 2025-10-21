@@ -209,7 +209,7 @@ def reject_outliers_iqr(points, multiplier=1.5):
     # Return the filtered points (outliers removed)
     return points[mask, :]
 
-def match_arucos(config: NeoDataConfig):
+def match_arucos(config: NeoDataConfig, skip_after: bool = False) -> None:
     """Main function."""
     
     CONSOLE.print("[bold green]Matching Arucos[/bold green]")
@@ -220,75 +220,56 @@ def match_arucos(config: NeoDataConfig):
     arucos = {}
     best_scale = {}
 
-    # Load transformation
-    CONSOLE.print("Loading transformation files")
-    with open(output_path / "before" / 'raw_transforms.json', 'r') as file:
-        transform_dicts["before"] = json.load(file)
+    for stage in ["before", "after"]:
 
-    with open(output_path / "after" / 'raw_transforms.json', 'r') as file:
-        transform_dicts["after"] = json.load(file)
+        if stage == "after" and skip_after:
+            continue
 
-    # TODO for some reason reading from file is better? TO BE CONFIRMED
-    frames ={"before": [], "after": []}
-    for frame in transform_dicts["before"]["frames"]:
-        frames["before"].append(cv2.imread(str(output_path / "before" / frame["file_path"])))
-    for frame in transform_dicts["after"]["frames"]:
-        frames["after"].append(cv2.imread(str(output_path / "after" / frame["file_path"])))
+        # Load transformation
+        CONSOLE.print("Loading transformation files")
+        with open(output_path / stage / 'raw_transforms.json', 'r') as file:
+            transform_dicts[stage] = json.load(file)
 
-    # Detect Aruco markers
-    CONSOLE.print("Detecting arucos")
-    arucos["before"] = get_arucos(frames["before"], transform_dicts["before"], marker_length=MARKER_LENGTH)
-    arucos["after"] = get_arucos(frames["after"], transform_dicts["after"], marker_length=MARKER_LENGTH)
+        # TODO for some reason reading from file is better? TO BE CONFIRMED
+        frames = {stage: []}
+        for frame in transform_dicts[stage]["frames"]:
+            frames[stage].append(cv2.imread(str(output_path / stage / frame["file_path"])))
 
-    # Optimize for best scale
-    CONSOLE.print("Optimizing scale")
-    scale_min, scale_max = 0, 20
-    n_nieghbours = 50
+        # Detect Aruco markers
+        CONSOLE.print("Detecting arucos")
+        arucos[stage] = get_arucos(frames[stage], transform_dicts[stage], marker_length=MARKER_LENGTH)
 
-    aruco_dict = {}
-    for i in range(100):
-        aruco_dict[i] = []
+        # Optimize for best scale
+        CONSOLE.print("Optimizing scale")
+        scale_min, scale_max = 0, 20
+        n_neighbours = 50
 
-    for _, _, idx in arucos["before"]:
-        aruco_dict[idx].append(idx)
+        aruco_dict = {}
+        for i in range(100):
+            aruco_dict[i] = []
 
-    rand_0 = np.random.randint(0, len(aruco_dict[0]), size=(len(aruco_dict[0]), n_nieghbours))
-    rand_1 = np.random.randint(0, len(aruco_dict[1]), size=(len(aruco_dict[1]), n_nieghbours))
-    rand_2 = np.random.randint(0, len(aruco_dict[2]), size=(len(aruco_dict[2]), n_nieghbours))
-    rand_3 = np.random.randint(0, len(aruco_dict[3]), size=(len(aruco_dict[3]), n_nieghbours))
+        for _, _, idx in arucos[stage]:
+            aruco_dict[idx].append(idx)
 
-    rand_start = scale_min + np.random.rand(1) * (scale_max - scale_min)
-    best_scale["before"] = minimize(aruco_objective, rand_start, method='nelder-mead', options={'maxiter': 1000}, args=(arucos["before"], rand_0, rand_1, rand_2, rand_3))['x']
+        rand_0 = np.random.randint(0, len(aruco_dict[0]), size=(len(aruco_dict[0]), n_neighbours))
+        rand_1 = np.random.randint(0, len(aruco_dict[1]), size=(len(aruco_dict[1]), n_neighbours))
+        rand_2 = np.random.randint(0, len(aruco_dict[2]), size=(len(aruco_dict[2]), n_neighbours))
+        rand_3 = np.random.randint(0, len(aruco_dict[3]), size=(len(aruco_dict[3]), n_neighbours))
 
-    aruco_dict = {}
-    for i in range(100):
-        aruco_dict[i] = []
+        rand_start = scale_min + np.random.rand(1) * (scale_max - scale_min)
+        best_scale[stage] = minimize(aruco_objective, rand_start, method='nelder-mead', options={'maxiter': 1000}, args=(arucos[stage], rand_0, rand_1, rand_2, rand_3))['x']
 
-    for _, _, idx in arucos["after"]:
-        aruco_dict[idx].append(idx)
+        CONSOLE.print(f"Best scales {stage}: {best_scale[stage]}")
 
-    rand_0 = np.random.randint(0, len(aruco_dict[0]), size=(len(aruco_dict[0]), n_nieghbours))
-    rand_1 = np.random.randint(0, len(aruco_dict[1]), size=(len(aruco_dict[1]), n_nieghbours))
-    rand_2 = np.random.randint(0, len(aruco_dict[2]), size=(len(aruco_dict[2]), n_nieghbours))
-    rand_3 = np.random.randint(0, len(aruco_dict[3]), size=(len(aruco_dict[3]), n_nieghbours))
+        # Apply that scale to the transforms
+        CONSOLE.print("Applying scale")
+        apply_scale(arucos[stage], best_scale[stage], transform_dicts[stage])
 
-    rand_start = scale_min + np.random.rand(1) * (scale_max - scale_min)
-    best_scale["after"] = minimize(aruco_objective, rand_start, method='nelder-mead', options={'maxiter': 1000}, args=(arucos["after"], rand_0, rand_1, rand_2, rand_3))['x']
+        # Save the updated transforms file
+        with open(output_path / stage / 'transforms.json', 'w') as file:
+            json.dump(transform_dicts[stage], file, indent=4)
 
-    CONSOLE.print(f"Best scales before: {best_scale['before']}, after {best_scale['after']}")
-
-    # Apply that scale to the transforms
-    CONSOLE.print("Applying scale")
-    apply_scale(arucos["before"], best_scale["before"], transform_dicts["before"])
-    apply_scale(arucos["after"], best_scale["after"], transform_dicts["after"])
-
-    # Save the updated transforms file
-    with open(output_path / "before" / 'transforms.json', 'w') as file:
-        json.dump(transform_dicts["before"], file, indent=4)
-    with open(output_path / "after" / 'transforms.json', 'w') as file:
-        json.dump(transform_dicts["after"], file, indent=4)
-
-    CONSOLE.print("[bold green]Arucos matched succesfully![/bold green]")
+        CONSOLE.print("[bold green]Arucos matched succesfully![/bold green]")
 
 def entrypoint():
     """Entrypoint for use with pyproject scripts."""

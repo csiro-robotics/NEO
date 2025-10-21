@@ -11,9 +11,11 @@
 /outputs
 /renders
 /eval
+/eval copy
 /exports
 /experiments
+/figures
 
-# Pytohn
+# Python
 __pycache__
 *.egg-info
