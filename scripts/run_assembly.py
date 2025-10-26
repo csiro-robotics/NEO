@@ -18,10 +18,11 @@ from data_preparation.match_arucos import match_arucos
 from data_preparation.extract_arm_movement import extract_arm_movement
 from data_preparation.train_lerf import train_lerf
 from data_preparation.prepare_gt import prepare_gt
-from data_preparation.prepare_nerfiller import prepare_nerfiller
+from data_preparation.prepare_subassembly import prepare_subassembly
 
 from editing.generate_bbox import generate_bbox
 from editing.edit import edit
+from editing.loopback import loopback
 
 from evaluation.train_nerfiller import train_nerfiller
 from evaluation.train_nerfiller_no_depth import train_nerfiller_no_depth
@@ -57,12 +58,14 @@ class TrainingElements():
 
     _execute_all: bool = True
     """Execute all training elements"""
+    prepare_subassembly: bool = True
+    """Prepare subassembly"""
     generate_bbox: bool = True
     """Generate BBoxes"""
     train_neo: bool = True
     """Train Neo"""
-    train_neo_big: bool = True
-    """Train Neo Big"""
+    loopback_neo: bool = True
+    """Loopback Neo"""
 
 @dataclass
 class EvaluationElements():
@@ -105,7 +108,7 @@ class ExperimentConfig(NeoDataConfig, InstantiateConfig):
     """Pipeline elements to run"""
     lerf_prompts: Optional[List[str]] = field(default_factory=lambda: ["What is the object in the scene?"])
     """Prompt for LERF-TOGO"""
-    lerf_pormpt: Optional[str] = None
+    lerf_prompt: Optional[str] = None
     """Prompt for LERF-TOGO"""
     object_names: Optional[List[str]] = field(default_factory=lambda: ["object"])
     """Names of the objects in the scene"""
@@ -113,6 +116,7 @@ class ExperimentConfig(NeoDataConfig, InstantiateConfig):
     """Name of the object in the scene"""
     steps_to_run: Optional[List[int]] = None
     """Steps to run in the experiment"""
+    neo_model_type: str = "neo"
 
     def save_config(self) -> None:
         """Save config to base directory"""
@@ -155,7 +159,7 @@ class Experiment():
             extracting_arm_movement = {"name": "Extract Arm Movement", "active": elements.extract_arm_movement, "idx": 6, "func": extract_arm_movement}
             ready_datasets = {"name": "Ready Datasets", "active": True, "idx": 7, "func": dummy_fnc}
             training_lerf = {"name": "Training LERF", "active": elements.train_lerf, "idx": 8, "func": train_lerf, "kwargs": {"camera_optimizer": "off"}}
-            preparing_gt = {"name": "Preparing GT", "active": elements.prepare_gt, "idx": 9, "func": prepare_gt, "kwargs": {"model_type": "neo-big"}}
+            preparing_gt = {"name": "Preparing GT", "active": elements.prepare_gt, "idx": 9, "func": prepare_gt, "kwargs": {"model_type": f"{self.config.neo_model_type}"}}
             
             pipeline_elements = [[process_bags, "→", colmap_1, "→", selecting_frames, "→", colmap_2, "→", matching_arucos, "→", ready_datasets, "→", training_lerf],
                                 [None, "", None, "", None, "", None, "↘", extracting_arm_movement, "↗", None, "↘", preparing_gt]]
@@ -164,20 +168,22 @@ class Experiment():
 
         for step in self.config.steps_to_run:
             self.config.object_name = self.config.object_names[step]
-            self.lerf_prompt = self.config.lerf_prompts[step]
+            self.config.lerf_prompt = self.config.lerf_prompts[step]
 
-            # # Training editing networks
-            # if self.config.pipeline_elements.training._execute_all:
-            #     elements = self.config.pipeline_elements.training
+            # Training editing networks
+            if self.config.pipeline_elements.training._execute_all:
+                elements = self.config.pipeline_elements.training
 
-            #     generating_bbox = {"name": "Generate BBox", "active": elements.generate_bbox, "idx": 1, "func": generate_bbox}
-            #     train_neo = {"name": "Editing Neo", "active": elements.train_neo, "idx": 2, "func": edit, "kwargs": {"model_type": "neo"}}
-            #     train_neo_big = {"name": "Editing Neo-Big", "active": elements.train_neo_big, "idx": 3, "func": edit, "kwargs": {"model_type": "neo-big"}}
-                
-            #     pipeline_elements = [[generating_bbox, "→", train_neo],
-            #                         [None, "↘", train_neo_big]]
-                
-            #     self._execute_pipeline(pipeline_elements)
+                preparing_subassembly = {"name": "Prepare Subassembly", "active": elements.prepare_subassembly, "idx": 1, "func": prepare_subassembly, "kwargs": {"first_step": step==0, "previous_object_name": self.config.object_names[step-1] if step>0 else None}}
+                generating_bbox = {"name": "Generate BBox", "active": elements.generate_bbox, "idx": 2, "func": generate_bbox}
+                train_neo = {"name": "Editing Neo", "active": elements.train_neo, "idx": 3, "func": edit, "kwargs": {"model_type": f"{self.config.neo_model_type}"}}
+                loopback_neo = {"name": "Looping Neo", "active": elements.loopback_neo, "idx": 4, "func": loopback, "kwargs": {"model_type": f"{self.config.neo_model_type}"}}
+                edited_object = {"name": self.config.lerf_prompt, "active": False, "idx": 5, "func": dummy_fnc}
+
+                pipeline_elements = [[preparing_subassembly, "→", generating_bbox, "→", train_neo, "→", loopback_neo],
+                                    [edited_object, "", None, "", None, "", None]]
+
+                self._execute_pipeline(pipeline_elements)
 
             # # Evaluation
             # if self.config.pipeline_elements.evaluation._execute_all:

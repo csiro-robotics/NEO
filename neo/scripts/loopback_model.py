@@ -132,11 +132,18 @@ class LoopbackLERF(BaseLoopback):
         shutil.rmtree(lerf_lite_lan_output_path.parent)
 
         # Convert to Neo
-        convert_command = [
-            f"ns-convert to-neo",
-            f"--load_config {output_path + '/config.yml'}",
-        ]
-        convert_command = " ".join(convert_command)
+        if "neo-big" in str(self.load_config):
+            convert_command = [
+                f"ns-convert to-neo-big",
+                f"--load_config {output_path + '/config.yml'}",
+            ]
+            convert_command = " ".join(convert_command)
+        else:
+            convert_command = [
+                f"ns-convert to-neo",
+                f"--load_config {output_path + '/config.yml'}",
+            ]
+            convert_command = " ".join(convert_command)
 
         run_command(convert_command, verbose=self.verbose)
 
