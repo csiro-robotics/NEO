@@ -54,12 +54,11 @@ class LoopbackLERF(BaseLoopback):
 
         run_command(convert_command, verbose=self.verbose)
 
+        model_type = "neo-big" if "neo-big" in str(self.load_config) else "neo"
+
         # Load config to get data path
         neo_config = yaml.load(Path(str(self.load_config)).read_text(), Loader=yaml.Loader)
-        if "neo-big" in str(self.load_config):
-            nerfacto_path = Path(str(self.load_config.parent).replace("neo-big", "nerfacto"))
-        else:
-            nerfacto_path = Path(str(self.load_config.parent).replace("neo", "nerfacto"))
+        nerfacto_path = Path(str(self.load_config.parent).replace(model_type, "nerfacto"))
         render_path = nerfacto_path / "cache"
         os.makedirs(render_path, exist_ok=True)
         shutil.copy(neo_config.data / "transforms.json", render_path / "transforms.json")
@@ -94,6 +93,7 @@ class LoopbackLERF(BaseLoopback):
             f"--timestamp {neo_config.timestamp}",
             "--max-num-iterations 3000",
             f"--pipeline.model.camera-optimizer.mode {neo_config.pipeline.model.camera_optimizer.mode}",
+            f"--pipeline.model_type {model_type}",
             "--viewer.quit-on-train-completion True",
             "nerfstudio-data",
             f"--orientation-method {neo_config.pipeline.datamanager.dataparser.orientation_method}",

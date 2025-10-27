@@ -112,7 +112,7 @@ def prepare_subassembly(config: NeoDataConfig, first_step: bool = False, previou
         shutil.copytree(edited_images_dir / "depth", base_dir / "before" / "depth", dirs_exist_ok=True)
         
         # Prepare LERF-Lite
-        new_timestamp = [d.name for d in (lerf_lite_dir / f"{previous_object_name}/before/lerf-lite").iterdir() if d.is_dir() and d.name is not config.timestamp][0]
+        new_timestamp = [d.name for d in (lerf_lite_dir / f"{previous_object_name}/before/lerf-lite").iterdir() if d.is_dir() and d.name != config.timestamp][0]
         shutil.copytree(lerf_lite_dir / f"{previous_object_name}/before/lerf-lite/{new_timestamp}", lerf_lite_dir / f"{config.object_name}/before/lerf-lite/{new_timestamp}", dirs_exist_ok=True)
 
         config_lerf_lite, _, _, _ = eval_setup(lerf_lite_dir / f"{config.object_name}/before/lerf-lite/{new_timestamp}/config.yml", eval_num_rays_per_chunk=None, test_mode='test')
@@ -122,10 +122,10 @@ def prepare_subassembly(config: NeoDataConfig, first_step: bool = False, previou
         config_lerf_lite.pipeline.output_path = new_output_path
         config_lerf_lite.pipeline.model.output_folder = new_output_path
         config_lerf_lite.timestamp = config.timestamp
-        config_lerf_lite.data = Path(str(config_lerf_lite.data).replace(previous_object_name, config.object_name))
-        config_lerf_lite.pipeline.datamanager.data = Path(str(config_lerf_lite.pipeline.datamanager.data).replace(previous_object_name, config.object_name))
-        config_lerf_lite.pipeline.datamanager.dataparser.data = Path(str(config_lerf_lite.pipeline.datamanager.dataparser.data).replace(previous_object_name, config.object_name))
-        config_lerf_lite.load_dir = Path(str(config_lerf_lite.load_dir).replace(previous_object_name, config.object_name).replace(new_timestamp, config.timestamp))
+        config_lerf_lite.data = base_dir / "before"
+        config_lerf_lite.pipeline.datamanager.data = base_dir / "before"
+        config_lerf_lite.pipeline.datamanager.dataparser.data = base_dir / "before"
+        config_lerf_lite.load_dir = Path(str(config_lerf_lite.load_dir).replace(previous_object_name, config.object_name).replace(new_timestamp, config.timestamp).replace("nerfacto", "lerf-lite"))
 
         shutil.copytree(str(lerf_lite_dir / f"{config.object_name}/before/lerf-lite/{new_timestamp}"), str(lerf_lite_dir / f"{config.object_name}/before/lerf-lite/{config.timestamp}"), dirs_exist_ok=True)
         config_lerf_lite.save_config()
