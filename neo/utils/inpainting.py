@@ -272,8 +272,8 @@ class Inpainter(nn.Module):
             image_names = np.array(all_image_names).reshape(len(all_image_names) // 4, -1)
             img_old_size = (int(image_grids.shape[2] * downscale_factor), int(image_grids.shape[1] * downscale_factor))
 
-            for i in range(int(len(image_grids) / self.config.inpaint_batch_size)):
-                image_range = slice(i * self.config.inpaint_batch_size, (i + 1) * self.config.inpaint_batch_size)
+            for batch_start in range(0, len(image_grids), self.config.inpaint_batch_size):
+                image_range = slice(batch_start, batch_start + self.config.inpaint_batch_size)
 
                 images_list = []
                 masks_list = []

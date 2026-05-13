@@ -704,6 +704,14 @@ def _reprojection_metrics_path(config: ExperimentConfig) -> Path:
             return candidate
     return candidates[0]
 
+def _metrics_summary_markdown(headers: list[str], rows: list[list[str]]) -> str:
+    lines = [
+        "| " + " | ".join(headers) + " |",
+        "| " + " | ".join(["---"] * len(headers)) + " |",
+    ]
+    lines.extend("| " + " | ".join(row) + " |" for row in rows)
+    return "\n".join(lines) + "\n"
+
 def print_metrics_summary_table(config: ExperimentConfig) -> None:
     """Print a compact summary of all evaluation metrics written by this run."""
     image_metrics_path = _eval_output_dir(config) / f"image_metrics_{config.eval_render_name}.json"
@@ -729,13 +737,26 @@ def print_metrics_summary_table(config: ExperimentConfig) -> None:
     table.add_column("Reproj Mean", justify="right")
     table.add_column("Reproj Median", justify="right")
 
+    headers = [
+        "Region",
+        "Frames/Pixels",
+        "PSNR",
+        "SSIM",
+        "LPIPS",
+        "Depth RMSE",
+        "Depth MAE",
+        "Reproj Mean",
+        "Reproj Median",
+    ]
+    rows = []
+
     for region in ("all", "out", "in"):
         image_region = _region_metrics(image_metrics, region)
         depth_region = _region_metrics(depth_metrics, region)
         reprojection_region = _reprojection_region_metrics(reprojection_metrics, region)
         count = image_region.get("frames") or depth_region.get("pixels") or reprojection_region.get("pixels")
 
-        table.add_row(
+        row = [
             region,
             str(count) if count is not None else "N/A",
             _fmt_metric(image_region.get("psnr")),
@@ -745,9 +766,15 @@ def print_metrics_summary_table(config: ExperimentConfig) -> None:
             _fmt_metric(depth_region.get("mae")),
             _fmt_metric(reprojection_region.get("mean_error")),
             _fmt_metric(reprojection_region.get("median_error")),
-        )
+        ]
+        rows.append(row)
+        table.add_row(*row)
 
     CONSOLE.print(table)
+    summary_output_path = _eval_output_dir(config) / f"metrics_summary_{config.eval_render_name}.md"
+    summary_output_path.parent.mkdir(parents=True, exist_ok=True)
+    summary_output_path.write_text(_metrics_summary_markdown(headers, rows), encoding="utf8")
+    CONSOLE.log(f"Saved metrics summary table to {summary_output_path}")
 
 class Experiment():
     def __init__(self, config: ExperimentConfig):

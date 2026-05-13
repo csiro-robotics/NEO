@@ -6,6 +6,7 @@ version = "0.0.1"
 dependencies=[
     "bagpy",
     "scipy",
+    "rich",
     "tqdm",
     "nerfstudio>=1.0.0",
     "pyrealsense2",
