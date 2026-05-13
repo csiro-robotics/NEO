@@ -334,6 +334,9 @@ class ReplaceNeRFModel(NerfactoModel):
         self.frozen = False
 
     def get_outputs(self, ray_bundle: RayBundle, camera_idx: Optional[int] = None):
+        if ray_bundle.camera_indices is not None:
+            ray_bundle.camera_indices = torch.clamp(ray_bundle.camera_indices, 0, self.num_images - 1)
+
         # apply the camera optimizer pose tweaks
         if self.training:
             self.camera_optimizer.apply_to_raybundle(ray_bundle)

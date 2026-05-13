@@ -231,7 +231,11 @@ class Inpainter(nn.Module):
                     image_names.append(images_group[j + (render_bath_size * i)][0])
 
                     if not initial_inpaint:
-                        hq_images.append(cv2.imread(renders_output_path / images_group[j + (render_bath_size * i)][0]))
+                        render_path = renders_output_path / images_group[j + (render_bath_size * i)][0]
+                        hq_image = cv2.imread(str(render_path))
+                        if hq_image is None:
+                            raise FileNotFoundError(f"Missing cached render for inpainting: {render_path}")
+                        hq_images.append(hq_image)
 
                 images = render_preview_image(model, cameras, torch.tensor(idx_list), output_name=rendering_output_name)
 
