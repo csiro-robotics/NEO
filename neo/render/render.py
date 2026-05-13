@@ -256,7 +256,7 @@ def _render_trajectory_video(
                                 depth = depth[..., 0]
                             # Convert meters to millimeters and clip to uint16 range
                             depth_mm = np.clip(depth * 1000.0, 0, np.iinfo(np.uint16).max).astype(np.uint16)
-                            cv2.imwrite(output_image_dir / rendered_output_name / f"{image_names[camera_idx]}.png", depth_mm)
+                            cv2.imwrite(str(output_image_dir / rendered_output_name / f"{image_names[camera_idx]}.png"), depth_mm)
                         elif image_format == "png":
                             media.write_image(output_image_dir / rendered_output_name / f"{image_names[camera_idx]}.png", render_image[idx], fmt="png")
                         elif image_format == "jpeg":
@@ -311,6 +311,12 @@ def transforms_to_camerapath(
         transforms["fl_y"] = frames[0]["fl_y"]
         transforms["cx"] = frames[0]["cx"]
         transforms["cy"] = frames[0]["cy"]
+        transforms["k1"] = frames[0].get("k1", None)
+        transforms["k2"] = frames[0].get("k2", None)
+        transforms["p1"] = frames[0].get("p1", None)
+        transforms["p2"] = frames[0].get("p2", None)
+        transforms["k3"] = frames[0].get("k3", None)
+        transforms["k4"] = frames[0].get("k4", None)
 
     fov_x = np.rad2deg(2 * np.arctan(transforms["h"] / (2 * transforms["fl_y"])))
     aspect = transforms["w"] / transforms["h"]
@@ -329,7 +335,16 @@ def transforms_to_camerapath(
         keyframes.append(keyframe)        
 
     camerapath_file["keyframes"] = keyframes
-    camerapath_file["camera_type"] = "perspective"
+
+    # Determine camera type based on camera model in transforms or default to perspective
+    camera_model = transforms.get("camera_model", "OPENCV")
+    if camera_model == "OPENCV_FISHEYE" or camera_model == "FISHEYE":
+        camerapath_file["camera_type"] = "fisheye"
+    elif camera_model == "EQUIRECTANGULAR":
+        camerapath_file["camera_type"] = "equirectangular"
+    else:
+        camerapath_file["camera_type"] = "perspective"
+
     camerapath_file["render_height"] = transforms["h"]
     camerapath_file["render_width"] = transforms["w"]
     camerapath_file["cx"] = transforms["cx"]
@@ -341,6 +356,13 @@ def transforms_to_camerapath(
     camerapath_file["is_cycle"] = False
     camerapath_file["smoothness_value"] = 0.0
 
+    # List of distortion parameters to check
+    dist_keys = ["k1", "k2", "p1", "p2", "k3", "k4"]
+    # Add global distortion parameters to the file dict if they exist
+    for k in dist_keys:
+        if transforms.get(k) is not None:
+            camerapath_file[k] = transforms[k]
+
     camera_path = []
     image_names = []
     for frame in transforms["frames"]:
@@ -348,8 +370,20 @@ def transforms_to_camerapath(
                   "fov": fov_x,
                   "aspect": aspect}
         
+        # Add frame specific distortion parameters if they exist, otherwise callback to global
+        for k in dist_keys:
+            val = frame.get(k, transforms.get(k, None))
+            if val is not None:
+                camera[k] = val
+        
+        image_name = frame["file_path"].split('/')[-1].split('.')[0]
+        try:
+            camera["camera_index"] = int(image_name.split('_')[-1])
+        except:
+            pass
+
         camera_path.append(camera)
-        image_names.append(frame["file_path"].split('/')[-1].split('.')[0])
+        image_names.append(image_name)
 
     camerapath_file["camera_path"] = camera_path
     
@@ -425,84 +459,84 @@ class RenderFromTransforms(RenderCameraPath):
             check_occlusions=self.check_occlusions,
         )
 
-        if (
-            camera_path.camera_type[0] == CameraType.OMNIDIRECTIONALSTEREO_L.value
-            or camera_path.camera_type[0] == CameraType.VR180_L.value
-        ):
-            # declare paths for left and right renders
+        # if (
+        #     camera_path.camera_type[0] == CameraType.OMNIDIRECTIONALSTEREO_L.value
+        #     or camera_path.camera_type[0] == CameraType.VR180_L.value
+        # ):
+        #     # declare paths for left and right renders
 
-            left_eye_path = self.output_path
-            right_eye_path = left_eye_path.parent / "render_right.mp4"
+        #     left_eye_path = self.output_path
+        #     right_eye_path = left_eye_path.parent / "render_right.mp4"
 
-            self.output_path = right_eye_path
+        #     self.output_path = right_eye_path
 
-            if camera_path.camera_type[0] == CameraType.OMNIDIRECTIONALSTEREO_L.value:
-                camera_path.camera_type[0] = CameraType.OMNIDIRECTIONALSTEREO_R.value
-            else:
-                camera_path.camera_type[0] = CameraType.VR180_R.value
+        #     if camera_path.camera_type[0] == CameraType.OMNIDIRECTIONALSTEREO_L.value:
+        #         camera_path.camera_type[0] = CameraType.OMNIDIRECTIONALSTEREO_R.value
+        #     else:
+        #         camera_path.camera_type[0] = CameraType.VR180_R.value
 
-            CONSOLE.print("Rendering right eye view")
-            _render_trajectory_video(
-                pipeline,
-                camera_path,
-                output_filename=self.output_path,
-                rendered_output_names=self.rendered_output_names,
-                rendered_resolution_scaling_factor=1.0 / self.downscale_factor,
-                crop_data=crop_data,
-                seconds=seconds,
-                output_format=self.output_format,
-                image_format=self.image_format,
-                jpeg_quality=self.jpeg_quality,
-                depth_near_plane=self.depth_near_plane,
-                depth_far_plane=self.depth_far_plane,
-                colormap_options=self.colormap_options,
-                render_nearest_camera=self.render_nearest_camera,
-                check_occlusions=self.check_occlusions,
-            )
+        #     CONSOLE.print("Rendering right eye view")
+        #     _render_trajectory_video(
+        #         pipeline,
+        #         camera_path,
+        #         output_filename=self.output_path,
+        #         rendered_output_names=self.rendered_output_names,
+        #         rendered_resolution_scaling_factor=1.0 / self.downscale_factor,
+        #         crop_data=crop_data,
+        #         seconds=seconds,
+        #         output_format=self.output_format,
+        #         image_format=self.image_format,
+        #         jpeg_quality=self.jpeg_quality,
+        #         depth_near_plane=self.depth_near_plane,
+        #         depth_far_plane=self.depth_far_plane,
+        #         colormap_options=self.colormap_options,
+        #         render_nearest_camera=self.render_nearest_camera,
+        #         check_occlusions=self.check_occlusions,
+        #     )
 
-            self.output_path = Path(str(left_eye_path.parent)[:-5] + ".mp4")
+        #     self.output_path = Path(str(left_eye_path.parent)[:-5] + ".mp4")
 
-            if camera_path.camera_type[0] == CameraType.OMNIDIRECTIONALSTEREO_R.value:
-                # stack the left and right eye renders vertically for ODS final output
-                ffmpeg_ods_command = ""
-                if self.output_format == "video":
-                    ffmpeg_ods_command = f'ffmpeg -y -i "{left_eye_path}" -i "{right_eye_path}" -filter_complex "[0:v]pad=iw:2*ih[int];[int][1:v]overlay=0:h" -c:v libx264 -crf 23 -preset veryfast "{self.output_path}"'
-                    run_command(ffmpeg_ods_command, verbose=False)
-                if self.output_format == "images":
-                    # create a folder for the stacked renders
-                    self.output_path = Path(str(left_eye_path.parent)[:-5])
-                    self.output_path.mkdir(parents=True, exist_ok=True)
-                    if self.image_format == "png":
-                        ffmpeg_ods_command = f'ffmpeg -y -pattern_type glob -i "{str(left_eye_path.with_suffix("") / "*.png")}"  -pattern_type glob -i "{str(right_eye_path.with_suffix("") / "*.png")}" -filter_complex vstack -start_number 0 "{str(self.output_path)+"//%05d.png"}"'
-                    elif self.image_format == "jpeg":
-                        ffmpeg_ods_command = f'ffmpeg -y -pattern_type glob -i "{str(left_eye_path.with_suffix("") / "*.jpg")}"  -pattern_type glob -i "{str(right_eye_path.with_suffix("") / "*.jpg")}" -filter_complex vstack -start_number 0 "{str(self.output_path)+"//%05d.jpg"}"'
-                    run_command(ffmpeg_ods_command, verbose=False)
+        #     if camera_path.camera_type[0] == CameraType.OMNIDIRECTIONALSTEREO_R.value:
+        #         # stack the left and right eye renders vertically for ODS final output
+        #         ffmpeg_ods_command = ""
+        #         if self.output_format == "video":
+        #             ffmpeg_ods_command = f'ffmpeg -y -i "{left_eye_path}" -i "{right_eye_path}" -filter_complex "[0:v]pad=iw:2*ih[int];[int][1:v]overlay=0:h" -c:v libx264 -crf 23 -preset veryfast "{self.output_path}"'
+        #             run_command(ffmpeg_ods_command, verbose=False)
+        #         if self.output_format == "images":
+        #             # create a folder for the stacked renders
+        #             self.output_path = Path(str(left_eye_path.parent)[:-5])
+        #             self.output_path.mkdir(parents=True, exist_ok=True)
+        #             if self.image_format == "png":
+        #                 ffmpeg_ods_command = f'ffmpeg -y -pattern_type glob -i "{str(left_eye_path.with_suffix("") / "*.png")}"  -pattern_type glob -i "{str(right_eye_path.with_suffix("") / "*.png")}" -filter_complex vstack -start_number 0 "{str(self.output_path)+"//%05d.png"}"'
+        #             elif self.image_format == "jpeg":
+        #                 ffmpeg_ods_command = f'ffmpeg -y -pattern_type glob -i "{str(left_eye_path.with_suffix("") / "*.jpg")}"  -pattern_type glob -i "{str(right_eye_path.with_suffix("") / "*.jpg")}" -filter_complex vstack -start_number 0 "{str(self.output_path)+"//%05d.jpg"}"'
+        #             run_command(ffmpeg_ods_command, verbose=False)
 
-                # remove the temp files directory
-                if str(left_eye_path.parent)[-5:] == "_temp":
-                    shutil.rmtree(left_eye_path.parent, ignore_errors=True)
-                CONSOLE.print("[bold green]Final ODS Render Complete")
-            else:
-                # stack the left and right eye renders horizontally for VR180 final output
-                self.output_path = Path(str(left_eye_path.parent)[:-5] + ".mp4")
-                ffmpeg_vr180_command = ""
-                if self.output_format == "video":
-                    ffmpeg_vr180_command = f'ffmpeg -y -i "{right_eye_path}" -i "{left_eye_path}" -filter_complex "[1:v]hstack=inputs=2" -c:a copy "{self.output_path}"'
-                    run_command(ffmpeg_vr180_command, verbose=False)
-                if self.output_format == "images":
-                    # create a folder for the stacked renders
-                    self.output_path = Path(str(left_eye_path.parent)[:-5])
-                    self.output_path.mkdir(parents=True, exist_ok=True)
-                    if self.image_format == "png":
-                        ffmpeg_vr180_command = f'ffmpeg -y -pattern_type glob -i "{str(left_eye_path.with_suffix("") / "*.png")}"  -pattern_type glob -i "{str(right_eye_path.with_suffix("") / "*.png")}" -filter_complex hstack -start_number 0 "{str(self.output_path)+"//%05d.png"}"'
-                    elif self.image_format == "jpeg":
-                        ffmpeg_vr180_command = f'ffmpeg -y -pattern_type glob -i "{str(left_eye_path.with_suffix("") / "*.jpg")}"  -pattern_type glob -i "{str(right_eye_path.with_suffix("") / "*.jpg")}" -filter_complex hstack -start_number 0 "{str(self.output_path)+"//%05d.jpg"}"'
-                    run_command(ffmpeg_vr180_command, verbose=False)
+        #         # remove the temp files directory
+        #         if str(left_eye_path.parent)[-5:] == "_temp":
+        #             shutil.rmtree(left_eye_path.parent, ignore_errors=True)
+        #         CONSOLE.print("[bold green]Final ODS Render Complete")
+        #     else:
+        #         # stack the left and right eye renders horizontally for VR180 final output
+        #         self.output_path = Path(str(left_eye_path.parent)[:-5] + ".mp4")
+        #         ffmpeg_vr180_command = ""
+        #         if self.output_format == "video":
+        #             ffmpeg_vr180_command = f'ffmpeg -y -i "{right_eye_path}" -i "{left_eye_path}" -filter_complex "[1:v]hstack=inputs=2" -c:a copy "{self.output_path}"'
+        #             run_command(ffmpeg_vr180_command, verbose=False)
+        #         if self.output_format == "images":
+        #             # create a folder for the stacked renders
+        #             self.output_path = Path(str(left_eye_path.parent)[:-5])
+        #             self.output_path.mkdir(parents=True, exist_ok=True)
+        #             if self.image_format == "png":
+        #                 ffmpeg_vr180_command = f'ffmpeg -y -pattern_type glob -i "{str(left_eye_path.with_suffix("") / "*.png")}"  -pattern_type glob -i "{str(right_eye_path.with_suffix("") / "*.png")}" -filter_complex hstack -start_number 0 "{str(self.output_path)+"//%05d.png"}"'
+        #             elif self.image_format == "jpeg":
+        #                 ffmpeg_vr180_command = f'ffmpeg -y -pattern_type glob -i "{str(left_eye_path.with_suffix("") / "*.jpg")}"  -pattern_type glob -i "{str(right_eye_path.with_suffix("") / "*.jpg")}" -filter_complex hstack -start_number 0 "{str(self.output_path)+"//%05d.jpg"}"'
+        #             run_command(ffmpeg_vr180_command, verbose=False)
 
-                # remove the temp files directory
-                if str(left_eye_path.parent)[-5:] == "_temp":
-                    shutil.rmtree(left_eye_path.parent, ignore_errors=True)
-                CONSOLE.print("[bold green]Final VR180 Render Complete")
+        #         # remove the temp files directory
+        #         if str(left_eye_path.parent)[-5:] == "_temp":
+        #             shutil.rmtree(left_eye_path.parent, ignore_errors=True)
+        #         CONSOLE.print("[bold green]Final VR180 Render Complete")
 
 
 @dataclass

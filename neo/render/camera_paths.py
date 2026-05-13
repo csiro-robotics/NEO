@@ -38,10 +38,25 @@ def get_path_from_json(camera_path: Dict[str, Any]) -> Cameras:
     c2ws = []
     fxs = []
     fys = []
+    distortion_params = []
+    camera_indices = []
     for camera in camera_path["camera_path"]:
         # pose
         c2w = torch.tensor(camera["camera_to_world"]).view(4, 4)[:3]
         c2ws.append(c2w)
+
+        # distortion
+        k1 = camera.get("k1", camera_path.get("k1", 0.0))
+        k2 = camera.get("k2", camera_path.get("k2", 0.0))
+        p1 = camera.get("p1", camera_path.get("p1", 0.0))
+        p2 = camera.get("p2", camera_path.get("p2", 0.0))
+        k3 = camera.get("k3", camera_path.get("k3", 0.0))
+        k4 = camera.get("k4", camera_path.get("k4", 0.0))
+        distortion_params.append([k1, k2, p1, p2, k3, k4])
+        
+        if "camera_index" in camera:
+            camera_indices.append(camera["camera_index"])
+
         if camera_type in [
             CameraType.EQUIRECTANGULAR,
             CameraType.OMNIDIRECTIONALSTEREO_L,
@@ -89,16 +104,24 @@ def get_path_from_json(camera_path: Dict[str, Any]) -> Cameras:
     fy = torch.tensor(fys)
     cx = torch.tensor(cx)
     cy = torch.tensor(cy)
+    distortion_params = torch.tensor(distortion_params)
+
+    metadata = {}
+    if len(camera_indices) > 0:
+        metadata["cam_idx"] = torch.tensor(camera_indices, dtype=torch.long).unsqueeze(-1)
+
     return Cameras(
         fx=fx,
         fy=fy,
         cx=cx,
         cy=cy,
+        distortion_params=distortion_params,
         width=image_width,
         height=image_height,
         camera_to_worlds=camera_to_worlds,
         camera_type=camera_type,
         times=times,
+        metadata=metadata,
     )
 
 

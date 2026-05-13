@@ -38,7 +38,7 @@ def depth_to_distance(depth: torch.Tensor, fov_x: float = None, fov_y: float = N
     return distance
 
 
-def distance_to_depth(distance: torch.Tensor, fov_x: float, fov_y: float, fl_x: float = None, fl_y: float = None) -> torch.Tensor:
+def distance_to_depth(distance: torch.Tensor, fov_x: float = None, fov_y: float = None, fl_x: float = None, fl_y: float = None) -> torch.Tensor:
     device = distance.device
     batch_size, _, height, width = distance.shape
 
@@ -74,7 +74,7 @@ def get_pred_target(metric: ImageMetricModule,
     if metric.name in ["PSNR", "SSIM", "LPIPS", "Corrs"]:
         return pred[0], target[0]
     
-    elif metric.name in ["MAE"]:
+    elif metric.name in ["MAE", "RMSE"]:
         return pred[1], target[1]
 
 

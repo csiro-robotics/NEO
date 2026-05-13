@@ -102,17 +102,59 @@ class MAEModule(ImageMetricModule):
         target_reshaped = target.view(bs, hw)
         num = torch.abs(preds_reshaped - target_reshaped)
 
+        # Ignore invalid depth sensor readings of 0
+        valid_mask = target_reshaped != 0
+
         # the non-masked version
         if mask is None:
+            num = num * valid_mask
             den = torch.count_nonzero(target_reshaped, dim=-1)
 
         else:
             mask_reshaped = mask.view(bs, hw)
-            num = num * mask_reshaped
+            num = num * mask_reshaped * valid_mask
             den =  torch.count_nonzero(target_reshaped * mask_reshaped, dim=-1)
         mae = num.sum(-1) / (den + 1e-9)
 
         return mae
+
+
+class RMSEModule(ImageMetricModule):
+    """Computes RMSE with masking capabilities."""
+
+    def __init__(self):
+        super().__init__("RMSE")
+
+    def forward(
+        self,
+        preds: TensorType["bs", 3, "H", "W"],
+        target: TensorType["bs", 3, "H", "W"],
+        mask: Optional[TensorType["bs", 1, "H", "W"]] = None,
+    ) -> TensorType["bs"]:
+        bs, h, w = preds.shape[0], preds.shape[1], preds.shape[2]
+        hw = h * w
+
+        preds_reshaped = preds.view(bs, hw)
+        target_reshaped = target.view(bs, hw)
+        
+        sq_diff = (preds_reshaped - target_reshaped) ** 2
+
+        # Ignore invalid depth sensor readings of 0
+        valid_mask = target_reshaped != 0
+
+        # the non-masked version
+        if mask is None:
+            sq_diff = sq_diff * valid_mask
+            den = torch.count_nonzero(target_reshaped, dim=-1)
+        else:
+            mask_reshaped = mask.view(bs, hw)
+            sq_diff = sq_diff * mask_reshaped * valid_mask
+            den = torch.count_nonzero(target_reshaped * mask_reshaped, dim=-1)
+            
+        mse = sq_diff.sum(-1) / (den + 1e-9)
+        rmse = torch.sqrt(mse)
+
+        return rmse
 
 
 class SSIMModule(ImageMetricModule):

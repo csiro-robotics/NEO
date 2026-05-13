@@ -333,14 +333,14 @@ class ReplaceNeRFModel(NerfactoModel):
         self.step = 0
         self.frozen = False
 
-    def get_outputs(self, ray_bundle: RayBundle):
+    def get_outputs(self, ray_bundle: RayBundle, camera_idx: Optional[int] = None):
         # apply the camera optimizer pose tweaks
         if self.training:
             self.camera_optimizer.apply_to_raybundle(ray_bundle)
         ray_samples: RaySamples
         ray_samples, weights_list, ray_samples_list = self.proposal_sampler(ray_bundle, density_fns=self.density_fns)
 
-        field_outputs = self.field.forward(ray_samples, compute_normals=self.config.predict_normals)
+        field_outputs = self.field.forward(ray_samples, compute_normals=self.config.predict_normals, camera_idx=camera_idx)
         if self.config.use_gradient_scaling:
             field_outputs = scale_gradients_by_distance_squared(field_outputs, ray_samples)
 
@@ -348,8 +348,8 @@ class ReplaceNeRFModel(NerfactoModel):
             offset = (0.02, 0.02, 0.2)
             dual_samples_copy, _, _ = self.dual_proposal_sampler(ray_bundle, density_fns=self.density_fns_copy, replace_density_fns=self.replace_density_fns, bboxes=self.bboxes, offset_size=offset)
 
-            field_copy_outputs = self.field_copy.forward(dual_samples_copy, compute_normals=self.config.predict_normals)
-            replace_field_outputs = self.replace_field.forward(dual_samples_copy, compute_normals=self.config.predict_normals)
+            field_copy_outputs = self.field_copy.forward(dual_samples_copy, compute_normals=self.config.predict_normals, camera_idx=camera_idx)
+            replace_field_outputs = self.replace_field.forward(dual_samples_copy, compute_normals=self.config.predict_normals, camera_idx=camera_idx)
 
             masks = None
             for bbox in self.bboxes:

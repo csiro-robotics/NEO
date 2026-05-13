@@ -8,13 +8,21 @@
 /data
 /data_old
 /logs
-/outputs
+/outputs*
 /renders
 /eval
 /eval copy
 /exports
 /experiments
 /figures
+/paper*
+/renders*
+/seal*
+/temp
+*debug*
+eval*
+export*
+generate*
 
 # Python
 __pycache__

@@ -147,7 +147,7 @@ class Experiment():
 
     def run(self):
 
-        # Experiment setupe
+        # Experiment setup
         if self.config.pipeline_elements.data_preparation._execute_all:
             elements = self.config.pipeline_elements.data_preparation
 
