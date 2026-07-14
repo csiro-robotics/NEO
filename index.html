@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="description"
+        content="NEO is a language-guided NeRF editing framework for continuous robotic object manipulation.">
+  <meta name="keywords" content="NEO, NeRF editing, robotics, manipulation, neural radiance fields">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NEO: NeRF It Once, Edit It Many Times</title>
+
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
+        rel="stylesheet">
+
+  <link rel="stylesheet" href="./static/css/bulma.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-carousel.min.css">
+  <link rel="stylesheet" href="./static/css/bulma-slider.min.css">
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+  <link rel="stylesheet" href="./static/css/index.css">
+  <link rel="icon" href="./static/images/favicon.svg">
+
+  <script defer src="./static/js/fontawesome.all.min.js"></script>
+</head>
+<body>
+
+<nav class="navbar" role="navigation" aria-label="main navigation">
+  <div class="navbar-brand">
+      <a class="navbar-item" href="#top" aria-label="NEO home">
+      <span class="icon"><i class="fas fa-home"></i></span>
+    </a>
+    <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+    </a>
+  </div>
+  <div class="navbar-menu">
+    <div class="navbar-start" style="flex-grow: 1; justify-content: center;">
+      <a class="navbar-item" href="#method">Method</a>
+      <a class="navbar-item" href="#dataset">Dataset</a>
+      <a class="navbar-item" href="#videos">Videos</a>
+      <a class="navbar-item" href="#bibtex">BibTeX</a>
+    </div>
+  </div>
+</nav>
+
+<section class="hero publication-header" id="top">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+          <h1 class="title is-1 publication-title">NEO: NeRF It Once, Edit It Many Times<br>for Continuous Object Manipulation</h1>
+          <div class="is-size-5 publication-authors">
+            <span class="author-block">Miko&#322;aj Zieli&#324;ski<sup>1</sup>,</span>
+            <span class="author-block"><a href="https://scholar.google.com/citations?user=dosODoQAAAAJ&amp;hl=en">David Hall</a><sup>2</sup>,</span>
+            <span class="author-block"><a href="https://scholar.google.com/citations?user=3XvUbbMAAAAJ&amp;hl=en&amp;oi=ao">Dominik Belter</a><sup>1</sup>,</span>
+            <span class="author-block"><a href="https://scholar.google.com.au/citations?user=QAVcuWUAAAAJ&amp;hl=en">Peyman Moghadam</a><sup>2</sup></span>
+          </div>
+
+          <div class="is-size-5 publication-authors">
+            <span class="author-block"><sup>1</sup>Poznan University of Technology,</span>
+            <span class="author-block"><sup>2</sup>CSIRO Robotics</span>
+          </div>
+
+          <div class="publication-venue">IEEE Robotics and Automation Letters (RA-L), 2026</div>
+
+          <div class="column has-text-centered">
+            <div class="publication-links">
+              <span class="link-block">
+                <a href="https://arxiv.org/abs/" class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon"><i class="fas fa-file-pdf"></i></span>
+                  <span>Paper</span>
+                </a>
+              </span>
+              <span class="link-block">
+                <a href="https://arxiv.org/abs/" class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon"><i class="ai ai-arxiv"></i></span>
+                  <span>arXiv</span>
+                </a>
+              </span>
+              <span class="link-block">
+                <a href="https://github.com/csiro-robotics/Neo" class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon"><i class="fab fa-github"></i></span>
+                  <span>Code</span>
+                </a>
+              </span>
+              <span class="link-block">
+                <a href="https://doi.org/yyyyy/xxxxxx" class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon"><i class="far fa-images"></i></span>
+                  <span>Dataset</span>
+                </a>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="hero teaser">
+  <div class="container is-max-desktop">
+    <div class="hero-body">
+      <figure class="neo-figure neo-figure-hero">
+        <img src="./static/images/neo/assembly.svg?v=2"
+             alt="NEO assembly task showing predicted future scene states across sequential robot actions.">
+      </figure>
+      <h2 class="subtitle has-text-centered">
+        <span class="dnerf">NEO</span> edits a persistent NeRF scene after each language-guided robot interaction,
+        predicting future scene states without re-scanning.
+      </h2>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="abstract">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Abstract</h2>
+        <div class="content has-text-justified">
+          <p>
+            NEO is a unified framework for language-guided NeRF editing in robotic manipulation.
+            Given a prompt and a planned object motion, NEO removes the target object, reconstructs
+            newly revealed regions with multiview-consistent progressive inpainting, and reinserts
+            the object through direct NeRF weight editing with teacher-student knowledge distillation.
+          </p>
+          <p>
+            The resulting representation remains persistent across consecutive edits, enabling a robot
+            to anticipate scene changes before execution. The paper also introduces the NEO-Dataset,
+            a benchmark of registered tabletop scenes captured before and after object manipulation
+            for quantitative evaluation of NeRF scene editing methods.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section neo-band" id="method">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered">
+      <div class="column is-full-width">
+        <h2 class="title is-3">Method</h2>
+        <figure class="neo-figure neo-figure-method-main">
+          <img src="./static/images/neo/architecture3.png"
+               alt="Architecture of the editable NEO model for language-guided robotic manipulation.">
+        </figure>
+        <div class="content has-text-justified">
+          <p>
+            NEO builds an initial NeRF and language field from camera images, localizes the prompted
+            object, then updates the scene before motion execution. The system combines object
+            removal, multi-view inpainting, and object reconfiguration modules so the edited neural
+            field can be reused for the next manipulation.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="columns is-centered neo-feature-row">
+      <div class="column is-full-width">
+        <h3 class="title is-4">Multiview Inpainting</h3>
+        <div class="content has-text-justified">
+          <p>
+            Progressive inpainting reconstructs surfaces that were hidden by removed objects while
+            maintaining cross-view consistency for NeRF training.
+          </p>
+        </div>
+        <figure class="neo-figure neo-figure-wide">
+          <img src="./static/images/neo/inpainting_training.png"
+               alt="Progressive inpainting and NeRF training for removed objects.">
+        </figure>
+      </div>
+    </div>
+
+    <div class="columns is-centered neo-feature-row">
+      <div class="column is-full-width">
+        <h3 class="title is-4">Persistent Editing</h3>
+        <div class="content has-text-justified">
+          <p>
+            Teacher-student distillation composes the edited and original fields so moved objects are
+            preserved directly in the updated representation.
+          </p>
+        </div>
+        <figure class="neo-figure neo-figure-wide">
+          <img src="./static/images/neo/pick_and_place_results.png"
+               alt="NEO and Seal3D comparison after robotic object manipulation.">
+        </figure>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="dataset">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered">
+      <div class="column is-full-width">
+        <h2 class="title is-3">NEO-Dataset</h2>
+        <div class="content has-text-justified">
+          <p>
+            The NEO-Dataset contains twelve registered tabletop scenes captured before and after
+            object removal or manipulation. Scenes are recorded with fixed robot arms and camera
+            trajectories, then aligned with ArUco markers so rendered edited views can be compared
+            against real post-manipulation images.
+          </p>
+          <p>
+            The dataset is collected in two different setups utilizing two different manipulators:
+            the Franka Emika Panda and UR5. These provide background variability across scenes in
+            addition to scene content variation.
+          </p>
+          <p>
+            Scenes are scanned in an automated manner with controlled camera motion along a fixed
+            trajectory to ensure little-to-no variation in scene coverage. The camera poses from this
+            process provide broad scan coverage for training and evaluating edited scene renderings.
+          </p>
+        </div>
+        <figure class="neo-figure neo-figure-dataset">
+          <img src="./static/images/neo/dataset_samples.png"
+               alt="Example dataset samples collected using Franka Emika Panda and UR5 robots.">
+          <figcaption>
+            Example dataset samples collected using two different robotic manipulators: the Franka
+            Emika Panda (top) and the UR5 robot (bottom).
+          </figcaption>
+        </figure>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section neo-band" id="videos">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered">
+      <div class="column is-full-width">
+        <h2 class="title is-3">Videos</h2>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="bibtex">
+  <div class="container is-max-desktop content">
+    <h2 class="title">BibTeX</h2>
+    <pre><code>@article{zielinski2026neo,
+  author={Zielinski, Mikolaj and Hall, David and Belter, Dominik and Moghadam, Peyman},
+  journal={IEEE Robotics and Automation Letters},
+  title={NEO: NeRF It Once, Edit It Many Times for Continuous Object Manipulation},
+  year={2026},
+  volume={},
+  number={},
+  pages={},
+}</code></pre>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="container">
+    <div class="columns is-centered">
+      <div class="column is-8">
+        <div class="content">
+          <p>
+            This page is based on the <a href="https://github.com/nerfies/nerfies.github.io">Nerfies website template</a>.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  document.querySelectorAll('.navbar-burger').forEach(function(burger) {
+    burger.addEventListener('click', function() {
+      burger.classList.toggle('is-active');
+      document.querySelectorAll('.navbar-menu').forEach(function(menu) {
+        menu.classList.toggle('is-active');
+      });
+    });
+  });
+</script>
+
+</body>
+</html>
