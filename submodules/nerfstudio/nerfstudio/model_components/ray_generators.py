@@ -37,7 +37,7 @@ class RayGenerator(nn.Module):
     def __init__(self, cameras: Cameras) -> None:
         super().__init__()
         self.cameras = cameras
-        self.register_buffer("image_coords", cameras.get_image_coords(), persistent=False)
+        self.register_buffer("image_coords", cameras.get_image_coords().to(cameras.device), persistent=False)
 
     def forward(self, ray_indices: Int[Tensor, "num_rays 3"]) -> RayBundle:
         """Index into the cameras to generate the rays.

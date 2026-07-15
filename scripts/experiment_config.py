@@ -1,8 +1,12 @@
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+import re
 from typing import Literal, Union
 from nerfstudio.utils.rich_utils import CONSOLE
+
+
+TIMESTAMP_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}_\d{6}$")
 
 
 @dataclass
@@ -57,18 +61,21 @@ class NeoDataConfig():
     def get_timestamp(self):
         """Get the timestamp of the experiment"""
         if self.timestamp is None:
-            # Find the latest timestamped directory
-            base_dir = self.get_base_dir() / "before" / "lerf-lite"
+            base_dir = self.get_output_dir() / "before" / "lerf-lite"
 
             if base_dir.exists():
-                timestamp_dirs = sorted(base_dir.glob("*_[0-9]*"), reverse=True)
-                if not timestamp_dirs:
-                    CONSOLE.print("[bold red]No timestamp directories found! Exiting.[/bold red]")
-                    return
+                timestamp_dirs = sorted(
+                    (
+                        path
+                        for path in base_dir.iterdir()
+                        if path.is_dir() and TIMESTAMP_PATTERN.fullmatch(path.name)
+                    ),
+                    reverse=True,
+                )
+                if timestamp_dirs:
+                    self.timestamp = timestamp_dirs[0].name
 
-                self.timestamp = timestamp_dirs[0].name
-                
-            else:
+            if self.timestamp is None:
                 CONSOLE.print("[bold yellow]No timestamp directories found! Generating new timestamp.[/bold yellow]")
                 self.set_timestamp()
 

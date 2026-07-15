@@ -99,6 +99,15 @@ class PixelSampler:
             image_width: the width of the image.
             device: device that the samples should be on.
         """
+        if mask.ndim != 4:
+            raise ValueError(f"Expected a four-dimensional mask, got shape {tuple(mask.shape)}")
+        if mask.shape[-1] == 1:
+            mask_values = mask[..., 0]
+        elif mask.shape[1] == 1:
+            mask_values = mask[:, 0]
+        else:
+            raise ValueError(f"Expected a singleton mask channel, got shape {tuple(mask.shape)}")
+
         indices = (
             torch.rand((num_samples, 3), device=device)
             * torch.tensor([num_images, image_height, image_width], device=device)
@@ -107,7 +116,7 @@ class PixelSampler:
         num_valid = 0
         for _ in range(self.config.max_num_iterations):
             c, y, x = (i.flatten() for i in torch.split(indices, 1, dim=-1))
-            chosen_indices_validity = mask.squeeze(-1)[c, y, x].bool()
+            chosen_indices_validity = mask_values[c, y, x].bool()
             num_valid = int(torch.sum(chosen_indices_validity).item())
             if num_valid == num_samples:
                 break
@@ -128,7 +137,7 @@ class PixelSampler:
                 """
             )
             self.config.rejection_sample_mask = False
-            nonzero_indices = torch.nonzero(mask.squeeze(), as_tuple=False).to(device)
+            nonzero_indices = torch.nonzero(mask_values, as_tuple=False).to(device)
             chosen_indices = random.sample(range(len(nonzero_indices)), k=num_samples)
             indices = nonzero_indices[chosen_indices]
 

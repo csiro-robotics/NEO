@@ -2,9 +2,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
+import torch
 
 from neo.utils.commands import run_command
 from neo.utils.experiment_io import load_experiment_config, save_experiment_config
+from nerfstudio.data.pixel_samplers import PixelSampler, PixelSamplerConfig
+from nerfstudio.cameras.cameras import Cameras
+from nerfstudio.model_components.ray_generators import RayGenerator
 from scripts.experiment_config import NeoDataConfig
 from scripts.run_assembly import ExperimentConfig as AssemblyConfig
 from scripts.run_reconfiguration import ExperimentConfig as ReconfigurationConfig
@@ -63,6 +67,35 @@ def test_scene_paths_are_mirrored_without_string_replacement() -> None:
     )
 
 
+def test_timestamp_resolves_latest_lerf_output(tmp_path: Path) -> None:
+    config = NeoDataConfig(
+        root_input=tmp_path / "data",
+        outputs_root=tmp_path / "outputs",
+        scene_name="scene",
+        object_name="object",
+    )
+    lerf_root = config.get_output_dir() / "before" / "lerf-lite"
+    (lerf_root / "2026-07-15_134640").mkdir(parents=True)
+    (lerf_root / "2026-07-15_174051").mkdir()
+    (lerf_root / "not-a-run").mkdir()
+
+    assert config.get_timestamp() == "2026-07-15_174051"
+
+
+def test_timestamp_is_generated_when_no_lerf_output_exists(tmp_path: Path) -> None:
+    config = NeoDataConfig(
+        root_input=tmp_path / "data",
+        outputs_root=tmp_path / "outputs",
+        scene_name="scene",
+        object_name="object",
+    )
+
+    timestamp = config.get_timestamp()
+
+    assert timestamp is not None
+    assert len(timestamp) == len("2026-07-15_193521")
+
+
 def test_checked_command_preserves_argument_boundaries(monkeypatch: pytest.MonkeyPatch) -> None:
     observed = {}
 
@@ -74,6 +107,44 @@ def test_checked_command_preserves_argument_boundaries(monkeypatch: pytest.Monke
     run_command(["tool", "--path", Path("directory with spaces")], verbose=False)
 
     assert observed == {"args": ["tool", "--path", "directory with spaces"], "check": True}
+
+
+@pytest.mark.parametrize("channel_first", [False, True])
+def test_mask_rejection_sampling_supports_both_channel_layouts(channel_first: bool) -> None:
+    sampler = PixelSampler(PixelSamplerConfig())
+    mask = torch.ones((2, 8, 10, 1), dtype=torch.bool)
+    if channel_first:
+        mask = mask.permute(0, 3, 1, 2)
+
+    indices = sampler.rejection_sample_mask(
+        mask=mask,
+        num_samples=32,
+        num_images=2,
+        image_height=8,
+        image_width=10,
+        device="cpu",
+    )
+
+    assert indices.shape == (32, 3)
+    assert torch.all(indices[:, 0] < 2)
+    assert torch.all(indices[:, 1] < 8)
+    assert torch.all(indices[:, 2] < 10)
+
+
+def test_ray_generator_coordinates_follow_camera_device() -> None:
+    cameras = Cameras(
+        camera_to_worlds=torch.eye(4)[:3].unsqueeze(0),
+        fx=100.0,
+        fy=100.0,
+        cx=5.0,
+        cy=4.0,
+        width=10,
+        height=8,
+    )
+
+    ray_generator = RayGenerator(cameras)
+
+    assert ray_generator.image_coords.device == cameras.device
 
 
 @pytest.mark.parametrize(

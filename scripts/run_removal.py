@@ -43,9 +43,9 @@ class TrainingElements():
 
     _execute_all: bool = True
     """Execute all training elements"""
-    generate_bbox: bool = True
+    generate_bbox: bool = False
     """Generate BBoxes"""
-    train_neo: bool = True
+    train_neo: bool = False
     """Train Neo"""
 
 @dataclass
@@ -54,7 +54,7 @@ class EvaluationElements():
 
     _execute_all: bool = True
     """Execute all evaluation elements"""
-    prepare_nerfiller: bool = True
+    prepare_nerfiller: bool = False
     """Prepare Nerfiller"""
     train_nerfiller: bool = True
     """Train Nerfiller"""
