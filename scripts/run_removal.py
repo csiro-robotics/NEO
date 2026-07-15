@@ -20,21 +20,21 @@ class DataPreperationElements():
 
     _execute_all: bool = True
     """Execute all data preparation elements"""
-    process_bags: bool = True
+    process_bags: bool = False
     """Process bags"""
-    colmap_1: bool = True
+    colmap_1: bool = False
     """Run COLMAP"""
-    colmap_2: bool = True
+    colmap_2: bool = False
     """Run COLMAP"""
-    select_frames: bool = True
+    select_frames: bool = False
     """Select frames"""
-    match_arucos: bool = True
+    match_arucos: bool = False
     """Match Arucos"""
-    extract_arm_movement: bool = True
+    extract_arm_movement: bool = False
     """Extract arm movement"""
-    train_lerf: bool = True
+    train_lerf: bool = False
     """Train LERF"""
-    train_gt: bool = True
+    train_gt: bool = False
     """Train GT"""
 
 @dataclass

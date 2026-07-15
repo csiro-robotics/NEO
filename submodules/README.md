@@ -10,6 +10,7 @@ The Conda environment installs them as local editable packages.
 | `lerf_bbox` | `csiro-robotics/lerf_bbox` | `112ad9ede65c595e6c0f1f9a675f15891665c4c4` | 0.1.1 |
 | `neo_lerftogo` | `csiro-robotics/neo_lerftogo` | `646a023571ec9d8c954dfc632d65600ad5fb3c2b` | 0.1.0 |
 | `neo_nerfiller` | `csiro-robotics/neo_nerfiller` | `31666136e7d4e9770652185a890484dabfb2979d` | 0.0.1 |
+| `tinycudann` | `NVlabs/tiny-cuda-nn` | `075158a70b87dba8729188a9cadc9411cfa4b71d` | 1.7 |
 
 The copied Nerfstudio, LERF, and Robot-LERF trees include the uncommitted
 source modifications present in the paper-development checkouts when they were
@@ -27,3 +28,5 @@ The GraspNet checkpoint referenced by `lerftogo-neo` was retained as a runtime
 asset. Robot-LERF's existing PointNet2 and KNN extensions were unpacked from its
 upstream Python 3.10/Linux build artifacts and exposed as packages; they
 therefore require the documented Python 3.10, Linux, NVIDIA, and CUDA runtime.
+The tiny-cuda-nn directory contains the source files needed to compile its
+PyTorch extension locally. Generated extension binaries are not vendored.

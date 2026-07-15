@@ -1,14 +1,20 @@
 name: neo
 channels:
+  - nvidia/label/cuda-12.4.0
   - conda-forge
 dependencies:
   - python=3.10
+  - cuda-toolkit=12.4.0
+  - gcc=11.4
+  - gxx=11.4
+  - colmap=3.6.0
   - ffmpeg
   - git
   - ninja
   - pip
   - pip:
       - --extra-index-url https://download.pytorch.org/whl/cu124
+      - setuptools==76.1.0
       - torch==2.6.0
       - torchvision==0.21.0
       - -e ./submodules/nerfstudio

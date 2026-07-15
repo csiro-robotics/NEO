@@ -57,28 +57,39 @@ paper-table reproduction until the items in
 - Linux and Python 3.10
 - NVIDIA GPU with CUDA support
 - about 24 GB of GPU memory for the published NEO configuration
-- FFmpeg; COLMAP is additionally required when preparing new scenes
+- FFmpeg and COLMAP for preparing new scenes
 - Hugging Face access for the Stable Diffusion inpainting weights
 
 The reference software versions are PyTorch 2.6 and CUDA 12.4. The modified
-Nerfstudio, LERF, Robot-LERF, and NeRFiller sources are physically vendored in
-`submodules/`; their provenance is recorded in
+Nerfstudio, LERF, Robot-LERF, NeRFiller, and tiny-cuda-nn sources are physically
+vendored in `submodules/`; their provenance is recorded in
 [submodules/README.md](submodules/README.md).
 
 ## Installation
 
-Create the basic runtime environment named `neo`:
+Create the runtime environment and compile tiny-cuda-nn for the locally
+installed NVIDIA GPU architecture:
 
 ```bash
-conda env create -f environment.yml
+./scripts/create_environment.sh
 conda activate neo
 ns-install-cli
 ```
 
-The basic environment installs NEO, the vendored Nerfstudio, LERF and
-Robot-LERF packages, and the official PyTorch 2.6 wheels with the CUDA 12.4
-runtime. It deliberately excludes raw ROS/RealSense capture tools, development
-tools, and the NeRFiller baseline.
+The script creates the `neo` Conda environment from `environment.yml` and then
+builds the vendored tiny-cuda-nn source against its PyTorch, CUDA, and GPU
+architecture. No machine-specific tiny-cuda-nn binary is stored in this
+repository. The environment also installs the vendored Nerfstudio, LERF, and
+Robot-LERF packages, COLMAP used by `ns-process-data`, and the CUDA 12.4 build
+toolchain. It deliberately excludes raw ROS/RealSense capture tools,
+development tools, and the NeRFiller baseline.
+
+For an existing `neo` environment, rebuild tiny-cuda-nn with:
+
+```bash
+conda activate neo
+./scripts/install_tinycudann.sh
+```
 
 Install optional components only when needed:
 
@@ -102,10 +113,11 @@ wget -O ckpts/sam_vit_h_4b8939.pth \
   https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth
 ```
 
-Check the installation without starting a GPU job:
+Check the installation:
 
 ```bash
 python -c "import neo.neo_config; print('NEO import OK')"
+python -c "import tinycudann; print('tiny-cuda-nn import OK')"
 ns-train neo --help
 ns-convert to-neo --help
 neo-remove --help

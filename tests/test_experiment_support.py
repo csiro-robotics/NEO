@@ -111,6 +111,9 @@ def test_basic_conda_environment_is_named_neo() -> None:
     environment = Path("environment.yml").read_text(encoding="utf8")
 
     assert environment.startswith("name: neo\n")
+    assert "colmap=3.6.0" in environment
+    assert "cuda-toolkit=12.4.0" in environment
+    assert "-e ./submodules/tinycudann" not in environment
     assert ".[language]" in environment
     assert ".[capture]" not in environment
     assert ".[baselines]" not in environment
@@ -118,6 +121,12 @@ def test_basic_conda_environment_is_named_neo() -> None:
 
 def test_required_dependencies_are_physically_vendored() -> None:
     required_files = [
+        Path("submodules/tinycudann/LICENSE.txt"),
+        Path("submodules/tinycudann/include/tiny-cuda-nn/common.h"),
+        Path("submodules/tinycudann/src/network.cu"),
+        Path("submodules/tinycudann/bindings/torch/setup.py"),
+        Path("submodules/tinycudann/dependencies/cutlass/LICENSE.txt"),
+        Path("submodules/tinycudann/dependencies/json/LICENSE.MIT"),
         Path("submodules/nerfstudio/nerfstudio/__init__.py"),
         Path("submodules/lerf_bbox/lerf/__init__.py"),
         Path("submodules/neo_lerftogo/robot_lerf/scripts/gen_bbox.py"),
@@ -133,3 +142,9 @@ def test_required_dependencies_are_physically_vendored() -> None:
     ]
 
     assert all(path.is_file() and not path.is_symlink() for path in required_files)
+
+
+def test_tinycudann_does_not_vendor_compiled_extensions() -> None:
+    tinycudann = Path("submodules/tinycudann")
+
+    assert not list(tinycudann.rglob("*.so"))
