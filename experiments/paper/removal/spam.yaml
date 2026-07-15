@@ -1,0 +1,10 @@
+experiment_name: removal-spam
+root_input: data
+outputs_root: outputs
+data_type: real
+action: remove
+scene_type: single
+scene_name: spam
+object_name: spam
+lerf_prompt: Spam
+timestamp: null

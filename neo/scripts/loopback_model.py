@@ -9,7 +9,7 @@ from typing import Union
 from typing_extensions import Annotated
 from abc import abstractmethod
 
-from nerfstudio.utils.scripts import run_command
+from neo.utils.commands import run_command
 from datetime import datetime
 
 
@@ -32,10 +32,9 @@ class LoopbackNerfacto(BaseLoopback):
     def main(self):
         
         convert_command = [
-            f"ns-convert to-nerfacto",
-            f"--load_config {self.load_config}",
+            "ns-convert", "to-nerfacto",
+            "--load-config", self.load_config,
         ]
-        convert_command = " ".join(convert_command)
 
         run_command(convert_command, verbose=self.verbose)
 
@@ -47,10 +46,9 @@ class LoopbackLERF(BaseLoopback):
         
         # Convert to Nerfacto
         convert_command = [
-            f"ns-convert to-nerfacto",
-            f"--load_config {self.load_config}",
+            "ns-convert", "to-nerfacto",
+            "--load-config", self.load_config,
         ]
-        convert_command = " ".join(convert_command)
 
         run_command(convert_command, verbose=self.verbose)
 
@@ -64,15 +62,14 @@ class LoopbackLERF(BaseLoopback):
         shutil.copy(neo_config.data / "transforms.json", render_path / "transforms.json")
 
         render_command = [
-            "ns-render-neo render-from-transforms",
-            f"--load-config {nerfacto_path / 'config.yml'}",
-            f"--output-path {render_path}",
-            "--output-format images",
-            "--image-format png",
-            "--rendered-output-names rgb depth",
-            f"--transforms-filename {neo_config.data}/transforms.json"
+            "ns-render-neo", "render-from-transforms",
+            "--load-config", nerfacto_path / "config.yml",
+            "--output-path", render_path,
+            "--output-format", "images",
+            "--image-format", "png",
+            "--rendered-output-names", "rgb", "depth",
+            "--transforms-filename", neo_config.data / "transforms.json",
         ]
-        render_command = " ".join(render_command)
 
         run_command(render_command, verbose=self.verbose)
 
@@ -86,22 +83,21 @@ class LoopbackLERF(BaseLoopback):
 
         # Train language field
         train_command = [
-            "ns-train lerf-lite-lan",
-            f"--data {render_path}",
-            f"--output-dir {self.load_config.parents[4]}",
-            f"--experiment_name {neo_config.experiment_name}",
-            f"--timestamp {neo_config.timestamp}",
-            "--max-num-iterations 3000",
-            f"--pipeline.model.camera-optimizer.mode {neo_config.pipeline.model.camera_optimizer.mode}",
-            f"--pipeline.model_type {model_type}",
-            "--viewer.quit-on-train-completion True",
+            "ns-train", "lerf-lite-lan",
+            "--data", render_path,
+            "--output-dir", self.load_config.parents[4],
+            "--experiment-name", neo_config.experiment_name,
+            "--timestamp", neo_config.timestamp,
+            "--max-num-iterations", "3000",
+            "--pipeline.model.camera-optimizer.mode", neo_config.pipeline.model.camera_optimizer.mode,
+            "--pipeline.model-type", model_type,
+            "--viewer.quit-on-train-completion", "True",
             "nerfstudio-data",
-            f"--orientation-method {neo_config.pipeline.datamanager.dataparser.orientation_method}",
-            f"--center-method {neo_config.pipeline.datamanager.dataparser.center_method}",
-            f"--auto-scale-poses {neo_config.pipeline.datamanager.dataparser.auto_scale_poses}",
-            f"--train-split-fraction {neo_config.pipeline.datamanager.dataparser.train_split_fraction}"
+            "--orientation-method", neo_config.pipeline.datamanager.dataparser.orientation_method,
+            "--center-method", neo_config.pipeline.datamanager.dataparser.center_method,
+            "--auto-scale-poses", neo_config.pipeline.datamanager.dataparser.auto_scale_poses,
+            "--train-split-fraction", neo_config.pipeline.datamanager.dataparser.train_split_fraction,
         ]
-        train_command = " ".join(train_command)
 
         run_command(train_command, verbose=self.verbose)
 
@@ -134,16 +130,14 @@ class LoopbackLERF(BaseLoopback):
         # Convert to Neo
         if "neo-big" in str(self.load_config):
             convert_command = [
-                f"ns-convert to-neo-big",
-                f"--load_config {output_path + '/config.yml'}",
+                "ns-convert", "to-neo-big",
+                "--load-config", Path(output_path) / "config.yml",
             ]
-            convert_command = " ".join(convert_command)
         else:
             convert_command = [
-                f"ns-convert to-neo",
-                f"--load_config {output_path + '/config.yml'}",
+                "ns-convert", "to-neo",
+                "--load-config", Path(output_path) / "config.yml",
             ]
-            convert_command = " ".join(convert_command)
 
         run_command(convert_command, verbose=self.verbose)
 

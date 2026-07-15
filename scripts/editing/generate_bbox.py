@@ -1,12 +1,10 @@
 import tyro
 
-from pathlib import Path
-
 from nerfstudio.configs.config_utils import convert_markup_to_ansi
 from nerfstudio.utils.rich_utils import CONSOLE
-from nerfstudio.utils.scripts import run_command
+from neo.utils.commands import run_command
 
-from experiment_config import NeoDataConfig
+from scripts.experiment_config import NeoDataConfig
 
 
 def generate_bbox(config: NeoDataConfig) -> None:
@@ -16,17 +14,15 @@ def generate_bbox(config: NeoDataConfig) -> None:
     CONSOLE.print("[bold green]Obtaining BBoxes...[/bold green]")
     command = [
         "lerftogo-neo",
-        f"--root_input {config.root_input}",
-        f"--data_type {config.data_type}",
-        f"--scene_name {config.scene_name}",
-        f"--action {config.action}",
-        f"--scene_type {config.scene_type}",
-        f"--object_name {config.object_name}",
-        f"--lerf_prompt \'{config.lerf_prompt}\'",
-        f"--model_types neo neo-big"
+        "--root_input", config.root_input,
+        "--data_type", config.data_type,
+        "--scene_name", config.scene_name,
+        "--action", config.action,
+        "--scene_type", config.scene_type,
+        "--object_name", config.object_name,
+        "--lerf_prompt", config.lerf_prompt,
+        "--model_types", "neo", "neo-big",
     ]
-    command = " ".join(command)
-
     run_command(command, verbose=True)
 
 def entrypoint():

@@ -17,7 +17,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 from nerfstudio.data.datamanagers.base_datamanager import VanillaDataManagerConfig
 from nerfstudio.models.base_model import ModelConfig
 from nerfstudio.utils.rich_utils import CONSOLE, status
-from nerfstudio.utils.scripts import run_command
+from neo.utils.commands import run_command
 
 from nerfstudio.data.datamanagers.base_datamanager import (
     DataManager,
@@ -166,31 +166,30 @@ class NeoPipeline(VanillaPipeline):
         method_name = "sparse-guided-nerf"
 
         train_sparse_guided_nerf_cmd = [
-            f"ns-train {method_name}",
-            f"--data {dataset_path}",
-            "--experiment_name ''",
-            f"--timestamp ''",
-            f"--method-name {method_name}",
-            f"--max-num-iterations {self.config.max_num_iterations_sparse_guided_nerf}",
-            f"--neo-model-path {checkpoint_filenames[0]}",
-            f"--pipeline.model.bbox-path {path}/bbox.json",
-            "--viewer.quit-on-train-completion True",
-            f"--output-dir {path}",
-            f"--pipeline.model.camera-optimizer.mode off",
-            f"--pipeline.model.start-inpainting-strength {self.config.start_inpainting_strength_sparse_guided_nerf}",
-            f"--pipeline.model.strength-step {self.config.strength_step_sparse_guided_nerf}",
-            f"--pipeline.model.inpainting-start-iter {self.config.inpainting_start_iter_sparse_guided_nerf}",
-            f"--pipeline.model.inpainting-repeat-iter {self.config.inpainting_repeat_iter_sparse_guided_nerf}",
-            f"--pipeline.model.num-images-in-group {self.config.num_images_in_group_sparse_guided_nerf}",
-            f"--pipeline.model.proposal-warmup {self.config.proposal_warmup_sparse_guided_nerf}",
-            f"--pipeline.inpainter.inpainting-model {self.config.sparse_dataset.inpainter.inpainting_model}",
-            f"--pipeline.inpainter.inpainting-images-base-size {' '.join(map(str, self.config.sparse_dataset.inpainter.inpainting_images_base_size))}",
-            f"--pipeline.inpainter.inpaint-batch-size {self.config.sparse_dataset.inpainter.inpaint_batch_size}",
-            "--viewer.websocket-port 7008",
+            "ns-train", method_name,
+            "--data", dataset_path,
+            "--experiment-name", "",
+            "--timestamp", "",
+            "--method-name", method_name,
+            "--max-num-iterations", self.config.max_num_iterations_sparse_guided_nerf,
+            "--neo-model-path", checkpoint_filenames[0],
+            "--pipeline.model.bbox-path", path / "bbox.json",
+            "--viewer.quit-on-train-completion", "True",
+            "--output-dir", path,
+            "--pipeline.model.camera-optimizer.mode", "off",
+            "--pipeline.model.start-inpainting-strength", self.config.start_inpainting_strength_sparse_guided_nerf,
+            "--pipeline.model.strength-step", self.config.strength_step_sparse_guided_nerf,
+            "--pipeline.model.inpainting-start-iter", self.config.inpainting_start_iter_sparse_guided_nerf,
+            "--pipeline.model.inpainting-repeat-iter", self.config.inpainting_repeat_iter_sparse_guided_nerf,
+            "--pipeline.model.num-images-in-group", self.config.num_images_in_group_sparse_guided_nerf,
+            "--pipeline.model.proposal-warmup", self.config.proposal_warmup_sparse_guided_nerf,
+            "--pipeline.inpainter.inpainting-model", self.config.sparse_dataset.inpainter.inpainting_model,
+            "--pipeline.inpainter.inpainting-images-base-size", *self.config.sparse_dataset.inpainter.inpainting_images_base_size,
+            "--pipeline.inpainter.inpaint-batch-size", self.config.sparse_dataset.inpainter.inpaint_batch_size,
+            "--viewer.websocket-port", "7008",
             "neo-data",
-            "--eval-mode filename"
+            "--eval-mode", "filename",
         ]
-        train_sparse_guided_nerf_cmd = " ".join(train_sparse_guided_nerf_cmd)
 
         if not dry_run:
             train_sparse_start_time = time.time()
@@ -208,29 +207,27 @@ class NeoPipeline(VanillaPipeline):
         method_name = "replace-nerf"
 
         train_replace_nerf_cmd = [
-            f"ns-train {method_name}",
-            f"--data {dataset_path}",
-            "--experiment_name ''",
-            f"--timestamp ''",
-            f"--method-name {method_name}",
-            f"--max-num-iterations {self.config.max_num_iterations_replace_nerf}",
-            f"--pipeline.model.camera-optimizer.mode off",
-            f"--pipeline.model.field-path {checkpoint_filenames[0]}",
-            f"--pipeline.model.replace-field-path {path}/sparse-guided-nerf/nerfstudio_models/step-{str(self.config.max_num_iterations_sparse_guided_nerf - 1).zfill(9)}.ckpt",
-            f"--pipeline.model.bbox-path {path}/bbox.json",
-            f"--pipeline.model.use-field-distillation {self.config.replace_nerf_use_field_distillation}",
-            f"--pipeline.model.field-distillation-steps {self.config.replace_nerf_field_distillation_steps}",
-            f"--pipeline.model.use-render-rgb-distillation {self.config.replace_nerf_use_render_rgb_distillation}",
-            f"--pipeline.model.use-render-depth-distillation {self.config.replace_nerf_use_render_depth_distillation}",
-            "--pipeline.datamanager.pixel-sampler.ignore-mask True",
-            "--viewer.quit-on-train-completion True",
-            f"--output-dir {path}",
-            "--viewer.websocket-port 7009",
+            "ns-train", method_name,
+            "--data", dataset_path,
+            "--experiment-name", "",
+            "--timestamp", "",
+            "--method-name", method_name,
+            "--max-num-iterations", self.config.max_num_iterations_replace_nerf,
+            "--pipeline.model.camera-optimizer.mode", "off",
+            "--pipeline.model.field-path", checkpoint_filenames[0],
+            "--pipeline.model.replace-field-path", path / "sparse-guided-nerf" / "nerfstudio_models" / f"step-{str(self.config.max_num_iterations_sparse_guided_nerf - 1).zfill(9)}.ckpt",
+            "--pipeline.model.bbox-path", path / "bbox.json",
+            "--pipeline.model.use-field-distillation", self.config.replace_nerf_use_field_distillation,
+            "--pipeline.model.field-distillation-steps", self.config.replace_nerf_field_distillation_steps,
+            "--pipeline.model.use-render-rgb-distillation", self.config.replace_nerf_use_render_rgb_distillation,
+            "--pipeline.model.use-render-depth-distillation", self.config.replace_nerf_use_render_depth_distillation,
+            "--pipeline.datamanager.pixel-sampler.ignore-mask", "True",
+            "--viewer.quit-on-train-completion", "True",
+            "--output-dir", path,
+            "--viewer.websocket-port", "7009",
             "neo-data",
-            "--eval-mode filename"
+            "--eval-mode", "filename",
         ]
-
-        train_replace_nerf_cmd = " ".join(train_replace_nerf_cmd)
 
         if not dry_run:
             train_replace_start_time = time.time()

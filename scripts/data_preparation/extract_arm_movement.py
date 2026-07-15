@@ -11,7 +11,7 @@ from pathlib import Path
 from nerfstudio.configs.config_utils import convert_markup_to_ansi
 from nerfstudio.utils.rich_utils import CONSOLE
 
-from experiment_config import NeoDataConfig
+from scripts.experiment_config import NeoDataConfig
 
 
 def load_movement_from_manual(manual_file: Path) -> dict | None:
@@ -123,7 +123,7 @@ def extract_arm_movement(config: NeoDataConfig) -> None:
     """Main function."""
 
     output_path = config.get_base_dir()
-    bag_file_path = Path(f"{str(output_path).replace(str(config.root_input), f'{str(config.root_input)}/raw_bagfiles')}_ros_topics.bag")
+    bag_file_path = Path(f"{config.get_raw_capture_base()}_ros_topics.bag")
 
     if config.action == "remove":
         CONSOLE.print(f"[bold yellow]Remove action, exiting arm movement extraction![/bold yellow]")

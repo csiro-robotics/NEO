@@ -1,4 +1,5 @@
 import os
+import shlex
 import subprocess
 import torch
 
@@ -18,8 +19,9 @@ def run_script_on_gpu(gpu_id, command_queue):
         command = command_queue.get()
         print(f"Running: {command} on GPU {gpu_id}")
         # Set the GPU and run the training script
-        command_with_gpu = f"CUDA_VISIBLE_DEVICES={gpu_id} {command}"
-        subprocess.run(command_with_gpu, shell=True)
+        env = os.environ.copy()
+        env["CUDA_VISIBLE_DEVICES"] = str(gpu_id)
+        subprocess.run(shlex.split(command), env=env, check=True)
         print(f"Finished: {command} on GPU {gpu_id}")
 
 def run_on_multiple_gpus(commands: List[str]):

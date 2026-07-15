@@ -1,0 +1,10 @@
+experiment_name: removal-orange
+root_input: data
+outputs_root: outputs
+data_type: real
+action: remove
+scene_type: single
+scene_name: orange
+object_name: orange
+lerf_prompt: Orange
+timestamp: null

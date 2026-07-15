@@ -1,0 +1,15 @@
+name: gs
+channels:
+  - nvidia
+  - conda-forge
+dependencies:
+  - python=3.10
+  - cuda-toolkit=12.4
+  - ffmpeg
+  - git
+  - ninja
+  - pip
+  - pip:
+      - torch==2.6.0
+      - torchvision==0.21.0
+      - -e .[paper,capture]

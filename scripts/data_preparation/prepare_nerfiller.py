@@ -15,13 +15,13 @@ from pathlib import Path
 from nerfstudio.configs.config_utils import convert_markup_to_ansi
 from nerfstudio.utils.rich_utils import CONSOLE
 
-from experiment_config import NeoDataConfig
+from scripts.experiment_config import NeoDataConfig
 
 
 def prepare_nerfiller(config: NeoDataConfig) -> None:
 
     base_dir = config.get_base_dir()
-    config_path = Path(str(base_dir / f"before/neo/{config.get_timestamp()}/config.yml").replace(str(config.root_input), 'outputs'))
+    config_path = config.get_output_dir() / "before" / "neo" / config.get_timestamp() / "config.yml"
 
     # Load save config
     CONSOLE.print(f"Loading config from {config_path}")

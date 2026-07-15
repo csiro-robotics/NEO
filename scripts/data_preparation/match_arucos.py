@@ -9,7 +9,7 @@ from scipy.optimize import minimize
 from nerfstudio.configs.config_utils import convert_markup_to_ansi
 from nerfstudio.utils.rich_utils import CONSOLE
 
-from experiment_config import NeoDataConfig
+from scripts.experiment_config import NeoDataConfig
 
 MARKER_LENGTH = 0.1065
 

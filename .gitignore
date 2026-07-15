@@ -1,6 +1,7 @@
 # VScode
 *.code-workspace
 *.env
+/.codex
 
 # Data
 /cache
@@ -10,20 +11,37 @@
 /logs
 /outputs*
 /renders
-/eval
-/eval copy
-/exports
-/experiments
+/eval/
+/eval copy/
+/eval_*/
+/exports/
+/exports copy/
+/experiments/*
+!/experiments/paper/
+!/experiments/paper/**
 /figures
 /paper*
 /renders*
 /seal*
 /temp
 *debug*
-eval*
-export*
-generate*
 
 # Python
 __pycache__
 *.egg-info
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+
+# Local paper-analysis utilities retained outside the release package
+/*.sh
+/*.ipynb
+/test_eval.py
+/neo/eval/eval_chamfer_distance.py
+/neo/eval/eval_dense_reprojection.py
+/scripts/export_pointclouds.py
+/scripts/export_pointclouds_runtime_patch/
+/scripts/generate_depth_rmse_table.py
+/scripts/generate_reproj_table.py
+/scripts/generate_table_row.py

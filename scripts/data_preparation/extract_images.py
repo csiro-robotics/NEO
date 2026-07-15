@@ -14,7 +14,7 @@ from scipy.optimize import minimize_scalar
 from nerfstudio.configs.config_utils import convert_markup_to_ansi
 from nerfstudio.utils.rich_utils import CONSOLE
 
-from experiment_config import NeoDataConfig
+from scripts.experiment_config import NeoDataConfig
 
 
 def read_realsense_bag(bag_file_path: Path, output_path: Path, rotate_images: bool, skip_frames: int=6, frame_list: list=None):
@@ -278,9 +278,10 @@ def extract_images(config: NeoDataConfig, skip_frames: int = 6, select_frames: l
         if select_frames:
             frame_list = select_frames_to_extract(config, stage=stage, num_frames=num_frames)
 
-        bag_file_path = Path(f"{str(output_path).replace(str(config.root_input), f'{str(config.root_input)}/raw_bagfiles')}_{stage}.bag")
-        bag2_file_path = Path(f"{str(output_path).replace(str(config.root_input), f'{str(config.root_input)}/raw_bagfiles')}_{stage}/{config.object_name}_{stage}_0.db3")
-        mp4_file_path = Path(f"{str(output_path).replace(str(config.root_input), f'{str(config.root_input)}/raw_bagfiles')}_{stage}.mp4")
+        raw_capture_base = config.get_raw_capture_base()
+        bag_file_path = Path(f"{raw_capture_base}_{stage}.bag")
+        bag2_file_path = Path(f"{raw_capture_base}_{stage}") / f"{config.object_name}_{stage}_0.db3"
+        mp4_file_path = Path(f"{raw_capture_base}_{stage}.mp4")
 
         if bag_file_path.exists():
             CONSOLE.print("Bag file found, processing...")

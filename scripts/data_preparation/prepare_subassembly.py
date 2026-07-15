@@ -11,7 +11,7 @@ from nerfstudio.utils.rich_utils import CONSOLE
 from nerfstudio.utils.eval_utils import eval_setup
 from nerfstudio.utils.scripts import run_command
 
-from experiment_config import NeoDataConfig
+from scripts.experiment_config import NeoDataConfig
 
 
 def load_movement_from_manual(manual_file: Path) -> dict | None:
@@ -59,7 +59,7 @@ def extract_arm_movement(config: NeoDataConfig) -> None:
     """Main function."""
 
     output_path = config.get_base_dir()
-    movement_file_path = Path(f"{str(output_path).replace(str(config.root_input), f'{str(config.root_input)}/raw_bagfiles')}/movement.txt")
+    movement_file_path = config.get_raw_capture_base() / "movement.txt"
     result = load_movement_from_manual(movement_file_path)
 
     if result is None:
@@ -88,7 +88,7 @@ def prepare_subassembly(config: NeoDataConfig, first_step: bool = False, previou
         shutil.copytree(base_dir.parent / "assembly" / "after", base_dir / "after", dirs_exist_ok=True)
 
         # Prepare LERF-Lite
-        lerf_lite_dir = Path(str(base_dir.parent).replace("data", "outputs"))
+        lerf_lite_dir = config.get_output_dir().parent
         shutil.copytree(lerf_lite_dir / f"assembly/before/lerf-lite", lerf_lite_dir / f"{config.object_name}/before/lerf-lite", dirs_exist_ok=True)
 
         config_lerf_lite, _, _, _ = eval_setup(lerf_lite_dir / f"{config.object_name}/before/lerf-lite/{config.timestamp}/config.yml", eval_num_rays_per_chunk=None, test_mode='test')
@@ -105,7 +105,7 @@ def prepare_subassembly(config: NeoDataConfig, first_step: bool = False, previou
         shutil.copytree(base_dir.parent / "assembly" / "before", base_dir / "before", dirs_exist_ok=True)
         shutil.copytree(base_dir.parent / "assembly" / "after", base_dir / "after", dirs_exist_ok=True)
 
-        lerf_lite_dir = Path(str(base_dir.parent).replace("data", "outputs"))
+        lerf_lite_dir = config.get_output_dir().parent
 
         edited_images_dir = lerf_lite_dir / f"{previous_object_name}/before/nerfacto/{config.timestamp}/cache"
         shutil.copytree(edited_images_dir / "images", base_dir / "before" / "images", dirs_exist_ok=True)

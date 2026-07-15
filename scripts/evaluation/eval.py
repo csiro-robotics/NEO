@@ -1,78 +1,35 @@
 import tyro
 
-from pathlib import Path
-
 from nerfstudio.configs.config_utils import convert_markup_to_ansi
 from nerfstudio.utils.rich_utils import CONSOLE
-from nerfstudio.utils.scripts import run_command
+from neo.utils.commands import run_command
 
-from experiment_config import NeoDataConfig
+from scripts.experiment_config import NeoDataConfig
 
 
 def eval(config: NeoDataConfig) -> None:
     """Main function that executes the training pipeline."""
-    base_dir = config.get_base_dir()
-    config_path = str(base_dir / f"before/neo/{config.get_timestamp()}/replace-nerf/config.yml").replace(str(config.root_input), 'outputs')
+    output_dir = config.get_output_dir()
+    config_path = output_dir / "before" / "neo" / config.get_timestamp() / "replace-nerf" / "config.yml"
+
+    def evaluate(path):
+        run_command(["ns-eval-neo", "--config-path", path, "--dry-run", "False", "--verbose", "True"])
 
     # Evaluate Neo
     CONSOLE.print("[bold green]Evaluating...[/bold green]")
-    command = [
-        "ns-eval-neo",
-        f"--config-path {config_path}",
-        "--dry_run False",
-        "--verbose True"
-    ]
-    command = " ".join(command)
-
-    run_command(command, verbose=True)
+    evaluate(config_path)
 
     # Evaluate Neo-Big
-    selected_dir = config_path.replace("neo", "neo-big")
-    command = [
-        "ns-eval-neo",
-        f"--config-path {selected_dir}",
-        "--dry_run False",
-        "--verbose True"
-    ]
-    command = " ".join(command)
-
-    run_command(command, verbose=True)
+    evaluate(output_dir / "before" / "neo-big" / config.get_timestamp() / "replace-nerf" / "config.yml")
 
     # Evaluate NeRFiller baseline
-    selected_dir = config_path.replace(f"neo/{config.get_timestamp()}/replace-nerf", f"nerfacto-nerfiller/{config.get_timestamp()}")
-    command = [
-        "ns-eval-neo",
-        f"--config-path {selected_dir}",
-        "--dry_run False",
-        "--verbose True"
-    ]
-    command = " ".join(command)
-
-    run_command(command, verbose=True)
+    evaluate(output_dir / "before" / "nerfacto-nerfiller" / config.get_timestamp() / "config.yml")
 
     # Evaluate NeRFiller
-    selected_dir = config_path.replace(f"neo/{config.get_timestamp()}/replace-nerf", f"grid-prior-du/{config.get_timestamp()}")
-    command = [
-        "ns-eval-neo",
-        f"--config-path {selected_dir}",
-        "--dry_run False",
-        "--verbose True"
-    ]
-    command = " ".join(command)
-
-    run_command(command, verbose=True)
+    evaluate(output_dir / "before" / "grid-prior-du" / config.get_timestamp() / "config.yml")
 
     # Evaluate NeRFiller without depth
-    selected_dir = config_path.replace(f"neo/{config.get_timestamp()}/replace-nerf", f"grid-prior-du-no-depth/{config.get_timestamp()}")
-    command = [
-        "ns-eval-neo",
-        f"--config-path {selected_dir}",
-        "--dry_run False",
-        "--verbose True"
-    ]
-    command = " ".join(command)
-
-    run_command(command, verbose=True)
+    evaluate(output_dir / "before" / "grid-prior-du-no-depth" / config.get_timestamp() / "config.yml")
 
 
 def entrypoint():

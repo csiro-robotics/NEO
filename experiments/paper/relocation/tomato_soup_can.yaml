@@ -1,0 +1,10 @@
+experiment_name: relocation-tomato-soup-can
+root_input: data
+outputs_root: outputs
+data_type: real
+action: translate_and_rotate
+scene_type: single
+scene_name: tomato_soup_can
+object_name: tomato_soup_can
+lerf_prompt: Can of tomato soup
+timestamp: null

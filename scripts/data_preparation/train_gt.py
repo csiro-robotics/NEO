@@ -4,9 +4,9 @@ from pathlib import Path
 
 from nerfstudio.configs.config_utils import convert_markup_to_ansi
 from nerfstudio.utils.rich_utils import CONSOLE
-from nerfstudio.utils.scripts import run_command
+from neo.utils.commands import run_command
 
-from experiment_config import NeoDataConfig
+from scripts.experiment_config import NeoDataConfig
 
 
 def train_gt(config: NeoDataConfig, **kwargs) -> None:
@@ -16,26 +16,24 @@ def train_gt(config: NeoDataConfig, **kwargs) -> None:
     # Train GT scene
     CONSOLE.print("[bold green]Training GT Nerfacto...[/bold green]")
     command = [
-        "ns-train nerfacto",
-        f"--data {base_dir}/after",
-        f"--output-dir {str(base_dir.parent).replace(str(config.root_input), 'outputs')}",
-        f"--experiment-name {config.object_name}/after",
-        f"--timestamp {config.get_timestamp()}",
-        "--viewer.quit-on-train-completion True",
+        "ns-train", "nerfacto",
+        "--data", base_dir / "after",
+        "--output-dir", config.get_output_dir().parent,
+        "--experiment-name", f"{config.object_name}/after",
+        "--timestamp", config.get_timestamp(),
+        "--viewer.quit-on-train-completion", "True",
     ]
 
     if kwargs.get("camera_optimizer", False):
-        command.append(f"--pipeline.model.camera-optimizer.mode {kwargs['camera_optimizer']}")
+        command.extend(["--pipeline.model.camera-optimizer.mode", kwargs["camera_optimizer"]])
 
     command.extend([
         "nerfstudio-data",
-        "--orientation-method none",
-        "--center-method none",
-        "--auto-scale-poses False",
-        "--train-split-fraction 0.99"
+        "--orientation-method", "none",
+        "--center-method", "none",
+        "--auto-scale-poses", "False",
+        "--train-split-fraction", "0.99"
     ])
-
-    command = " ".join(command)
 
     run_command(command, verbose=True)
 

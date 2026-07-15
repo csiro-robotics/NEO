@@ -1,11 +1,11 @@
 import tyro
-import subprocess
+import shutil
 
 from nerfstudio.configs.config_utils import convert_markup_to_ansi
 from nerfstudio.utils.rich_utils import CONSOLE
-from nerfstudio.utils.scripts import run_command
+from neo.utils.commands import run_command
 
-from experiment_config import NeoDataConfig
+from scripts.experiment_config import NeoDataConfig
 
 def calculate_colmap(config: NeoDataConfig, skip_after: bool = False) -> None:
     """Main function."""
@@ -23,16 +23,23 @@ def calculate_colmap(config: NeoDataConfig, skip_after: bool = False) -> None:
             if item.name != "rgb" and item.name != "depth":
                 CONSOLE.print(f"Removing {item}")
                 if item.is_dir():
-                    subprocess.run(f"rm -rf {item}", shell=True)
+                    shutil.rmtree(item)
                 else:
                     item.unlink()
 
         # Use COLMAP to get initial positions
-        command = f"ns-process-data images --data {output_path / stage / 'rgb'} --output-dir {output_path / stage}"
+        command = [
+            "ns-process-data",
+            "images",
+            "--data",
+            output_path / stage / "rgb",
+            "--output-dir",
+            output_path / stage,
+        ]
         run_command(command, verbose=True)
 
-        subprocess.run(f"rm -rf {output_path / stage /'rgb'}", shell=True)
-        subprocess.run(f"cp {output_path / stage / 'transforms.json'} {output_path / stage / 'raw_transforms.json'}", shell=True)
+        shutil.rmtree(output_path / stage / "rgb")
+        shutil.copy2(output_path / stage / "transforms.json", output_path / stage / "raw_transforms.json")
 
 def entrypoint():
     """Entrypoint for use with pyproject scripts."""

@@ -1,0 +1,10 @@
+experiment_name: relocation-rubiks-cube
+root_input: data
+outputs_root: outputs
+data_type: real
+action: translate_and_rotate
+scene_type: single
+scene_name: rubiks_cube
+object_name: rubiks_cube
+lerf_prompt: Rubiks Cube
+timestamp: null

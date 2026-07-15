@@ -11,6 +11,10 @@ class NeoDataConfig():
 
     root_input: Path = Path("data")
     """Root directory for input data"""
+    outputs_root: Path = Path("outputs")
+    """Root directory for trained models and editing outputs"""
+    raw_bagfiles_root: Union[Path, None] = None
+    """Optional raw capture root; defaults to <root_input>/raw_bagfiles"""
     data_type: Literal["real", "synthetic"] = "real"
     """Type of data to process"""
     action: Literal["remove", "translate", "rotate", "translate_and_rotate", "mix"] = "remove"
@@ -26,6 +30,19 @@ class NeoDataConfig():
 
     def get_base_dir(self):
         return self.root_input / self.data_type / self.action / self.scene_type / self.scene_name / self.object_name
+
+    def get_relative_scene_dir(self) -> Path:
+        """Return the scene path relative to the configured data root."""
+        return self.get_base_dir().relative_to(self.root_input)
+
+    def get_output_dir(self) -> Path:
+        """Return the model/output directory corresponding to the data scene."""
+        return self.outputs_root / self.get_relative_scene_dir()
+
+    def get_raw_capture_base(self) -> Path:
+        """Return the raw capture path without a stage suffix."""
+        raw_root = self.raw_bagfiles_root or self.root_input / "raw_bagfiles"
+        return raw_root / self.get_relative_scene_dir()
     
     def print_to_terminal(self) -> None:
         """Helper to pretty print config to terminal"""

@@ -1,0 +1,10 @@
+experiment_name: relocation-banana
+root_input: data
+outputs_root: outputs
+data_type: real
+action: translate_and_rotate
+scene_type: single
+scene_name: banana
+object_name: banana
+lerf_prompt: Banana
+timestamp: null

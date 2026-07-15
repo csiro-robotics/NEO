@@ -1,26 +1,73 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "neo"
-description = "Repository contining Neo method for Nerfstudio."
-version = "0.0.1"
-
-dependencies=[
-    "bagpy",
-    "scipy",
-    "rich",
-    "tqdm",
-    "nerfstudio>=1.0.0",
-    "pyrealsense2",
-    "transformers",
-    "torchtyping",
-    "diffusers",
-    "accelerate",
-    "segment_anything @ git+https://github.com/facebookresearch/segment-anything.git",
-    "rosbags",
-    "rosbags-image"
+description = "NEO: language-guided persistent NeRF editing for robotic manipulation."
+version = "0.1.0"
+readme = "README.md"
+requires-python = ">=3.10,<3.11"
+authors = [
+    {name = "Mikolaj Zielinski"},
+    {name = "David Hall"},
+    {name = "Dominik Belter"},
+    {name = "Peyman Moghadam"},
+]
+keywords = ["nerf", "robotics", "scene-editing", "nerfstudio"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 
+dependencies = [
+    "accelerate>=1.5,<2",
+    "diffusers>=0.32,<0.33",
+    "jaxtyping>=0.2",
+    "mediapy>=1.2",
+    "nerfstudio @ git+https://github.com/MikolajZielinski/nerfstudio.git@d8b04cfaa30422de1189ee987ba7d3950b55a650",
+    "numpy>=1.26,<2",
+    "opencv-python>=4.8,<5",
+    "pandas>=2.2,<3",
+    "Pillow>=11,<12",
+    "PyYAML>=6,<7",
+    "rich>=13,<14",
+    "scipy>=1.14,<2",
+    "segment_anything @ git+https://github.com/facebookresearch/segment-anything.git@dca509fe793f601edb92606367a655c15ac00fdf",
+    "torch>=2.6,<2.7",
+    "torchtyping>=0.1",
+    "typeguard>=2.11,<3",
+    "tqdm>=4.67,<5",
+    "transformers>=4.49,<4.50",
+    "trimesh>=4.6,<5",
+    "typing_extensions>=4.12",
+    "tyro>=0.9,<0.10",
+    "viser>=0.2",
+]
+
+[project.optional-dependencies]
+capture = [
+    "bagpy>=0.5,<0.6",
+    "pyrealsense2>=2.55,<3",
+    "rosbags>=0.10,<0.11",
+    "rosbags-image>=0.10,<0.11",
+]
+paper = [
+    "lerf @ git+https://github.com/csiro-robotics/lerf_bbox.git@112ad9ede65c595e6c0f1f9a675f15891665c4c4",
+    "nerfiller @ git+https://github.com/csiro-robotics/neo_nerfiller.git@31666136e7d4e9770652185a890484dabfb2979d",
+]
+dev = [
+    "build>=1.2",
+    "pytest>=8,<9",
+    "ruff>=0.9,<1",
+]
+
+[project.urls]
+Repository = "https://github.com/csiro-robotics/Neo"
+
 [tool.setuptools.packages.find]
-include = ["neo*"]
+include = ["neo*", "scripts*"]
 
 [project.entry-points.'nerfstudio.method_configs']
 neo = 'neo.neo_config:neo_method'
@@ -36,3 +83,15 @@ ns-convert = "neo.scripts.convert_to_neo:entrypoint"
 ns-eval-neo = "neo.eval.eval:entrypoint"
 ns-render-neo = "neo.render.render:entrypoint"
 ns-loopback = "neo.scripts.loopback_model:entrypoint"
+neo-remove = "scripts.run_removal:entrypoint"
+neo-reconfigure = "scripts.run_reconfiguration:entrypoint"
+neo-assembly = "scripts.run_assembly:entrypoint"
+neo-ablate = "scripts.run_reconfiguration_neo:entrypoint"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120

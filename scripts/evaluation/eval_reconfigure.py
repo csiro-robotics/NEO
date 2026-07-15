@@ -5,19 +5,22 @@ from pathlib import Path
 
 from nerfstudio.configs.config_utils import convert_markup_to_ansi
 from nerfstudio.utils.rich_utils import CONSOLE
-from nerfstudio.utils.scripts import run_command
+from neo.utils.commands import run_command
 
-from experiment_config import NeoDataConfig
+from scripts.experiment_config import NeoDataConfig
 
 
 def eval(config: NeoDataConfig) -> None:
     """Main function that executes the training pipeline."""
-    base_dir = config.get_base_dir()
-    config_path = str(base_dir / f"before/neo/{config.get_timestamp()}/replace-nerf/config.yml").replace(str(config.root_input), 'outputs')
+    output_dir = config.get_output_dir()
+    config_path = output_dir / "before" / "neo" / config.get_timestamp() / "replace-nerf" / "config.yml"
+
+    def evaluate(path: Path) -> None:
+        run_command(["ns-eval-neo", "--config-path", path, "--dry-run", "False", "--verbose", "True"])
 
     # Evaluate LERF
     CONSOLE.print("[bold green]Evaluating...[/bold green]")
-    selected_dir = config_path.replace("neo", "lerf-lite").replace("/replace-nerf", "")
+    selected_dir = output_dir / "before" / "lerf-lite" / config.get_timestamp() / "config.yml"
     # output_path = str(Path(selected_dir.replace("outputs", "eval")).parents[1])
     # command = [
     #     "ns-eval",
@@ -25,39 +28,14 @@ def eval(config: NeoDataConfig) -> None:
     #     f"--output-path {output_path}/results.json",
     #     f"--render-output-path {output_path.replace('eval', 'renders')}",
     # ]
-    shutil.copy(Path(config_path).parents[1] / "bbox.json", Path(selected_dir).parent / "bbox.json")
-    command = [
-        "ns-eval-neo",
-        f"--config-path {selected_dir}",
-        "--dry_run False",
-        "--verbose True"
-    ]
-    command = " ".join(command)
-
-    run_command(command, verbose=True)
+    shutil.copy(config_path.parents[1] / "bbox.json", selected_dir.parent / "bbox.json")
+    evaluate(selected_dir)
 
     # Evaluate Neo
-    command = [
-        "ns-eval-neo",
-        f"--config-path {config_path}",
-        "--dry_run False",
-        "--verbose True"
-    ]
-    command = " ".join(command)
-
-    run_command(command, verbose=True)
+    evaluate(config_path)
 
     # Evaluate Neo-Big
-    selected_dir = config_path.replace("neo", "neo-big")
-    command = [
-        "ns-eval-neo",
-        f"--config-path {selected_dir}",
-        "--dry_run False",
-        "--verbose True"
-    ]
-    command = " ".join(command)
-
-    run_command(command, verbose=True)
+    evaluate(output_dir / "before" / "neo-big" / config.get_timestamp() / "replace-nerf" / "config.yml")
 
 
 def entrypoint():

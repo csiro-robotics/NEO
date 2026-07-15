@@ -1,0 +1,14 @@
+cff-version: 1.2.0
+message: "If you use NEO, please cite this work."
+title: "NEO: NeRF It Once, Edit It Many Times for Continuous Object Manipulation"
+type: software
+authors:
+  - family-names: Zielinski
+    given-names: Mikolaj
+  - family-names: Hall
+    given-names: David
+  - family-names: Belter
+    given-names: Dominik
+  - family-names: Moghadam
+    given-names: Peyman
+repository-code: "https://github.com/csiro-robotics/Neo"

@@ -1,5 +1,4 @@
 import tyro
-import yaml
 import os
 import shutil
 import json
@@ -11,14 +10,15 @@ from typing import Type, Union
 from nerfstudio.configs.base_config import InstantiateConfig
 from nerfstudio.configs.config_utils import convert_markup_to_ansi
 from nerfstudio.utils.rich_utils import CONSOLE
-from nerfstudio.utils.scripts import run_command
+from neo.utils.commands import run_command
 from rich.table import Table
 
-from pipeline_progress_bar import PipelineProgress
-from experiment_config import NeoDataConfig
+from scripts.pipeline_progress_bar import PipelineProgress
+from scripts.experiment_config import NeoDataConfig
 
-from editing.edit import edit
-from editing.loopback import loopback
+from scripts.editing.edit import edit
+from scripts.editing.loopback import loopback
+from neo.utils.experiment_io import load_experiment_config, save_experiment_config
 
 
 @dataclass
@@ -132,7 +132,7 @@ class ExperimentConfig(NeoDataConfig, InstantiateConfig):
         base_dir.mkdir(parents=True, exist_ok=True)
         config_yaml_path = base_dir / f"{self.experiment_name}.yml"
         CONSOLE.log(f"Saving config to: {config_yaml_path}")
-        config_yaml_path.write_text(yaml.dump(self), "utf8")
+        save_experiment_config(self, config_yaml_path)
 
 def _copy_existing_attrs(source: object, target: object) -> None:
     """Copy attributes that exist on target from a loaded YAML object."""
@@ -387,15 +387,15 @@ def render_evaluation_images(config: ExperimentConfig) -> None:
         raise FileNotFoundError(f"Missing transforms for evaluation render: {transforms_path}")
 
     command = [
-        "ns-render-neo render-from-transforms",
-        f"--load-config {config_path}",
-        f"--transforms-filename {transforms_path}",
-        "--image-format png",
-        "--output-format images",
-        "--rendered-output-names rgb depth",
-        f"--output-path {output_path}",
+        "ns-render-neo", "render-from-transforms",
+        "--load-config", config_path,
+        "--transforms-filename", transforms_path,
+        "--image-format", "png",
+        "--output-format", "images",
+        "--rendered-output-names", "rgb", "depth",
+        "--output-path", output_path,
     ]
-    run_command(" ".join(command), verbose=True)
+    run_command(command, verbose=True)
     prepare_evaluation_assets(config)
 
 def _load_rgb_image(path: Path):
@@ -514,15 +514,15 @@ def export_pointcloud(config: ExperimentConfig) -> None:
     config_path = _replace_nerf_config_path(config)
     output_dir = config.pointclouds_root / config_path.parent.relative_to(config.ablation_outputs_root)
     command = [
-        "ns-export pointcloud",
-        f"--load-config {config_path}",
-        f"--output-dir {output_dir}",
-        f"--num-points {config.pointcloud_num_points}",
-        "--remove-outliers True",
-        "--normal-method open3d",
-        "--save-world-frame False",
+        "ns-export", "pointcloud",
+        "--load-config", config_path,
+        "--output-dir", output_dir,
+        "--num-points", config.pointcloud_num_points,
+        "--remove-outliers", "True",
+        "--normal-method", "open3d",
+        "--save-world-frame", "False",
     ]
-    run_command(" ".join(command), verbose=True)
+    run_command(command, verbose=True)
 
 def calculate_reprojection_error(config: ExperimentConfig) -> None:
     """Calculate reprojection error using eval_reprojection_tree.py."""
@@ -846,8 +846,7 @@ def main(config: ExperimentConfig) -> None:
         assert config_path.exists(), f"Config file does not exist: {config_path}"
 
         CONSOLE.log(f"Loading pre-set config from: experiments/{config.load_config}")
-        with open(f"experiments/{config.load_config}", "r") as f:
-            config = yaml.load(f, Loader=yaml.Loader)
+        config = load_experiment_config(config, config_path)
         config = _normalize_loaded_config(config)
 
     else:

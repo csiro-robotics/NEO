@@ -4,27 +4,23 @@ from typing import Annotated
 
 from nerfstudio.configs.config_utils import convert_markup_to_ansi
 from nerfstudio.utils.rich_utils import CONSOLE
-from nerfstudio.utils.scripts import run_command
+from neo.utils.commands import run_command
 
-from experiment_config import NeoDataConfig
+from scripts.experiment_config import NeoDataConfig
 
 
 def loopback(config: NeoDataConfig, model_type: Annotated["neo", "neo-big"] = "neo") -> None:
     """Main function."""
 
-    base_dir = config.get_base_dir()
-
-    config_path = str(base_dir / f"before/{model_type}/{config.get_timestamp()}/config.yml").replace(str(config.root_input), 'outputs')
+    config_path = config.get_output_dir() / "before" / model_type / config.get_timestamp() / "config.yml"
 
     # Evaluate LERF
     CONSOLE.print("[bold green]Evaluating...[/bold green]")
     command = [
-        "ns-loopback lerf",
-        f"--load-config {config_path}",
-        "--verbose True"
+        "ns-loopback", "lerf",
+        "--load-config", config_path,
+        "--verbose", "True",
     ]
-    command = " ".join(command)
-
     run_command(command, verbose=True)
 
 

@@ -1,107 +1,175 @@
+# NEO: NeRF It Once, Edit It Many Times
 
-# Neo: NeRF it once, edit twice
-Fast editing pipeline for nerfacto models
+Language-guided, persistent NeRF editing for continuous object manipulation.
 
-Register the method within Nerfstudio
+NEO starts from a single scene scan and predicts future scene states without
+re-scanning after every robot action. It combines:
+
+1. region-aware neural-field resampling for object removal;
+2. progressive, multi-view-consistent diffusion inpainting; and
+3. teacher-student distillation for persistent object relocation.
+
+The edited NeRF can be converted back to a language field and used as the input
+to the next manipulation step.
+
+## Release Status
+
+This branch contains the NEO implementation and paper experiment manifests.
+The NEO-Dataset, paper checkpoints, and final license are separate release
+artifacts and are not yet included in this repository. See
+[Dataset](docs/DATASET.md) and [Reproducibility](docs/REPRODUCIBILITY.md) before
+attempting the full paper evaluation.
+
+## Requirements
+
+- Linux and Python 3.10
+- NVIDIA GPU with CUDA support
+- approximately 24 GB VRAM for `neo`; more memory and time for `neo-big`
+- COLMAP and FFmpeg for data preparation and rendering
+- Hugging Face access for the configured Stable Diffusion inpainting model
+
+The paper environment used the `gs` conda environment, PyTorch 2.6, CUDA 12.4,
+and pinned forks of Nerfstudio, LERF, and NeRFiller. Exact Git revisions are in
+the `paper` optional dependency group in `pyproject.toml`.
+
+## Installation
 
 ```bash
-cd Neo/
-pip install -e .
+conda env create -f environment.yml
+conda activate gs
 ns-install-cli
 ```
 
-You have to download [SAM ViT-H](https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth) model weights and put them in ``ckpts`` folder. So the folder structure should look like this
+For a manual installation, create a Python 3.10 environment, install a PyTorch
+2.6 build appropriate for the host NVIDIA driver, then run
+`pip install -e ".[paper,capture]"` and `ns-install-cli`.
 
-```
-Neo/
-├── ckpts/
-│ └── sam_vit_h_4b8939.pth
-├── neo/
-│ └── ...
-├── pyproject.toml
-└── README.md
-```
-
-## Install nerfstudio with conda using CUDA 12.4
-```bash
-conda create --name nerfstudio -y python=3.10
-conda activate nerfstudio
-pip3 install torch torchvision torchaudio
-conda install -c "nvidia/label/cuda-12.4.0" cuda-toolkit
-conda install ninja git
-export CUDA_HOME=$HOME/.conda/envs/nerfstudio
-export CUDA_PATH=$CUDA_HOME
-export PATH=$CUDA_HOME/bin:$PATH
-export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
-export LD_LIBRARY_PATH=/usr/lib64:$LD_LIBRARY_PATH
-ln -s /usr/lib64/libcuda.so.565.77 ~/.conda/envs/nerfstudio/lib/libcuda.so
-
-git clone https://github.com/nerfstudio-project/nerfstudio.git
-cd nerfstudio
-pip install --upgrade pip setuptools
-pip install -e .
-```
-
-
-## Using pretrained Nerfacto-based models
-
-If you want to use different Nerfacto based model just convert the config file with command
-```bash
-ns-convert --load-config CONFIG_INPUT_PATH
-```
-Converted config will be saved at previous output location in neo folder
-
-## Loopback edited model
-
-In order to load edited lerf model use the command:
+Download the Segment Anything ViT-H checkpoint:
 
 ```bash
-ns-loopback lerf --load-config <path_to_folder_containing__replace_nerf_config_file> [--verbose bool]
+mkdir -p ckpts
+wget -O ckpts/sam_vit_h_4b8939.pth \
+  https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth
 ```
 
-## Time logging
-
-For time logging you will need to install
+Verify the installation without starting a training run:
 
 ```bash
-sudo apt-get install bc jq
+python -c "import neo.neo_config; print('NEO import OK')"
+neo-remove --help
+neo-reconfigure --help
+neo-assembly --help
 ```
 
-## Running our experiments
+Do not add host-specific `libcuda.so` symlinks to the conda environment. The
+installed PyTorch build and NVIDIA driver must be mutually compatible.
 
-First step is to prepare default models for further editing. This step will load images, calcualte colmap for ground truth and basic dataset. It will also load the movement from robot rosbag file is the file is provided. During this step basic LERF model is trainied and ground truth nerfacto model.
+## Data Layout
+
+NEO expects registered `before` and `after` Nerfstudio datasets:
+
+```text
+data/real/<action>/single/<scene>/<object>/
+├── before/
+│   ├── images/
+│   ├── depth/
+│   └── transforms.json
+├── after/
+│   ├── images/
+│   ├── depth/
+│   └── transforms.json
+└── bbox.json                 # generated during language-guided localization
+```
+
+Raw RealSense, ROS 2, MP4, and robot-motion inputs are described in
+[docs/DATASET.md](docs/DATASET.md).
+
+## Run NEO
+
+Paper configurations are plain YAML under `experiments/paper`. Paths are
+relative to the repository by default and can be changed in the YAML files.
+
+Object removal:
 
 ```bash
-./scripts/prepare_data.sh --root_input <data_directory> --data_type <data_type> --scene_name <scene_name> --action <action> --scene_type <scene_type> --object_name <object_name> [--skip_colmap]
+neo-remove --load-config paper/removal/tomato_soup_can.yaml
 ```
 
-Arguments are:
-- `--root_input`: The root directory where input data is stored.
-- `--data_type`: The type of data being used (e.g., real, synthetic).
-- `--scene_name`: The name of the scene to be processed.
-- `--action`: The action to be performed (e.g., remove, translate).
-- `--scene_type`: The type of scene (e.g., single, multiple_one).
-- `--object_name`: The name of the object to be edited.
-- `--skip_colmap`: Flag to skip the COLMAP step in the pipeline.
-
-Now you can optionally run `lerftogo` command and check how good your language prompt is.
-
-Then we can run editing and evaluation with command.
+Object relocation:
 
 ```bash
-./scripts/run_editing.sh --root_input <data_directory> --data_type <data_type> --scene_name <scene_name> --action <action> --scene_type <scene_type> --object_name <object_name> --lerf_prompt '<lerf_prompt>' [--skip_colmap] [--dry_run]
+neo-reconfigure --load-config paper/relocation/banana.yaml
 ```
 
-> **Note:** Make sure that `lerfprompt` is enclosed within single quotes ('').
-
-Arguments are:
-- Same as before +
-- `--lerf_prompt`: The prompt for the LERF model to identify the object.
-- `--dry_run`: Flag to skip the rendering of images in evaluation step.
-
-Last step is to update the language field with the command
+Four-step assembly:
 
 ```bash
-ns-loopback lerf --load-config <data_directory>/<data_type>/<action>/<scene_type>/<scene_name>/<object_name>/befoe/replace-nerf/<timestamp> [--verbose bool]
+neo-assembly --load-config paper/assembly.yaml
 ```
-Now this new field will be saved under the same lerf-lite directory under different timestamp
+
+Each runner exposes individual pipeline switches:
+
+```bash
+neo-remove --help
+neo-reconfigure --help
+neo-assembly --help
+```
+
+Outputs mirror the input hierarchy below `outputs/`. A run contains the
+initial LERF model, NEO conversion, inpainted sparse-guided NeRF, distilled
+`replace-nerf` model, bounding boxes, and logs.
+
+## Custom Scenes
+
+For a prepared Nerfstudio scene, train the initial language field, localize the
+object with a text prompt, and launch an edit through the corresponding runner.
+The bounding-box viewer supports translation and rotation offsets for rigid
+objects. NEO currently assumes a static background and does not model
+articulated or deformable objects.
+
+Language localization and language-field loopback require the pinned
+`csiro-robotics/lerf_bbox` fork, which provides `lerftogo-neo`, `lerf-lite`, and
+`lerf-lite-lan`. NeRFiller baselines require the pinned
+`csiro-robotics/neo_nerfiller` fork.
+
+## Paper Experiments
+
+- Object removal: five single-object scenes.
+- Pick and place: six single-object relocation scenes.
+- Assembly: four consecutive edits from one initial scan.
+- NEO-Dataset: twelve tabletop scenes in total, consisting of eleven
+  single-object scenes and one multi-object scene.
+
+Evaluation uses PSNR, SSIM, depth RMSE, and photometric reprojection error over
+the full image and the edited `Out`/`In` regions. Exact scene lists, metric
+defaults, and known paper-to-code discrepancies are documented in
+[docs/REPRODUCIBILITY.md](docs/REPRODUCIBILITY.md).
+
+## Repository Layout
+
+```text
+neo/                 Nerfstudio models, pipelines, rendering, and metrics
+scripts/             Installed data, editing, evaluation, and experiment CLIs
+experiments/paper/   Portable paper experiment manifests
+docs/                Dataset and reproducibility documentation
+tests/               CPU-safe release checks
+notebooks/           Development and data-inspection notebooks
+```
+
+## Citation
+
+See [CITATION.cff](CITATION.cff), or cite:
+
+```bibtex
+@article{zielinski2026neo,
+  title   = {NEO: NeRF It Once, Edit It Many Times for Continuous Object Manipulation},
+  author  = {Zielinski, Mikolaj and Hall, David and Belter, Dominik and Moghadam, Peyman},
+  year    = {2026}
+}
+```
+
+## License
+
+A public software and dataset license has not yet been assigned. Until the
+copyright holders add license files, the repository should be treated as
+source-available for review rather than an open-source distribution.

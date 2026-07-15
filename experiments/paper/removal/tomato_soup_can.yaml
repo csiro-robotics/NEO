@@ -1,0 +1,10 @@
+experiment_name: removal-tomato-soup-can
+root_input: data
+outputs_root: outputs
+data_type: real
+action: remove
+scene_type: single
+scene_name: tomato_soup_can
+object_name: tomato_soup_can
+lerf_prompt: Tomato soup can
+timestamp: null

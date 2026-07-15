@@ -1,5 +1,4 @@
 import tyro
-import yaml
 import os
 
 from dataclasses import dataclass, field
@@ -10,20 +9,21 @@ from nerfstudio.configs.base_config import InstantiateConfig
 from nerfstudio.configs.config_utils import convert_markup_to_ansi
 from nerfstudio.utils.rich_utils import CONSOLE
 
-from pipeline_progress_bar import PipelineProgress
-from experiment_config import NeoDataConfig
-from data_preparation.calculate_colmap import calculate_colmap
-from data_preparation.extract_images import extract_images
-from data_preparation.match_arucos import match_arucos
-from data_preparation.extract_arm_movement import extract_arm_movement
-from data_preparation.train_lerf import train_lerf
-from data_preparation.train_gt import train_gt
+from scripts.pipeline_progress_bar import PipelineProgress
+from scripts.experiment_config import NeoDataConfig
+from scripts.data_preparation.calculate_colmap import calculate_colmap
+from scripts.data_preparation.extract_images import extract_images
+from scripts.data_preparation.match_arucos import match_arucos
+from scripts.data_preparation.extract_arm_movement import extract_arm_movement
+from scripts.data_preparation.train_lerf import train_lerf
+from scripts.data_preparation.train_gt import train_gt
 
-from editing.generate_bbox import generate_bbox
-from editing.edit import edit
-from editing.loopback import loopback
+from scripts.editing.generate_bbox import generate_bbox
+from scripts.editing.edit import edit
+from scripts.editing.loopback import loopback
 
-from evaluation.eval_reconfigure import eval
+from scripts.evaluation.eval_reconfigure import eval
+from neo.utils.experiment_io import load_experiment_config, save_experiment_config
 
 
 @dataclass
@@ -109,7 +109,7 @@ class ExperimentConfig(NeoDataConfig, InstantiateConfig):
         base_dir.mkdir(parents=True, exist_ok=True)
         config_yaml_path = base_dir / f"{self.experiment_name}.yml"
         CONSOLE.log(f"Saving config to: {config_yaml_path}")
-        config_yaml_path.write_text(yaml.dump(self), "utf8")
+        save_experiment_config(self, config_yaml_path)
 
 def dummy_fnc(config: ExperimentConfig):
     pass
@@ -187,8 +187,7 @@ def main(config: ExperimentConfig) -> None:
         assert config_path.exists(), f"Config file does not exist: {config_path}"
 
         CONSOLE.log(f"Loading pre-set config from: experiments/{config.load_config}")
-        with open(f"experiments/{config.load_config}", "r") as f:
-            config = yaml.load(f, Loader=yaml.Loader)
+        config = load_experiment_config(config, config_path)
 
     else:
         # Save configuration to file.
