@@ -144,6 +144,14 @@ def test_required_dependencies_are_physically_vendored() -> None:
     assert all(path.is_file() and not path.is_symlink() for path in required_files)
 
 
+def test_robot_lerf_declares_grasp_nms_runtime_dependency() -> None:
+    pyproject = Path("submodules/neo_lerftogo/pyproject.toml").read_text(
+        encoding="utf8"
+    )
+
+    assert '"grasp-nms"' in pyproject
+
+
 def test_tinycudann_does_not_vendor_compiled_extensions() -> None:
     tinycudann = Path("submodules/tinycudann")
 
