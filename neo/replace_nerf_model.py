@@ -49,6 +49,14 @@ class ReplaceNeRFModelConfig(NerfactoModelConfig):
     """Path to the NeRF with reconstructed region"""
     bbox_path: Optional[Path] = None
     """Path to the bounding box"""
+    use_field_distillation: bool = True
+    """Use per-sample RGB and density distillation before render-space distillation."""
+    field_distillation_steps: int = 100
+    """Number of initial steps trained with per-sample RGB and density distillation."""
+    use_render_rgb_distillation: bool = True
+    """Use rendered RGB supervision from the stitched teacher."""
+    use_render_depth_distillation: bool = True
+    """Use rendered depth supervision from the stitched teacher."""
 
 
 class ReplaceNeRFModel(NerfactoModel):
@@ -467,7 +475,15 @@ class ReplaceNeRFModel(NerfactoModel):
             gt_image=image,
         )
         
-        if step < 100:
+        render_distillation_enabled = (
+            self.config.use_render_rgb_distillation or self.config.use_render_depth_distillation
+        )
+        use_field_distillation = self.config.use_field_distillation and (
+            step < self.config.field_distillation_steps or not render_distillation_enabled
+        )
+        has_loss = False
+
+        if use_field_distillation:
             if not self.frozen:
                 self.frozen = True
                 for name, param in self.field.named_parameters():
@@ -476,6 +492,7 @@ class ReplaceNeRFModel(NerfactoModel):
 
             loss_dict["rgbs_loss"] = self.color_loss(outputs["gt_rgbs"], outputs["rgbs"])
             loss_dict["densities_loss"] = self.density_loss(outputs["gt_densities"], outputs["densities"])
+            has_loss = True
 
         else:
             if self.frozen:
@@ -484,8 +501,14 @@ class ReplaceNeRFModel(NerfactoModel):
                     if 'mlp' in name:
                         param.requires_grad = True
             
-            loss_dict["rgb_loss"] = self.rgb_loss(gt_rgb, pred_rgb)
-            loss_dict["depth"] = self.depth_loss(outputs["gt_depth"], outputs["depth"])
+            if self.config.use_render_rgb_distillation:
+                loss_dict["rgb_loss"] = self.rgb_loss(gt_rgb, pred_rgb)
+                has_loss = True
+
+            if self.config.use_render_depth_distillation:
+                loss_dict["depth"] = self.depth_loss(outputs["gt_depth"], outputs["depth"])
+                has_loss = True
+
             if self.training:
                 loss_dict["interlevel_loss"] = self.config.interlevel_loss_mult * interlevel_loss(
                     outputs["weights_list"], outputs["ray_samples_list"]
@@ -504,4 +527,9 @@ class ReplaceNeRFModel(NerfactoModel):
                     )
                 # Add loss from camera optimizer
                 # self.camera_optimizer.get_loss_dict(loss_dict)
+        if not has_loss:
+            raise ValueError(
+                "ReplaceNeRF distillation has no active reconstruction loss. Enable field distillation, "
+                "render RGB distillation, or render depth distillation."
+            )
         return loss_dict

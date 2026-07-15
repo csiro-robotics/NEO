@@ -116,6 +116,14 @@ class ExperimentConfig(NeoDataConfig, InstantiateConfig):
     """Pixel stride used by eval_reprojection_tree.py"""
     pointcloud_num_points: int = 1_000_000
     """Number of points exported by ns-export"""
+    replace_nerf_use_field_distillation: bool = True
+    """Use per-sample RGB and density distillation in the Replace-NeRF stage"""
+    replace_nerf_field_distillation_steps: int = 100
+    """Number of Replace-NeRF steps that use per-sample RGB and density distillation"""
+    replace_nerf_use_render_rgb_distillation: bool = True
+    """Use rendered RGB distillation in the Replace-NeRF stage"""
+    replace_nerf_use_render_depth_distillation: bool = True
+    """Use rendered depth distillation in the Replace-NeRF stage"""
 
     def save_config(self) -> None:
         """Save config to base directory"""

@@ -23,7 +23,16 @@ def edit(config: NeoDataConfig, model_type: Annotated["neo", "neo-big"] = "neo")
 
     # Load model
     CONSOLE.print("[bold green]Editing...[/bold green]")
-    config, pipeline, ckpt_path, step = eval_setup(Path(str(base_dir / f"before/{model_type}/{config.get_timestamp()}/config.yml").replace(str(config.root_input), 'outputs')), eval_num_rays_per_chunk=None, test_mode='test')
+    trainer_config, pipeline, ckpt_path, step = eval_setup(Path(str(base_dir / f"before/{model_type}/{config.get_timestamp()}/config.yml").replace(str(config.root_input), 'outputs')), eval_num_rays_per_chunk=None, test_mode='test')
+    replace_nerf_config_attrs = [
+        "replace_nerf_use_field_distillation",
+        "replace_nerf_field_distillation_steps",
+        "replace_nerf_use_render_rgb_distillation",
+        "replace_nerf_use_render_depth_distillation",
+    ]
+    for attr in replace_nerf_config_attrs:
+        if hasattr(config, attr) and hasattr(pipeline.config, attr):
+            setattr(pipeline.config, attr, getattr(config, attr))
     pipeline.apply_changes_hook()
 
 def entrypoint():

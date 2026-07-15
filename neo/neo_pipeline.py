@@ -64,6 +64,14 @@ class NeoPipelineConfig(VanillaPipelineConfig):
     """Number of images in group"""
     proposal_warmup_sparse_guided_nerf: int = 500
     """Scales n from 1 to proposal_update_every over this many steps"""
+    replace_nerf_use_field_distillation: bool = True
+    """Use per-sample RGB and density distillation in the Replace-NeRF stage."""
+    replace_nerf_field_distillation_steps: int = 100
+    """Number of Replace-NeRF steps that use per-sample RGB and density distillation."""
+    replace_nerf_use_render_rgb_distillation: bool = True
+    """Use rendered RGB distillation in the Replace-NeRF stage."""
+    replace_nerf_use_render_depth_distillation: bool = True
+    """Use rendered depth distillation in the Replace-NeRF stage."""
     loopback_model: bool = True
     """Load the model after editing for further editing"""
 
@@ -210,6 +218,10 @@ class NeoPipeline(VanillaPipeline):
             f"--pipeline.model.field-path {checkpoint_filenames[0]}",
             f"--pipeline.model.replace-field-path {path}/sparse-guided-nerf/nerfstudio_models/step-{str(self.config.max_num_iterations_sparse_guided_nerf - 1).zfill(9)}.ckpt",
             f"--pipeline.model.bbox-path {path}/bbox.json",
+            f"--pipeline.model.use-field-distillation {self.config.replace_nerf_use_field_distillation}",
+            f"--pipeline.model.field-distillation-steps {self.config.replace_nerf_field_distillation_steps}",
+            f"--pipeline.model.use-render-rgb-distillation {self.config.replace_nerf_use_render_rgb_distillation}",
+            f"--pipeline.model.use-render-depth-distillation {self.config.replace_nerf_use_render_depth_distillation}",
             "--pipeline.datamanager.pixel-sampler.ignore-mask True",
             "--viewer.quit-on-train-completion True",
             f"--output-dir {path}",

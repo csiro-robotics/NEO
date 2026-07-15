@@ -185,8 +185,8 @@ class SparseGuidedNeRFModel(NerfactoModel):
             gt_image=image,
         )
 
-        if self.step < 1000:
-            loss_dict["density_loss"] = 0.1 * self.rgb_loss(outputs["densities"], outputs["masked_densities"])
+        # if self.step < 1000:
+        #     loss_dict["density_loss"] = 0.1 * self.rgb_loss(outputs["densities"], outputs["masked_densities"])
             
         loss_dict["rgb_loss"] = self.rgb_loss(gt_rgb, pred_rgb)
         if self.training:
