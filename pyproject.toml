@@ -26,7 +26,7 @@ dependencies = [
     "diffusers>=0.32,<0.33",
     "jaxtyping>=0.2",
     "mediapy>=1.2",
-    "nerfstudio @ git+https://github.com/MikolajZielinski/nerfstudio.git@d8b04cfaa30422de1189ee987ba7d3950b55a650",
+    "nerfstudio==1.1.5",
     "numpy>=1.26,<2",
     "opencv-python>=4.8,<5",
     "pandas>=2.2,<3",
@@ -36,8 +36,7 @@ dependencies = [
     "scipy>=1.14,<2",
     "segment_anything @ git+https://github.com/facebookresearch/segment-anything.git@dca509fe793f601edb92606367a655c15ac00fdf",
     "torch>=2.6,<2.7",
-    "torchtyping>=0.1",
-    "typeguard>=2.11,<3",
+    "typeguard>=4.4,<5",
     "tqdm>=4.67,<5",
     "transformers>=4.49,<4.50",
     "trimesh>=4.6,<5",
@@ -53,9 +52,17 @@ capture = [
     "rosbags>=0.10,<0.11",
     "rosbags-image>=0.10,<0.11",
 ]
+language = [
+    "lerf==0.1.1",
+    "robot_lerf==0.1.0",
+]
+baselines = [
+    "nerfiller==0.0.1",
+]
 paper = [
-    "lerf @ git+https://github.com/csiro-robotics/lerf_bbox.git@112ad9ede65c595e6c0f1f9a675f15891665c4c4",
-    "nerfiller @ git+https://github.com/csiro-robotics/neo_nerfiller.git@31666136e7d4e9770652185a890484dabfb2979d",
+    "lerf==0.1.1",
+    "robot_lerf==0.1.0",
+    "nerfiller==0.0.1",
 ]
 dev = [
     "build>=1.2",
@@ -71,7 +78,6 @@ include = ["neo*", "scripts*"]
 
 [project.entry-points.'nerfstudio.method_configs']
 neo = 'neo.neo_config:neo_method'
-neo-big = 'neo.neo_config:neo_big_method'
 sparse_guided_nerf = 'neo.neo_config:sparse_guided_nerf_method'
 replace_nerf = 'neo.neo_config:replace_nerf_method'
 

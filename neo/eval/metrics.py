@@ -9,7 +9,6 @@ from typing import Optional
 import torch
 from torch import nn
 from torchmetrics.functional import structural_similarity_index_measure
-from torchtyping import TensorType
 
 from PIL import Image
 import io
@@ -37,10 +36,10 @@ class ImageMetricModule(nn.Module):
     @abstractmethod
     def forward(
         self,
-        preds: TensorType["bs", 3, "H", "W"],
-        target: TensorType["bs", 3, "H", "W"],
-        mask: Optional[TensorType["bs", 1, "H", "W"]] = None,
-    ) -> TensorType["bs"]:
+        preds: torch.Tensor,
+        target: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
         """Computes the metric.
         Args:
             preds: Predictions.
@@ -59,10 +58,10 @@ class PSNRModule(ImageMetricModule):
 
     def forward(
         self,
-        preds: TensorType["bs", 3, "H", "W"],
-        target: TensorType["bs", 3, "H", "W"],
-        mask: Optional[TensorType["bs", 1, "H", "W"]] = None,
-    ) -> TensorType["bs"]:
+        preds: torch.Tensor,
+        target: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
         bs, h, w = preds.shape[0], preds.shape[2], preds.shape[3]
         hw = h * w
 
@@ -91,10 +90,10 @@ class MAEModule(ImageMetricModule):
 
     def forward(
         self,
-        preds: TensorType["bs", 3, "H", "W"],
-        target: TensorType["bs", 3, "H", "W"],
-        mask: Optional[TensorType["bs", 1, "H", "W"]] = None,
-    ) -> TensorType["bs"]:
+        preds: torch.Tensor,
+        target: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
         bs, h, w = preds.shape[0], preds.shape[1], preds.shape[2]
         hw = h * w
 
@@ -127,10 +126,10 @@ class RMSEModule(ImageMetricModule):
 
     def forward(
         self,
-        preds: TensorType["bs", 3, "H", "W"],
-        target: TensorType["bs", 3, "H", "W"],
-        mask: Optional[TensorType["bs", 1, "H", "W"]] = None,
-    ) -> TensorType["bs"]:
+        preds: torch.Tensor,
+        target: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
         bs, h, w = preds.shape[0], preds.shape[1], preds.shape[2]
         hw = h * w
 
@@ -165,10 +164,10 @@ class SSIMModule(ImageMetricModule):
 
     def forward(
         self,
-        preds: TensorType["bs", 3, "H", "W"],
-        target: TensorType["bs", 3, "H", "W"],
-        mask: Optional[TensorType["bs", 1, "H", "W"]] = None,
-    ) -> TensorType["bs"]:
+        preds: torch.Tensor,
+        target: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
         bs, h, w = preds.shape[0], preds.shape[2], preds.shape[3]
         hw = h * w
 
@@ -209,10 +208,10 @@ class LPIPSModule(ImageMetricModule):
 
     def forward(
         self,
-        preds: TensorType["bs", 3, "H", "W"],
-        target: TensorType["bs", 3, "H", "W"],
-        mask: Optional[TensorType["bs", 1, "H", "W"]] = None,
-    ) -> TensorType["bs"]:
+        preds: torch.Tensor,
+        target: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
         bs, h, w = preds.shape[0], preds.shape[2], preds.shape[3]
         hw = h * w
 
@@ -248,10 +247,10 @@ class CorrsModule(ImageMetricModule):
 
     def forward(
         self,
-        preds: TensorType["bs", 3, "H", "W"],
-        target: TensorType["bs", 3, "H", "W"],
-        mask: Optional[TensorType["bs", 1, "H", "W"]] = None,
-    ) -> TensorType["bs"]:
+        preds: torch.Tensor,
+        target: torch.Tensor,
+        mask: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
         bs, h, w = preds.shape[0], preds.shape[2], preds.shape[3]
         hw = h * w
 

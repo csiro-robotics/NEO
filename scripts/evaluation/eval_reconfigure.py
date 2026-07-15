@@ -34,10 +34,6 @@ def eval(config: NeoDataConfig) -> None:
     # Evaluate Neo
     evaluate(config_path)
 
-    # Evaluate Neo-Big
-    evaluate(output_dir / "before" / "neo-big" / config.get_timestamp() / "replace-nerf" / "config.yml")
-
-
 def entrypoint():
     """Entrypoint for CLI."""
     tyro.extras.set_accent_color("bright_yellow")

@@ -62,10 +62,10 @@ if __name__ == "__main__":
         "python3 scripts/run_assembly.py --load-config assembly_1.yml",
         "python3 scripts/run_assembly.py --load-config assembly_2.yml",
         "python3 scripts/run_assembly.py --load-config assembly_3.yml",
-        "ns-render dataset --load-config outputs/real/assembly/single/assembly/lego_bricks_1/before/neo-big/2025-07-18_113809/replace-nerf/config.yml --output-path renders_assembly/lego_bricks_1 --rendered-output-names rgb --image-format png --split train+test",
-        "ns-render dataset --load-config outputs/real/assembly/single/assembly/red_cup/before/neo-big/2025-07-18_113809/replace-nerf/config.yml --output-path renders_assembly/red_cup --rendered-output-names rgb --image-format png --split train+test",
-        "ns-render dataset --load-config outputs/real/assembly/single/assembly/lego_bricks_2/before/neo-big/2025-07-18_113809/replace-nerf/config.yml --output-path renders_assembly/lego_bricks_2 --rendered-output-names rgb --image-format png --split train+test",
-        "ns-render dataset --load-config outputs/real/assembly/single/assembly/golf_ball/before/neo-big/2025-07-18_113809/replace-nerf/config.yml --output-path renders_assembly/golf_ball --rendered-output-names rgb --image-format png --split train+test",
+        "ns-render dataset --load-config outputs/real/assembly/single/assembly/lego_bricks_1/before/neo/2025-07-18_113809/replace-nerf/config.yml --output-path renders_assembly/lego_bricks_1 --rendered-output-names rgb --image-format png --split train+test",
+        "ns-render dataset --load-config outputs/real/assembly/single/assembly/red_cup/before/neo/2025-07-18_113809/replace-nerf/config.yml --output-path renders_assembly/red_cup --rendered-output-names rgb --image-format png --split train+test",
+        "ns-render dataset --load-config outputs/real/assembly/single/assembly/lego_bricks_2/before/neo/2025-07-18_113809/replace-nerf/config.yml --output-path renders_assembly/lego_bricks_2 --rendered-output-names rgb --image-format png --split train+test",
+        "ns-render dataset --load-config outputs/real/assembly/single/assembly/golf_ball/before/neo/2025-07-18_113809/replace-nerf/config.yml --output-path renders_assembly/golf_ball --rendered-output-names rgb --image-format png --split train+test",
     ]
 
     run_on_multiple_gpus(commands)

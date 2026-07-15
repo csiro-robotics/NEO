@@ -9,6 +9,13 @@ The local `gs` environment used during release preparation contains:
 - LERF fork commit `112ad9ede65c595e6c0f1f9a675f15891665c4c4`;
 - NeRFiller fork commit `31666136e7d4e9770652185a890484dabfb2979d`;
 - Diffusers 0.32.2 and Transformers 4.49.0.
+- Typeguard 4.4.4 (required by the pinned Tyro/Nerfstudio command layer).
+
+The dependency sources are physically included under `submodules/`. The
+Nerfstudio, LERF, and Robot-LERF copies also contain the uncommitted source
+changes from the paper-development working trees; see
+[`submodules/README.md`](../submodules/README.md) for provenance and licensing
+notes.
 
 The exact GPU model, driver, CUDA toolkit build, random seeds, and runtime logs
 must be added to the final artifact manifest.

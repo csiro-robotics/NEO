@@ -97,3 +97,39 @@ def test_assembly_manifest_runs_all_four_steps() -> None:
 
     assert config.object_names == ["lego_bricks_1", "red_cup", "lego_bricks_2", "golf_ball"]
     assert config.steps_to_run == [0, 1, 2, 3]
+    assert not hasattr(config, "neo_model_type")
+
+
+def test_only_one_public_neo_method_is_registered() -> None:
+    pyproject = Path("pyproject.toml").read_text(encoding="utf8")
+
+    assert "neo = 'neo.neo_config:neo_method'" in pyproject
+    assert "neo-big" not in pyproject
+
+
+def test_basic_conda_environment_is_named_neo() -> None:
+    environment = Path("environment.yml").read_text(encoding="utf8")
+
+    assert environment.startswith("name: neo\n")
+    assert ".[language]" in environment
+    assert ".[capture]" not in environment
+    assert ".[baselines]" not in environment
+
+
+def test_required_dependencies_are_physically_vendored() -> None:
+    required_files = [
+        Path("submodules/nerfstudio/nerfstudio/__init__.py"),
+        Path("submodules/lerf_bbox/lerf/__init__.py"),
+        Path("submodules/neo_lerftogo/robot_lerf/scripts/gen_bbox.py"),
+        Path(
+            "submodules/neo_lerftogo/robot_lerf/graspnet_baseline/"
+            "pointnet2/pointnet2/_ext.cpython-310-x86_64-linux-gnu.so"
+        ),
+        Path(
+            "submodules/neo_lerftogo/robot_lerf/graspnet_baseline/"
+            "knn/knn_pytorch/knn_pytorch.cpython-310-x86_64-linux-gnu.so"
+        ),
+        Path("submodules/neo_nerfiller/pyproject.toml"),
+    ]
+
+    assert all(path.is_file() and not path.is_symlink() for path in required_files)

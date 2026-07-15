@@ -1,7 +1,5 @@
-import torch
 import tyro
 import yaml
-import os
 import shutil
 import torch
 
@@ -9,7 +7,7 @@ from dataclasses import dataclass, fields
 from pathlib import Path
 from typing import Union
 from typing_extensions import Annotated
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 
 from nerfstudio.engine.trainer import TrainerConfig
 from nerfstudio.data.datamanagers.base_datamanager import VanillaDataManagerConfig
@@ -17,11 +15,9 @@ from nerfstudio.data.datamanagers.parallel_datamanager import ParallelDataManage
 from nerfstudio.pipelines.base_pipeline import VanillaPipelineConfig
 from nerfstudio.models.nerfacto import NerfactoModelConfig
 
-from neo.neo_pipeline import NeoPipelineConfig
 from neo.neo_model import NeoModelConfig
 from neo.neo_trainer import NeoTrainerConfig
-from neo.neo_config import neo_method, neo_big_method
-from neo.utils.inpainting import InpainterConfig
+from neo.neo_config import neo_method
 
 
 @dataclass
@@ -79,60 +75,6 @@ class ConvertToNeo(BaseConvert):
             if field.name not in ['_target']:
                 if field.name in ['eval_num_rays_per_chunk']:
                     setattr(model_config, field.name, getattr(neo_method.config.pipeline.model, field.name))
-                else:
-                    setattr(model_config, field.name, getattr(self.config.pipeline.model, field.name))
-        
-        pipeline_config.datamanager = datamanager_config
-        pipeline_config.model = model_config
-        self.config.pipeline = pipeline_config
-
-        # Save changed config
-        self.config.save_config()
-
-        # Copy datapareser transforms file if exists
-        if (old_base_dir / "dataparser_transforms.json").exists():
-            shutil.copyfile(old_base_dir / "dataparser_transforms.json", self.config.get_base_dir() / "dataparser_transforms.json")
-
-
-@dataclass
-class ConvertToNeoBig(BaseConvert):
-    def main(self):
-        """
-        Convert any Nerfacto based model to Neo model suitable for editing.
-        """
-        super().main()
-
-        # Change model name in config and copy the content of load_config folder to its new location 
-        old_base_dir = self.config.get_base_dir()
-        self.config.method_name = "neo-big"
-        shutil.copytree(old_base_dir, self.config.get_base_dir(), dirs_exist_ok=True)
-
-        # Copy pipeline settings
-        pipeline_config = neo_big_method.config.pipeline
-        pipeline_config.bbox_data_path = self.config.get_base_dir()
-
-        # Assign Neo trainer
-        self.config = NeoTrainerConfig(**self.config.__dict__)
-        self.config._target = neo_big_method.config._target
-
-        # Copy optimizers settings
-        self.config.optimizers = neo_big_method.config.optimizers
-
-        # Copy datamanager settings
-        datamanager_config = VanillaDataManagerConfig()
-        for field in fields(VanillaDataManagerConfig):
-            if field.name not in ['_target']:
-                if field.name in ['train_num_rays_per_batch', 'eval_num_rays_per_batch']:
-                    setattr(datamanager_config, field.name, getattr(neo_big_method.config.pipeline.datamanager, field.name))
-                else:
-                    setattr(datamanager_config, field.name, getattr(self.config.pipeline.datamanager, field.name))
-
-        # Copy model settings
-        model_config = NeoModelConfig()
-        for field in fields(NeoModelConfig):
-            if field.name not in ['_target']:
-                if field.name in ['eval_num_rays_per_chunk']:
-                    setattr(model_config, field.name, getattr(neo_big_method.config.pipeline.model, field.name))
                 else:
                     setattr(model_config, field.name, getattr(self.config.pipeline.model, field.name))
         
@@ -223,7 +165,6 @@ class ConvertToNerfacto(BaseConvert):
 Commands = tyro.conf.FlagConversionOff[
     Union[
         Annotated[ConvertToNeo, tyro.conf.subcommand(name="to-neo")],
-        Annotated[ConvertToNeoBig, tyro.conf.subcommand(name="to-neo-big")],
         Annotated[ConvertToNerfacto, tyro.conf.subcommand(name="to-nerfacto")],
     ]
 ]

@@ -19,9 +19,6 @@ def eval(config: NeoDataConfig) -> None:
     CONSOLE.print("[bold green]Evaluating...[/bold green]")
     evaluate(config_path)
 
-    # Evaluate Neo-Big
-    evaluate(output_dir / "before" / "neo-big" / config.get_timestamp() / "replace-nerf" / "config.yml")
-
     # Evaluate NeRFiller baseline
     evaluate(output_dir / "before" / "nerfacto-nerfiller" / config.get_timestamp() / "config.yml")
 

@@ -2,9 +2,6 @@ import tyro
 import os
 import shutil
 
-from typing import Annotated
-from pathlib import Path
-
 from nerfstudio.configs.config_utils import convert_markup_to_ansi
 from nerfstudio.utils.rich_utils import CONSOLE
 from nerfstudio.utils.eval_utils import eval_setup
@@ -12,7 +9,7 @@ from neo.utils.commands import run_command
 
 from scripts.experiment_config import NeoDataConfig
 
-def prepare_gt(config: NeoDataConfig, model_type: Annotated["neo", "neo-big"] = "neo") -> None:
+def prepare_gt(config: NeoDataConfig) -> None:
     """Main function."""
 
     data_dir = config.get_base_dir()
@@ -23,12 +20,12 @@ def prepare_gt(config: NeoDataConfig, model_type: Annotated["neo", "neo-big"] = 
     lerf_config = output_dir / "before" / "lerf-lite" / config.get_timestamp() / "config.yml"
     if not lerf_config.exists():
         raise FileNotFoundError(f"LERF model not found at {lerf_config}. Run the LERF training step first.")
-    run_command(["ns-convert", f"to-{model_type}", "--load-config", lerf_config], verbose=True)
+    run_command(["ns-convert", "to-neo", "--load-config", lerf_config], verbose=True)
 
     # Move converted model to GT folder
     CONSOLE.print("[bold green]Moving converted model to GT folder...[/bold green]")
-    gt_dir = output_dir / "before" / model_type
-    out_dir = output_dir / "after" / model_type
+    gt_dir = output_dir / "before" / "neo"
+    out_dir = output_dir / "after" / "neo"
     if not os.path.exists(out_dir.parent):
         os.makedirs(out_dir.parent)
 
@@ -58,7 +55,7 @@ def prepare_gt(config: NeoDataConfig, model_type: Annotated["neo", "neo-big"] = 
 
     # Edit model
     CONSOLE.print("[bold green]Editing...[/bold green]")
-    edited_config = output_dir / "after" / model_type / config.get_timestamp() / "config.yml"
+    edited_config = output_dir / "after" / "neo" / config.get_timestamp() / "config.yml"
     _, pipeline, _, _ = eval_setup(edited_config, eval_num_rays_per_chunk=None, test_mode='test')
     pipeline.apply_changes_hook()
 

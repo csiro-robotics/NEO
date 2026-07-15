@@ -2,7 +2,6 @@ import torch
 import numpy as np
 
 from typing import Dict, List, Tuple
-from torchtyping import TensorType
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -67,9 +66,9 @@ def distance_to_depth(distance: torch.Tensor, fov_x: float = None, fov_y: float 
     return depth
 
 
-def get_pred_target(metric: ImageMetricModule, 
-                    pred: List[TensorType["bs", "n", "H", "W"]], 
-                    target: List[TensorType["bs", "n", "H", "W"]]) -> Tuple[TensorType["bs", "n", "H", "W"]]:
+def get_pred_target(metric: ImageMetricModule,
+                    pred: List[torch.Tensor],
+                    target: List[torch.Tensor]) -> Tuple[torch.Tensor, torch.Tensor]:
 
     if metric.name in ["PSNR", "SSIM", "LPIPS", "Corrs"]:
         return pred[0], target[0]

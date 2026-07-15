@@ -11,7 +11,7 @@ from pathlib import Path
 
 
 RENDER_SUFFIXES = {".png", ".jpg", ".jpeg"}
-DEFAULT_CONDA_ENV = "gs"
+DEFAULT_CONDA_ENV = "neo"
 DEFAULT_TASKS = ("remove", "translate_and_rotate")
 STATE_NAME = "after"
 METHOD_NAME = "nerfacto"

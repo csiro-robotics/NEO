@@ -1,0 +1,30 @@
+[project]
+name = "robot_lerf"
+version = "0.1.0"
+
+dependencies=[
+    "yourdfpy",
+    "kornia",
+    "autolab-core",
+    "python-fcl",
+    "numpy==1.26.4",
+    "scipy==1.14.1",
+    "transforms3d>=0.4,<1"
+]
+
+[tool.setuptools.packages.find]
+where = [
+    ".",
+    "robot_lerf/graspnet_baseline/graspnetAPI",
+    "robot_lerf/graspnet_baseline/knn",
+    "robot_lerf/graspnet_baseline/pointnet2",
+]
+include = ["robot_lerf*", "graspnetAPI*", "knn_pytorch*", "pointnet2*"]
+
+[tool.setuptools.package-data]
+pointnet2 = ["*.so"]
+knn_pytorch = ["*.so"]
+
+[project.scripts]
+lerftogo = "robot_lerf.scripts.gen_grasp:main"
+lerftogo-neo = "robot_lerf.scripts.gen_bbox:main"

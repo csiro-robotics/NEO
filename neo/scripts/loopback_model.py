@@ -52,11 +52,11 @@ class LoopbackLERF(BaseLoopback):
 
         run_command(convert_command, verbose=self.verbose)
 
-        model_type = "neo-big" if "neo-big" in str(self.load_config) else "neo"
-
         # Load config to get data path
         neo_config = yaml.load(Path(str(self.load_config)).read_text(), Loader=yaml.Loader)
-        nerfacto_path = Path(str(self.load_config.parent).replace(model_type, "nerfacto"))
+        timestamp = self.load_config.parent.name
+        method_root = self.load_config.parents[2]
+        nerfacto_path = method_root / "nerfacto" / timestamp
         render_path = nerfacto_path / "cache"
         os.makedirs(render_path, exist_ok=True)
         shutil.copy(neo_config.data / "transforms.json", render_path / "transforms.json")
@@ -90,7 +90,7 @@ class LoopbackLERF(BaseLoopback):
             "--timestamp", neo_config.timestamp,
             "--max-num-iterations", "3000",
             "--pipeline.model.camera-optimizer.mode", neo_config.pipeline.model.camera_optimizer.mode,
-            "--pipeline.model-type", model_type,
+            "--pipeline.model-type", "neo",
             "--viewer.quit-on-train-completion", "True",
             "nerfstudio-data",
             "--orientation-method", neo_config.pipeline.datamanager.dataparser.orientation_method,
@@ -102,10 +102,7 @@ class LoopbackLERF(BaseLoopback):
         run_command(train_command, verbose=self.verbose)
 
         # Move model to its new location
-        if "neo-big" in str(self.load_config):
-            new_config_path = Path(str(self.load_config).replace("neo-big", "lerf-lite-lan"))
-        else:
-            new_config_path = Path(str(self.load_config).replace("neo", "lerf-lite-lan"))
+        new_config_path = method_root / "lerf-lite-lan" / timestamp / "config.yml"
         lerf_lite_lan_config = yaml.load(new_config_path.read_text(), Loader=yaml.Loader)
         lerf_lite_lan_config.method_name = "lerf-lite"
 
@@ -128,16 +125,10 @@ class LoopbackLERF(BaseLoopback):
         shutil.rmtree(lerf_lite_lan_output_path.parent)
 
         # Convert to Neo
-        if "neo-big" in str(self.load_config):
-            convert_command = [
-                "ns-convert", "to-neo-big",
-                "--load-config", Path(output_path) / "config.yml",
-            ]
-        else:
-            convert_command = [
-                "ns-convert", "to-neo",
-                "--load-config", Path(output_path) / "config.yml",
-            ]
+        convert_command = [
+            "ns-convert", "to-neo",
+            "--load-config", Path(output_path) / "config.yml",
+        ]
 
         run_command(convert_command, verbose=self.verbose)
 

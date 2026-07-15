@@ -1,15 +1,17 @@
-name: gs
+name: neo
 channels:
-  - nvidia
   - conda-forge
 dependencies:
   - python=3.10
-  - cuda-toolkit=12.4
   - ffmpeg
   - git
   - ninja
   - pip
   - pip:
+      - --extra-index-url https://download.pytorch.org/whl/cu124
       - torch==2.6.0
       - torchvision==0.21.0
-      - -e .[paper,capture]
+      - -e ./submodules/nerfstudio
+      - -e ./submodules/lerf_bbox
+      - -e ./submodules/neo_lerftogo
+      - -e .[language]

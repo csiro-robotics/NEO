@@ -1,0 +1,51 @@
+# LERF-TOGO: Language Embedded Radiance Fields for Zero-Shot Task-Oriented Grasping
+This is the official implementation for [LERF-TOGO](https://lerftogo.github.io/).
+
+> NEO release note: this source is vendored by the parent NEO repository. Its
+> local Conda manifest installs Robot-LERF, GraspNet API, and the retained
+> Python 3.10/Linux PointNet2 extension; no separate clone or symlink is needed.
+
+# Installation
+
+### 0. Install Nerfstudio dependencies
+[Follow these instructions](https://docs.nerf.studio/en/latest/quickstart/installation.html) up to and including "tinycudann" to install dependencies and create an environment
+### 1. Clone this repo
+`git clone https://github.com/lerftogo/lerftogo.git`
+### 2. Install this repo as a python package
+Navigate to this folder and run `python -m pip install -e .`
+### 3. Install dependencies
+```bash
+cd robot_lerf/graspnet_baseline/knn
+python setup.py install 
+cd ../pointnet2
+python setup.py install 
+cd ../graspnetAPI
+pip install -e .
+```
+
+# Using LERF-TOGO
+Have your data in a folder named `data` if you want to use lerftogo from the browser.
+
+Run the browser version
+```bash
+lerftogo
+```
+
+Run the headless version
+```bash
+lerftogo-neo --root_input <FOLDER_WITH_DATA> --data_type <DATA_TYPE> --scene_name <SCENE_NAME> --action <ACTION> --scene_type <SCENE_TYPE> --object_name <OBJECT_NAME> --lerf_prompt <LERF_PTOMPT>
+```
+ATTENTION!!! LERF prompt above is simple prompt without ';' sign.
+
+Enter data folder name to train/load data  
+Enter object;part query in lerf query text box  
+Generate grasps  
+
+## Bibtex
+If you find this useful, please cite the paper!
+<pre id="codecell0">@inproceedings{lerftogo2023,
+&nbsp;title={Language Embedded Radiance Fields for Zero-Shot Task-Oriented Grasping},
+&nbsp;author={Adam Rashid and Satvik Sharma and Chung Min Kim and Justin Kerr and Lawrence Yunliang Chen and Angjoo Kanazawa and Ken Goldberg},
+&nbsp;booktitle={7th Annual Conference on Robot Learning},
+&nbsp;year = {2023},
+} </pre>

@@ -2,47 +2,97 @@
 
 Language-guided, persistent NeRF editing for continuous object manipulation.
 
-NEO starts from a single scene scan and predicts future scene states without
-re-scanning after every robot action. It combines:
+NEO predicts future scene states from a single initial scan. A text prompt
+selects an object, NEO removes it from the neural field, reconstructs the
+revealed background, and distills the object at its target pose into an updated
+NeRF. The updated NeRF and language field can be reused for the next robot
+action without scanning the scene again.
 
-1. region-aware neural-field resampling for object removal;
-2. progressive, multi-view-consistent diffusion inpainting; and
-3. teacher-student distillation for persistent object relocation.
+- Repository: <https://github.com/csiro-robotics/Neo>
+- Dataset and checkpoints: not yet published
+- Paper: link to be added when publicly available
 
-The edited NeRF can be converted back to a language field and used as the input
-to the next manipulation step.
+## Method
+
+```mermaid
+flowchart LR
+    A[Initial images and poses] --> B[NeRF and language field]
+    P[Language prompt] --> C[Object localization]
+    B --> C
+    C --> D[Neural-field resampling]
+    D --> E[Progressive multi-view inpainting]
+    M[Desired rigid motion] --> F[Teacher-student distillation]
+    B --> F
+    E --> F
+    F --> G[Updated NeRF]
+    G --> H[Updated language field]
+    H --> C
+```
+
+The editing pipeline has three stages:
+
+1. **Object removal:** ray intervals inside the selected 3D bounding box are
+   excluded and samples are reallocated to the visible parts of each ray.
+2. **Background completion:** virtual object-centred views are inpainted in
+   2x2 grids and used as masked supervision for NeRF refinement.
+3. **Persistent reconfiguration:** original, object-removed, and transformed
+   object fields supervise one student NeRF through field, RGB, and depth
+   distillation.
+
+NEO supports rigid object removal and relocation in static scenes. It does not
+currently model articulated, deformable, or changing-background interactions.
+Diffusion inpainting is stochastic, so repeated runs may produce different
+content in regions that were never observed.
 
 ## Release Status
 
-This branch contains the NEO implementation and paper experiment manifests.
-The NEO-Dataset, paper checkpoints, and final license are separate release
-artifacts and are not yet included in this repository. See
-[Dataset](docs/DATASET.md) and [Reproducibility](docs/REPRODUCIBILITY.md) before
-attempting the full paper evaluation.
+This repository contains the NEO implementation and portable manifests for the
+paper experiments. The NEO-Dataset, paper checkpoints, final aggregate result
+files, and software/dataset licenses are not yet public. Do not claim exact
+paper-table reproduction until the items in
+[docs/REPRODUCIBILITY.md](docs/REPRODUCIBILITY.md) are resolved.
 
 ## Requirements
 
 - Linux and Python 3.10
 - NVIDIA GPU with CUDA support
-- approximately 24 GB VRAM for `neo`; more memory and time for `neo-big`
-- COLMAP and FFmpeg for data preparation and rendering
-- Hugging Face access for the configured Stable Diffusion inpainting model
+- about 24 GB of GPU memory for the published NEO configuration
+- FFmpeg; COLMAP is additionally required when preparing new scenes
+- Hugging Face access for the Stable Diffusion inpainting weights
 
-The paper environment used the `gs` conda environment, PyTorch 2.6, CUDA 12.4,
-and pinned forks of Nerfstudio, LERF, and NeRFiller. Exact Git revisions are in
-the `paper` optional dependency group in `pyproject.toml`.
+The reference software versions are PyTorch 2.6 and CUDA 12.4. The modified
+Nerfstudio, LERF, Robot-LERF, and NeRFiller sources are physically vendored in
+`submodules/`; their provenance is recorded in
+[submodules/README.md](submodules/README.md).
 
 ## Installation
 
+Create the basic runtime environment named `neo`:
+
 ```bash
 conda env create -f environment.yml
-conda activate gs
+conda activate neo
 ns-install-cli
 ```
 
-For a manual installation, create a Python 3.10 environment, install a PyTorch
-2.6 build appropriate for the host NVIDIA driver, then run
-`pip install -e ".[paper,capture]"` and `ns-install-cli`.
+The basic environment installs NEO, the vendored Nerfstudio, LERF and
+Robot-LERF packages, and the official PyTorch 2.6 wheels with the CUDA 12.4
+runtime. It deliberately excludes raw ROS/RealSense capture tools, development
+tools, and the NeRFiller baseline.
+
+Install optional components only when needed:
+
+```bash
+# ROS bags and RealSense capture processing
+pip install -e ".[capture]"
+
+# NeRFiller baseline
+pip install -e ./submodules/neo_nerfiller
+
+# All paper and capture dependencies
+pip install -e ./submodules/neo_nerfiller
+pip install -e ".[paper,capture]"
+```
 
 Download the Segment Anything ViT-H checkpoint:
 
@@ -52,104 +102,198 @@ wget -O ckpts/sam_vit_h_4b8939.pth \
   https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth
 ```
 
-Verify the installation without starting a training run:
+Check the installation without starting a GPU job:
 
 ```bash
 python -c "import neo.neo_config; print('NEO import OK')"
+ns-train neo --help
+ns-convert to-neo --help
 neo-remove --help
 neo-reconfigure --help
 neo-assembly --help
 ```
 
-Do not add host-specific `libcuda.so` symlinks to the conda environment. The
-installed PyTorch build and NVIDIA driver must be mutually compatible.
+### CUDA note
 
-## Data Layout
+Do not manually symlink a host file such as `libcuda.so.565.77` into the Conda
+environment. That filename belongs to one particular NVIDIA driver version and
+would make the environment machine-specific. The host NVIDIA driver provides
+`libcuda`; the PyTorch wheel provides its matching CUDA runtime libraries. If
+`python -c "import torch; print(torch.cuda.is_available())"` prints `False`,
+check the NVIDIA driver and the PyTorch/CUDA installation instead of adding a
+library symlink.
+
+## Data
 
 NEO expects registered `before` and `after` Nerfstudio datasets:
 
 ```text
 data/real/<action>/single/<scene>/<object>/
-├── before/
-│   ├── images/
-│   ├── depth/
-│   └── transforms.json
-├── after/
-│   ├── images/
-│   ├── depth/
-│   └── transforms.json
-└── bbox.json                 # generated during language-guided localization
+|-- before/
+|   |-- images/
+|   |-- depth/
+|   `-- transforms.json
+|-- after/
+|   |-- images/
+|   |-- depth/
+|   `-- transforms.json
+|-- bbox.json
+`-- movement.json or movement.txt
 ```
 
-Raw RealSense, ROS 2, MP4, and robot-motion inputs are described in
+Removal uses `action: remove`; rigid relocation uses
+`action: translate_and_rotate`. Depth images are stored in millimetres. The
+capture, registration, movement, and raw-file conventions are described in
 [docs/DATASET.md](docs/DATASET.md).
 
-## Run NEO
+## Quick Start
 
-Paper configurations are plain YAML under `experiments/paper`. Paths are
-relative to the repository by default and can be changed in the YAML files.
+The public quick start will use a downloadable example scene and checkpoint.
+Those artifacts do not yet have release URLs. Once a prepared scene is placed
+under the layout above, copy a paper manifest, change its scene and prompt
+fields, and run the appropriate installed command:
 
-Object removal:
+```bash
+neo-remove --load-config my_removal.yaml
+neo-reconfigure --load-config my_relocation.yaml
+```
+
+Config paths passed to `--load-config` are relative to `experiments/`. Use the
+individual boolean pipeline options shown by `--help` to reuse existing data,
+checkpoints, or bounding boxes instead of rerunning every stage.
+
+## Custom Scene Workflow
+
+1. Capture images with known camera poses and convert them to the Nerfstudio
+   data layout.
+2. Train the initial `lerf-lite` language field.
+3. Run `lerftogo-neo` through the runner to localize the prompted object and
+   write `bbox.json`.
+4. Convert the language-field checkpoint with `ns-convert to-neo` and run the
+   NEO edit.
+5. For relocation, provide the rigid object motion and run language-field
+   loopback so the edited state can be queried again.
+
+The vendored LERF package supplies `lerf-lite` and `lerf-lite-lan`; the vendored
+Robot-LERF package supplies `lerftogo-neo`. Bounding-box translation and yaw
+offsets can be adjusted in its viewer before editing.
+
+## Paper Reproduction
+
+Paper manifests are plain YAML files under `experiments/paper`. Set `timestamp`
+to a reference run timestamp when reusing checkpoints, or leave it `null` for
+the runner to select/create a run.
+
+### Object removal
+
+The five scenes and prompts are:
+
+| Scene | Prompt |
+| --- | --- |
+| `mustard_bottle` | Mustard bottle |
+| `orange` | Orange |
+| `red_robot` | Red robot |
+| `spam` | Spam can |
+| `tomato_soup_can` | Tomato soup can |
+
+Run one scene with:
 
 ```bash
 neo-remove --load-config paper/removal/tomato_soup_can.yaml
 ```
 
-Object relocation:
+The full-image metrics check preservation of the unedited scene. The `Out`
+mask is the projection of the object's original 3D bounding box and measures
+the newly revealed region.
+
+### Object relocation
+
+The six scenes and prompts are:
+
+| Scene | Prompt |
+| --- | --- |
+| `banana` | Banana |
+| `orange` | Orange |
+| `rubiks_cube` | Rubik's cube |
+| `spam` | Spam can |
+| `sugar` | Sugar box |
+| `tomato_soup_can` | Tomato soup can |
+
+Run one scene with:
 
 ```bash
 neo-reconfigure --load-config paper/relocation/banana.yaml
 ```
 
-Four-step assembly:
+`Out` measures the original object region after removal; `In` measures the
+object at its target pose. Both masks are generated by projecting the
+corresponding 3D bounding boxes into the evaluation views.
+
+### Four-step assembly
+
+The tracked manifest performs all four edits in paper order:
+
+| Step | Object | Prompt |
+| ---: | --- | --- |
+| 0 | `lego_bricks_1` | Lego bricks |
+| 1 | `red_cup` | Red cup |
+| 2 | `lego_bricks_2` | Lego bricks |
+| 3 | `golf_ball` | Golf ball |
 
 ```bash
 neo-assembly --load-config paper/assembly.yaml
 ```
 
-Each runner exposes individual pipeline switches:
+Each completed step produces a new NeRF and language field that become the
+input state for the next step. Only the initial scan and reference object
+motions are inputs to the full sequence.
+
+## Evaluation
+
+The paper reports PSNR, SSIM, depth RMSE, and photometric reprojection error for
+the full image and edited masks. Current evaluation defaults are documented in
+[docs/REPRODUCIBILITY.md](docs/REPRODUCIBILITY.md).
+
+Experiment runners invoke evaluation when their evaluation stage is enabled.
+For an individual edited checkpoint, use:
 
 ```bash
-neo-remove --help
-neo-reconfigure --help
-neo-assembly --help
+ns-eval-neo --config-path \
+  outputs/real/<action>/single/<scene>/<object>/before/neo/<timestamp>/replace-nerf/config.yml
 ```
 
-Outputs mirror the input hierarchy below `outputs/`. A run contains the
-initial LERF model, NEO conversion, inpainted sparse-guided NeRF, distilled
-`replace-nerf` model, bounding boxes, and logs.
+Typical artifacts are written to:
 
-## Custom Scenes
+```text
+outputs/real/<action>/single/<scene>/<object>/before/
+|-- lerf-lite/<timestamp>/
+`-- neo/<timestamp>/
+    |-- config.yml
+    |-- bbox.json
+    |-- sparse-guided-nerf/
+    `-- replace-nerf/
 
-For a prepared Nerfstudio scene, train the initial language field, localize the
-object with a text prompt, and launch an edit through the corresponding runner.
-The bounding-box viewer supports translation and rotation offsets for rigid
-objects. NEO currently assumes a static background and does not model
-articulated or deformable objects.
+renders/     rendered RGB, depth, and masks
+eval/        per-scene metric JSON files
+```
 
-Language localization and language-field loopback require the pinned
-`csiro-robotics/lerf_bbox` fork, which provides `lerftogo-neo`, `lerf-lite`, and
-`lerf-lite-lan`. NeRFiller baselines require the pinned
-`csiro-robotics/neo_nerfiller` fork.
+Aggregate available result files with:
 
-## Paper Experiments
+```bash
+python -m scripts.average_metrics_tables --help
+```
 
-- Object removal: five single-object scenes.
-- Pick and place: six single-object relocation scenes.
-- Assembly: four consecutive edits from one initial scan.
-- NEO-Dataset: twelve tabletop scenes in total, consisting of eleven
-  single-object scenes and one multi-object scene.
-
-Evaluation uses PSNR, SSIM, depth RMSE, and photometric reprojection error over
-the full image and the edited `Out`/`In` regions. Exact scene lists, metric
-defaults, and known paper-to-code discrepancies are documented in
-[docs/REPRODUCIBILITY.md](docs/REPRODUCIBILITY.md).
+The repository includes the modified NeRFiller source in
+`submodules/neo_nerfiller`, but the basic environment does not install it. DFF
+and Seal3D implementations are not bundled; their exact result provenance still
+needs to be attached to the final release.
 
 ## Repository Layout
 
 ```text
 neo/                 Nerfstudio models, pipelines, rendering, and metrics
-scripts/             Installed data, editing, evaluation, and experiment CLIs
+submodules/          Physical copies of modified runtime dependencies
+scripts/             Data, editing, evaluation, and experiment commands
 experiments/paper/   Portable paper experiment manifests
 docs/                Dataset and reproducibility documentation
 tests/               CPU-safe release checks
@@ -171,5 +315,5 @@ See [CITATION.cff](CITATION.cff), or cite:
 ## License
 
 A public software and dataset license has not yet been assigned. Until the
-copyright holders add license files, the repository should be treated as
-source-available for review rather than an open-source distribution.
+copyright holders add license files, this repository is source-available for
+review and does not grant open-source reuse rights.

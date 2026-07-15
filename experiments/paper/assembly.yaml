@@ -17,5 +17,4 @@ lerf_prompts:
   - Lego bricks
   - Golf ball
 steps_to_run: [0, 1, 2, 3]
-neo_model_type: neo-big
 timestamp: null

@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nerfiller"
+version = "0.0.1"
+description = "NeRFiller package"
+requires-python = ">=3.8.0"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python",
+]
+dependencies = [
+    "accelerate",
+    "diffusers",
+    "GPUtil",
+    "kornia",
+    "pytorch-lightning",
+    "transformers",
+    "trimesh",
+    "timm>=0.6.7",
+    "omegaconf",
+    "openexr",
+    "albumentations==0.5.2",
+    "webdataset",
+    "easydict",
+]
+
+[tool.setuptools.packages.find]
+include = ["nerfiller*"]
+
+[project.entry-points.'nerfstudio.method_configs']
+nerfacto-nerfiller = "nerfiller.nerf.nerfiller_config:nerfacto_nerfiller_config"
+grid-prior-du = "nerfiller.nerf.nerfiller_config:grid_prior_du_config"
+grid-prior-du-no-depth = "nerfiller.nerf.nerfiller_config:grid_prior_du_no_depth_config"
+grid-prior-du-reference = "nerfiller.nerf.nerfiller_config:grid_prior_du_reference_config"

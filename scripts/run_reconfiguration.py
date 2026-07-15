@@ -11,18 +11,6 @@ from nerfstudio.utils.rich_utils import CONSOLE
 
 from scripts.pipeline_progress_bar import PipelineProgress
 from scripts.experiment_config import NeoDataConfig
-from scripts.data_preparation.calculate_colmap import calculate_colmap
-from scripts.data_preparation.extract_images import extract_images
-from scripts.data_preparation.match_arucos import match_arucos
-from scripts.data_preparation.extract_arm_movement import extract_arm_movement
-from scripts.data_preparation.train_lerf import train_lerf
-from scripts.data_preparation.train_gt import train_gt
-
-from scripts.editing.generate_bbox import generate_bbox
-from scripts.editing.edit import edit
-from scripts.editing.loopback import loopback
-
-from scripts.evaluation.eval_reconfigure import eval
 from neo.utils.experiment_io import load_experiment_config, save_experiment_config
 
 
@@ -61,10 +49,6 @@ class TrainingElements():
     """Train Neo"""
     loopback_neo: bool = True
     """Loopback Neo"""
-    train_neo_big: bool = True
-    """Train Neo Big"""
-    loopback_neo_big: bool = True
-    """Loopback Neo Big"""
 
 @dataclass
 class EvaluationElements():
@@ -132,6 +116,13 @@ class Experiment():
     def run(self):
         # Experiment setup
         if self.config.pipeline_elements.data_preparation._execute_all:
+            from scripts.data_preparation.calculate_colmap import calculate_colmap
+            from scripts.data_preparation.extract_arm_movement import extract_arm_movement
+            from scripts.data_preparation.extract_images import extract_images
+            from scripts.data_preparation.match_arucos import match_arucos
+            from scripts.data_preparation.train_gt import train_gt
+            from scripts.data_preparation.train_lerf import train_lerf
+
             elements = self.config.pipeline_elements.data_preparation
 
             process_bags = {"name": "Process Bags", "active": elements.process_bags, "idx": 1, "func": extract_images, "kwargs": {"skip_frames": 6, "select_frames": False, "num_frames": 250}}
@@ -151,21 +142,24 @@ class Experiment():
 
         # Training editing networks
         if self.config.pipeline_elements.training._execute_all:
+            from scripts.editing.edit import edit
+            from scripts.editing.generate_bbox import generate_bbox
+            from scripts.editing.loopback import loopback
+
             elements = self.config.pipeline_elements.training
 
             generating_bbox = {"name": "Generate BBox", "active": elements.generate_bbox, "idx": 1, "func": generate_bbox}
-            train_neo = {"name": "Editing Neo", "active": elements.train_neo, "idx": 2, "func": edit, "kwargs": {"model_type": "neo"}}
-            loopback_neo = {"name": "Looping Neo", "active": elements.loopback_neo, "idx": 3, "func": loopback, "kwargs": {"model_type": "neo"}}
-            train_neo_big = {"name": "Editing Neo-Big", "active": elements.train_neo_big, "idx": 4, "func": edit, "kwargs": {"model_type": "neo-big"}}
-            loopback_neo_big = {"name": "Looping Neo-Big", "active": elements.loopback_neo_big, "idx": 5, "func": loopback, "kwargs": {"model_type": "neo-big"}}
+            train_neo = {"name": "Editing Neo", "active": elements.train_neo, "idx": 2, "func": edit}
+            loopback_neo = {"name": "Looping Neo", "active": elements.loopback_neo, "idx": 3, "func": loopback}
             
-            pipeline_elements = [[generating_bbox, "→", train_neo, "→", loopback_neo],
-                                [None, "↘", train_neo_big, "→", loopback_neo_big]]
+            pipeline_elements = [[generating_bbox, "→", train_neo, "→", loopback_neo]]
 
             self._execute_pipeline(pipeline_elements)
 
         # Evaluation
         if self.config.pipeline_elements.evaluation._execute_all:
+            from scripts.evaluation.eval_reconfigure import eval
+
             elements = self.config.pipeline_elements.evaluation
             evaluating = {"name": "Evaluation", "active": elements.evaluate, "idx": 1, "func": eval}
             

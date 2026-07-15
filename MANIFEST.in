@@ -4,6 +4,8 @@ include README.md
 recursive-include docs *.md
 recursive-include experiments/paper *.yaml
 recursive-include tests *.py
+graft submodules
+global-exclude __pycache__ *.py[cod] *.egg-info
 prune notebooks
 exclude process_all_bags.py
 exclude scripts/clean_outputs.sh
