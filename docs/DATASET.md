@@ -16,27 +16,26 @@ splits, and a machine-readable checksum file.
 
 ## Prepared Scene
 
-Each prepared scene follows this structure:
+Each prepared scene follows this structure :
 
 ```text
-data/real/<action>/single/<scene>/<object>/
+<neo_data_root>/<processed>/<action>/<scene_name>/<object>/
 ├── before/{images,depth,transforms.json}
 ├── after/{images,depth,transforms.json}
 └── movement.json or movement.txt
 ```
 
-`remove` scenes contain registered captures before and after physical removal.
-`translate_and_rotate` scenes additionally provide the known rigid 6-DoF
-object transform. Depth images use millimetres on disk; evaluation converts
-them with a scale of `0.001`.
+`remove` scenes contain registered captures before and after physical removal and do not include a `movement.json` file.
+`translate_and_rotate` scenes additionally include the `movement.json` file. 
+Depth images are stored in mms and are converted to metres to match scale used for the underlying NF scene.
 
 ## Raw Capture Naming
 
 Unless `raw_bagfiles_root` is overridden, raw files are resolved beneath
-`<root_input>/raw_bagfiles` using the same relative scene path. Supported input
+`<neo_data_root>/raw_bagfiles` using the same relative scene path. Supported input
 forms include:
 
-```text
+```
 <scene-path>_before.bag
 <scene-path>_after.bag
 <scene-path>_before.mp4
@@ -47,6 +46,7 @@ forms include:
 ```
 
 ## Registration
+TODO full pipeline
 
 Data preparation extracts frames, runs `ns-process-data images`, detects ArUco
 markers, and applies a common scale and world frame. Keep `raw_transforms.json`

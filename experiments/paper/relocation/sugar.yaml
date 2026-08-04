@@ -1,9 +1,7 @@
 experiment_name: relocation-sugar
-root_input: data
+neo_data_root: data
 outputs_root: outputs
-data_type: real
 action: translate_and_rotate
-scene_type: single
 scene_name: sugar
 object_name: sugar
 lerf_prompt: Box of sugar

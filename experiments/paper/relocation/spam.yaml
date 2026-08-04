@@ -1,9 +1,7 @@
 experiment_name: relocation-spam
 root_input: data
-outputs_root: outputs
-data_type: real
+neo_data_root: outputs
 action: translate_and_rotate
-scene_type: single
 scene_name: spam
 object_name: spam
 lerf_prompt: Spam
