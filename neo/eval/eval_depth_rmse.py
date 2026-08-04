@@ -159,10 +159,10 @@ def discover_render_depth_dirs(renders_root: Path, tasks: tuple[str, ...], rende
 
 def data_path_from_render_info(info: dict) -> Path:
     return (
+        # TODO how to remove data as the hard code path
         Path("data")
-        / "real"
+        / "processed"
         / info["task"]
-        / "single"
         / info["object_group"]
         / info["object_name"]
         / "after"
@@ -172,9 +172,7 @@ def data_path_from_render_info(info: dict) -> Path:
 def resolve_gt_render_depth_dir_from_info(renders_root: Path, info: dict, gt_render_name: str) -> Path:
     after_nerfacto_root = (
         renders_root
-        / "real"
         / info["task"]
-        / "single"
         / info["object_group"]
         / info["object_name"]
         / "after"
@@ -196,9 +194,7 @@ def resolve_gt_render_depth_dir_from_info(renders_root: Path, info: dict, gt_ren
 def eval_depth_dir_from_render_info(info: dict) -> Path:
     return (
         Path("eval_depth_rmse")
-        / "real"
         / info["task"]
-        / "single"
         / info["object_group"]
         / info["object_name"]
         / "before"

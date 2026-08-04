@@ -140,7 +140,7 @@ library symlink.
 NEO expects registered `before` and `after` Nerfstudio datasets:
 
 ```text
-data/real/<action>/single/<scene>/<object>/
+<neo_data_root>/processed/<action>/<scene>/<object>/
 |-- before/
 |   |-- images/
 |   |-- depth/
@@ -271,13 +271,13 @@ For an individual edited checkpoint, use:
 
 ```bash
 ns-eval-neo --config-path \
-  outputs/real/<action>/single/<scene>/<object>/before/neo/<timestamp>/replace-nerf/config.yml
+  outputs/<action>/<scene>/<object>/before/neo/<timestamp>/replace-nerf/config.yml
 ```
 
 Typical artifacts are written to:
 
 ```text
-outputs/real/<action>/single/<scene>/<object>/before/
+outputs/<action>/<scene>/<object>/before/
 |-- lerf-lite/<timestamp>/
 `-- neo/<timestamp>/
     |-- config.yml
