@@ -1,11 +1,12 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="description"
         content="NEO is a language-guided NeRF editing framework for continuous robotic object manipulation.">
   <meta name="keywords" content="NEO, NeRF editing, robotics, manipulation, neural radiance fields">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
   <title>NEO: NeRF It Once, Edit It Many Times</title>
 
   <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
@@ -25,8 +26,9 @@
 
 <nav class="navbar" role="navigation" aria-label="main navigation">
   <div class="navbar-brand">
-      <a class="navbar-item" href="#top" aria-label="NEO home">
-      <span class="icon"><i class="fas fa-home"></i></span>
+    <a class="navbar-item neo-wordmark" href="#top" aria-label="NEO home">
+      <span class="neo-wordmark-dot" aria-hidden="true"></span>
+      NEO
     </a>
     <a role="button" class="navbar-burger" aria-label="menu" aria-expanded="false">
       <span aria-hidden="true"></span>
@@ -35,7 +37,9 @@
     </a>
   </div>
   <div class="navbar-menu">
-    <div class="navbar-start" style="flex-grow: 1; justify-content: center;">
+    <div class="navbar-start neo-navbar-links">
+      <a class="navbar-item" href="#abstract">Abstract</a>
+      <a class="navbar-item" href="#overview">Overview</a>
       <a class="navbar-item" href="#method">Method</a>
       <a class="navbar-item" href="#dataset">Dataset</a>
       <a class="navbar-item" href="#videos">Videos</a>
@@ -49,15 +53,16 @@
     <div class="container is-max-desktop">
       <div class="columns is-centered">
         <div class="column has-text-centered">
-          <h1 class="title is-1 publication-title">NEO: NeRF It Once, Edit It Many Times<br>for Continuous Object Manipulation</h1>
+          <p class="publication-kicker">Language-guided neural scene editing for robotics</p>
+          <h1 class="title is-1 publication-title"><span>NEO:</span> NeRF It Once, Edit It Many Times<br>for Continuous Object Manipulation</h1>
           <div class="is-size-5 publication-authors">
-            <span class="author-block">Miko&#322;aj Zieli&#324;ski<sup>1</sup>,</span>
+            <span class="author-block"><a href="https://scholar.google.com/citations?user=ISOdWukAAAAJ&amp;hl=en">Miko&#322;aj Zieli&#324;ski</a><sup>1</sup>,</span>
             <span class="author-block"><a href="https://scholar.google.com/citations?user=dosODoQAAAAJ&amp;hl=en">David Hall</a><sup>2</sup>,</span>
             <span class="author-block"><a href="https://scholar.google.com/citations?user=3XvUbbMAAAAJ&amp;hl=en&amp;oi=ao">Dominik Belter</a><sup>1</sup>,</span>
             <span class="author-block"><a href="https://scholar.google.com.au/citations?user=QAVcuWUAAAAJ&amp;hl=en">Peyman Moghadam</a><sup>2</sup></span>
           </div>
 
-          <div class="is-size-5 publication-authors">
+          <div class="is-size-6 publication-authors publication-affiliations">
             <span class="author-block"><sup>1</sup>Poznan University of Technology,</span>
             <span class="author-block"><sup>2</sup>CSIRO Robotics</span>
           </div>
@@ -109,16 +114,31 @@
         <span class="dnerf">NEO</span> edits a persistent NeRF scene after each language-guided robot interaction,
         predicting future scene states without re-scanning.
       </h2>
+      <div class="neo-highlights" aria-label="Key contributions">
+        <div class="neo-highlight">
+          <span class="icon"><i class="fas fa-language"></i></span>
+          <span><strong>Language guided</strong><small>Natural object selection</small></span>
+        </div>
+        <div class="neo-highlight">
+          <span class="icon"><i class="fas fa-layer-group"></i></span>
+          <span><strong>Persistent edits</strong><small>Reusable scene state</small></span>
+        </div>
+        <div class="neo-highlight">
+          <span class="icon"><i class="fas fa-sync-alt"></i></span>
+          <span><strong>No re-scanning</strong><small>Continuous manipulation</small></span>
+        </div>
+      </div>
     </div>
   </div>
 </section>
 
-<section class="section" id="abstract">
+<section class="section neo-copy-section" id="abstract">
   <div class="container is-max-desktop">
     <div class="columns is-centered has-text-centered">
       <div class="column is-four-fifths">
+        <p class="neo-section-kicker">About the work</p>
         <h2 class="title is-3">Abstract</h2>
-        <div class="content has-text-justified">
+        <div class="content has-text-left neo-abstract-copy">
           <p>
             NEO is a unified framework for language-guided NeRF editing in robotic manipulation.
             Given a prompt and a planned object motion, NEO removes the target object, reconstructs
@@ -137,16 +157,49 @@
   </div>
 </section>
 
+<section class="section neo-video-overview" id="overview">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <p class="neo-section-kicker">Method video</p>
+        <h2 class="title is-3">NEO at a Glance</h2>
+        <p class="subtitle is-5 neo-video-intro">
+          See how NEO localizes, removes, reconstructs, and repositions objects while keeping a
+          persistent neural representation of the scene.
+        </p>
+      </div>
+    </div>
+    <figure class="neo-method-video">
+      <video controls preload="metadata" playsinline data-method-video aria-label="NEO method overview with audio narration">
+        <source src="./static/videos/neo.mp4" type="video/mp4">
+        Your browser does not support embedded MP4 video.
+      </video>
+      <figcaption>
+        A complete narrated walkthrough of the NEO editing pipeline and its use in continuous manipulation.
+        <span class="neo-audio-note"><i class="fas fa-volume-up" aria-hidden="true"></i> Includes audio</span>
+      </figcaption>
+    </figure>
+  </div>
+</section>
+
 <section class="section neo-band" id="method">
   <div class="container is-max-desktop">
-    <div class="columns is-centered">
-      <div class="column is-full-width">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <p class="neo-section-kicker">How it works</p>
         <h2 class="title is-3">Method</h2>
+        <p class="subtitle is-5 neo-section-intro">
+          One editable representation carries the scene through a sequence of language-guided
+          manipulation steps.
+        </p>
+      </div>
+    </div>
+    <div class="neo-surface neo-method-overview">
         <figure class="neo-figure neo-figure-method-main">
-          <img src="./static/images/neo/architecture3.png"
+          <img src="./static/images/neo/architecture3.png" loading="lazy" decoding="async"
                alt="Architecture of the editable NEO model for language-guided robotic manipulation.">
         </figure>
-        <div class="content has-text-justified">
+        <div class="content neo-method-summary">
           <p>
             NEO builds an initial NeRF and language field from camera images, localizes the prompted
             object, then updates the scene before motion execution. The system combines object
@@ -154,36 +207,37 @@
             field can be reused for the next manipulation.
           </p>
         </div>
-      </div>
     </div>
 
     <div class="columns is-centered neo-feature-row">
-      <div class="column is-full-width">
+      <div class="column is-full-width neo-feature-card">
+        <span class="neo-feature-number">01</span>
         <h3 class="title is-4">Multiview Inpainting</h3>
-        <div class="content has-text-justified">
+        <div class="content neo-feature-copy">
           <p>
             Progressive inpainting reconstructs surfaces that were hidden by removed objects while
             maintaining cross-view consistency for NeRF training.
           </p>
         </div>
         <figure class="neo-figure neo-figure-wide">
-          <img src="./static/images/neo/inpainting_training.png"
+          <img src="./static/images/neo/inpainting_training.png" loading="lazy" decoding="async"
                alt="Progressive inpainting and NeRF training for removed objects.">
         </figure>
       </div>
     </div>
 
     <div class="columns is-centered neo-feature-row">
-      <div class="column is-full-width">
+      <div class="column is-full-width neo-feature-card">
+        <span class="neo-feature-number">02</span>
         <h3 class="title is-4">Persistent Editing</h3>
-        <div class="content has-text-justified">
+        <div class="content neo-feature-copy">
           <p>
             Teacher-student distillation composes the edited and original fields so moved objects are
             preserved directly in the updated representation.
           </p>
         </div>
         <figure class="neo-figure neo-figure-wide">
-          <img src="./static/images/neo/pick_and_place_results.png"
+          <img src="./static/images/neo/pick_and_place_results.png" loading="lazy" decoding="async"
                alt="NEO and Seal3D comparison after robotic object manipulation.">
         </figure>
       </div>
@@ -191,12 +245,13 @@
   </div>
 </section>
 
-<section class="section" id="dataset">
+<section class="section neo-dataset-section" id="dataset">
   <div class="container is-max-desktop">
-    <div class="columns is-centered">
-      <div class="column is-full-width">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <p class="neo-section-kicker">Benchmark</p>
         <h2 class="title is-3">NEO-Dataset</h2>
-        <div class="content has-text-justified">
+        <div class="content neo-dataset-copy">
           <p>
             The NEO-Dataset contains twelve registered tabletop scenes captured before and after
             object removal or manipulation. Scenes are recorded with fixed robot arms and camera
@@ -208,46 +263,112 @@
             the Franka Emika Panda and UR5. These provide background variability across scenes in
             addition to scene content variation.
           </p>
+        </div>
+      </div>
+    </div>
+    <div class="neo-dataset-stats" aria-label="Dataset summary">
+      <div><strong>12</strong><span>registered scenes</span></div>
+      <div><strong>2</strong><span>robot platforms</span></div>
+      <div><strong>2</strong><span>scene states per task</span></div>
+    </div>
+    <div class="neo-surface neo-dataset-panel">
+      <div class="content neo-dataset-note">
           <p>
             Scenes are scanned in an automated manner with controlled camera motion along a fixed
             trajectory to ensure little-to-no variation in scene coverage. The camera poses from this
             process provide broad scan coverage for training and evaluating edited scene renderings.
           </p>
-        </div>
+      </div>
         <figure class="neo-figure neo-figure-dataset">
-          <img src="./static/images/neo/dataset_samples.png"
+          <img src="./static/images/neo/dataset_samples.png" loading="lazy" decoding="async"
                alt="Example dataset samples collected using Franka Emika Panda and UR5 robots.">
           <figcaption>
             Example dataset samples collected using two different robotic manipulators: the Franka
             Emika Panda (top) and the UR5 robot (bottom).
           </figcaption>
         </figure>
-      </div>
     </div>
   </div>
 </section>
 
-<section class="section neo-band" id="videos">
+<section class="section neo-videos-section" id="videos">
   <div class="container is-max-desktop">
-    <div class="columns is-centered">
-      <div class="column is-full-width">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <p class="neo-section-kicker">Experiments</p>
         <h2 class="title is-3">Videos</h2>
+        <p class="subtitle is-5 neo-section-intro">
+          Short demonstrations of the capture, interaction, and manipulation stages used with NEO.
+        </p>
       </div>
+    </div>
+
+    <div class="neo-video-grid">
+      <article class="neo-video-card">
+        <div class="neo-video-frame">
+          <video controls preload="metadata" playsinline muted aria-label="Muted dataset scene recording demonstration">
+            <source src="./static/videos/scene_recording.mp4" type="video/mp4">
+            Your browser does not support embedded MP4 video.
+          </video>
+        </div>
+        <div class="neo-video-card-content">
+          <span class="neo-video-label">Dataset capture</span>
+          <h3 class="title is-5">Scene Recording</h3>
+          <p>Automated camera motion records registered multiview observations for capturing scenes in the NEO-Dataset.</p>
+        </div>
+      </article>
+
+      <article class="neo-video-card">
+        <div class="neo-video-frame">
+          <video controls preload="metadata" playsinline muted aria-label="Muted object selection demonstration">
+            <source src="./static/videos/object_selection.mp4" type="video/mp4">
+            Your browser does not support embedded MP4 video.
+          </video>
+        </div>
+        <div class="neo-video-card-content">
+          <span class="neo-video-label">Interaction</span>
+          <h3 class="title is-5">Object Selection</h3>
+          <p>Language guidance identifies and localizes the target object within the neural scene.</p>
+        </div>
+      </article>
+
+      <article class="neo-video-card">
+        <div class="neo-video-frame">
+          <video controls preload="metadata" playsinline muted aria-label="Muted assembly experiment demonstration">
+            <source src="./static/videos/assembly_experiment.mp4" type="video/mp4">
+            Your browser does not support embedded MP4 video.
+          </video>
+        </div>
+        <div class="neo-video-card-content">
+          <span class="neo-video-label">Manipulation</span>
+          <h3 class="title is-5">Assembly Experiment</h3>
+          <p>A complete robot sequence demonstrates persistent scene editing across consecutive actions.</p>
+        </div>
+      </article>
     </div>
   </div>
 </section>
 
-<section class="section" id="bibtex">
-  <div class="container is-max-desktop content">
-    <h2 class="title">BibTeX</h2>
-    <pre><code>@article{zielinski2026neo,
+<section class="section neo-bibtex-section" id="bibtex">
+  <div class="container is-max-desktop">
+    <div class="neo-bibtex-heading">
+      <div>
+        <p class="neo-section-kicker">Citation</p>
+        <h2 class="title is-3">BibTeX</h2>
+      </div>
+      <button class="button neo-copy-button" type="button" data-copy-bibtex>
+        <span class="icon"><i class="far fa-copy"></i></span>
+        <span>Copy citation</span>
+      </button>
+    </div>
+    <pre class="neo-bibtex"><code id="bibtex-code">@article{zielinski2026neo,
   author={Zielinski, Mikolaj and Hall, David and Belter, Dominik and Moghadam, Peyman},
   journal={IEEE Robotics and Automation Letters},
   title={NEO: NeRF It Once, Edit It Many Times for Continuous Object Manipulation},
   year={2026},
-  volume={},
-  number={},
-  pages={},
+  volume={11},
+  number={9},
+  pages={10736 - 10743},
 }</code></pre>
   </div>
 </section>
@@ -255,8 +376,9 @@
 <footer class="footer">
   <div class="container">
     <div class="columns is-centered">
-      <div class="column is-8">
-        <div class="content">
+      <div class="column is-8 has-text-centered">
+        <div class="content neo-footer-content">
+          <a class="neo-footer-mark" href="#top">NEO</a>
           <p>
             This page is based on the <a href="https://github.com/nerfies/nerfies.github.io">Nerfies website template</a>.
           </p>
@@ -269,12 +391,46 @@
 <script>
   document.querySelectorAll('.navbar-burger').forEach(function(burger) {
     burger.addEventListener('click', function() {
-      burger.classList.toggle('is-active');
+      const isActive = burger.classList.toggle('is-active');
+      burger.setAttribute('aria-expanded', String(isActive));
       document.querySelectorAll('.navbar-menu').forEach(function(menu) {
         menu.classList.toggle('is-active');
       });
     });
   });
+
+  document.querySelectorAll('.navbar-menu a').forEach(function(link) {
+    link.addEventListener('click', function() {
+      document.querySelectorAll('.navbar-burger, .navbar-menu').forEach(function(element) {
+        element.classList.remove('is-active');
+      });
+      document.querySelectorAll('.navbar-burger').forEach(function(burger) {
+        burger.setAttribute('aria-expanded', 'false');
+      });
+    });
+  });
+
+  const copyButton = document.querySelector('[data-copy-bibtex]');
+  const bibtexCode = document.querySelector('#bibtex-code');
+  if (copyButton && bibtexCode) {
+    copyButton.addEventListener('click', async function() {
+      try {
+        await navigator.clipboard.writeText(bibtexCode.textContent);
+        copyButton.querySelector('span:last-child').textContent = 'Copied';
+        setTimeout(function() {
+          copyButton.querySelector('span:last-child').textContent = 'Copy citation';
+        }, 1800);
+      } catch (error) {
+        window.getSelection().selectAllChildren(bibtexCode);
+      }
+    });
+  }
+
+  const methodVideo = document.querySelector('[data-method-video]');
+  if (methodVideo) {
+    methodVideo.muted = false;
+    methodVideo.defaultMuted = false;
+  }
 </script>
 
 </body>
