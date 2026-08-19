@@ -33,6 +33,7 @@ __pycache__
 .ruff_cache/
 build/
 dist/
+.cython*
 
 # Local paper-analysis utilities retained outside the release package
 /*.sh

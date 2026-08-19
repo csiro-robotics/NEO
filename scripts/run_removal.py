@@ -20,21 +20,21 @@ class DataPreperationElements():
 
     _execute_all: bool = True
     """Execute all data preparation elements"""
-    process_bags: bool = False
+    process_bags: bool = True
     """Process bags"""
-    colmap_1: bool = False
+    colmap_1: bool = True
     """Run COLMAP"""
-    colmap_2: bool = False
+    colmap_2: bool = True
     """Run COLMAP"""
-    select_frames: bool = False
+    select_frames: bool = True
     """Select frames"""
-    match_arucos: bool = False
+    match_arucos: bool = True
     """Match Arucos"""
-    extract_arm_movement: bool = False
+    extract_arm_movement: bool = True
     """Extract arm movement"""
-    train_lerf: bool = False
+    train_lerf: bool = True
     """Train LERF"""
-    train_gt: bool = False
+    train_gt: bool = True
     """Train GT"""
 
 @dataclass
@@ -43,9 +43,9 @@ class TrainingElements():
 
     _execute_all: bool = True
     """Execute all training elements"""
-    generate_bbox: bool = False
+    generate_bbox: bool = True
     """Generate BBoxes"""
-    train_neo: bool = False
+    train_neo: bool = True
     """Train Neo"""
 
 @dataclass
@@ -54,7 +54,7 @@ class EvaluationElements():
 
     _execute_all: bool = True
     """Execute all evaluation elements"""
-    prepare_nerfiller: bool = False
+    prepare_nerfiller: bool = True
     """Prepare Nerfiller"""
     train_nerfiller: bool = True
     """Train Nerfiller"""
