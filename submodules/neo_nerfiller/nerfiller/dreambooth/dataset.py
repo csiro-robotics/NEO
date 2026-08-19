@@ -328,7 +328,7 @@ class EquiDataset(Dataset):
 
 if __name__ == "__main__":
     torch.manual_seed(1)
-    pretrained_model_name_or_path = "stabilityai/stable-diffusion-2-inpainting"
+    pretrained_model_name_or_path = "sd2-community/stable-diffusion-2-inpainting"
     tokenizer = AutoTokenizer.from_pretrained(
         pretrained_model_name_or_path,
         subfolder="tokenizer",

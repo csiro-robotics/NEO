@@ -462,7 +462,7 @@ class GenGrasp():
         if lerf_dataset_path is not None:
             self.lerf_dataset_path.value = lerf_dataset_path
 
-        data = Path(f'{neo_data_root}/{self.lerf_dataset_path.value}')
+        data = Path(f'{neo_data_root}/processed/{self.lerf_dataset_path.value}')
         if not osp.exists(data):
             print(f"data file \"{data}\" doesn't exist; can't load/train; return")
             return
@@ -476,11 +476,8 @@ class GenGrasp():
         config.max_num_iterations = num_steps+1
         config.steps_per_save = num_steps
         config.viewer.quit_on_train_completion = True
-        config.output_dir = str(data.parents[1]).replace(neo_data_root+'processed', 'outputs')
+        config.output_dir = str(data.parents[1]).replace(neo_data_root+'/processed', 'outputs')
         config.experiment_name = f"{data.parent.name}/before"
-
-        print("TIMESTAMPS!!")
-        print(config.get_base_dir().parent)
 
         if osp.exists(config.get_base_dir().parent):
             print("PATH EXISTS")
@@ -764,14 +761,14 @@ class GenGrasp():
             bboxes["bboxes"].append(bbox_data)
 
         # Save bbox.json file
-        data = Path(f'{neo_data_root}/{self.lerf_dataset_path.value}')
+        data = Path(f'{neo_data_root}/processed/{self.lerf_dataset_path.value}')
         if not osp.exists(data):
             print(f"data file \"{data}\" doesn't exist; can't load/train; return")
             return
 
         for model_type in model_types:
             print("----------------------------------------------------------------------------------------------------------------------------")
-            box_dir = Path(f"{str(data.parents[1]).replace(neo_data_root, 'outputs')}/{data.parent.name}/before/{model_type}/{self.timestamp}")
+            box_dir = Path(f"{str(data.parents[1]).replace(neo_data_root+'/processed', 'outputs')}/{data.parent.name}/before/{model_type}/{self.timestamp}")
             print(f"OUTPUT FOLDER: {box_dir}")
             print("----------------------------------------------------------------------------------------------------------------------------")
 
