@@ -1,5 +1,6 @@
 import tyro
 import os
+import sys
 
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -160,6 +161,11 @@ class Experiment():
 
         # Evaluation
         if self.config.pipeline_elements.evaluation._execute_all:
+            # Hack to fix issues with ZoeDepth and MiDaS
+            repo_root = Path(__file__).parents[1]
+            sys.path.append( str(repo_root / "submodules" / "neo_nerfiller" / "MiDaS"))
+            sys.path.append( str(repo_root / "submodules" / "neo_nerfiller" / "ZoeDepth" / "zoedepth"))
+            print(sys.path)
             from scripts.data_preparation.prepare_nerfiller import prepare_nerfiller
             from scripts.evaluation.eval import eval
             from scripts.evaluation.train_nerfiller import train_nerfiller

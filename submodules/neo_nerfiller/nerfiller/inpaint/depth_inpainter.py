@@ -4,6 +4,7 @@ from nerfiller.utils.depth_utils import depth_to_distance, distance_to_depth
 import torch
 
 from nerfiller.utils.typing import *
+from pathlib import Path
 
 class DepthInpainter:
     def __init__(
@@ -28,7 +29,11 @@ class DepthInpainter:
 
         # zoedepth
         if self.depth_method == "zoedepth":
-            self.zoe = torch.compile(torch.hub.load("../neo_nerfiller/ZoeDepth/.", "ZoeD_NK", source="local", pretrained=True).to(self.device))
+            print(Path(__file__))
+            neo_nerfiller_path = Path(__file__).parents[2].resolve()
+            print("Neo nerfiller path")
+            print(neo_nerfiller_path)
+            self.zoe = torch.compile(torch.hub.load(neo_nerfiller_path / "ZoeDepth", "ZoeD_NK", source="local", pretrained=True).to(self.device))
 
         # TODO: midas
 

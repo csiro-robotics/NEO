@@ -26,6 +26,7 @@ import torch
 import torch.nn as nn
 import numpy as np
 from torchvision.transforms import Normalize
+from pathlib import Path
 
 
 def denormalize(x):
@@ -340,7 +341,11 @@ class MidasCore(nn.Module):
         print("img_size", img_size)
         # midas = torch.hub.load("intel-isl/MiDaS", midas_model_type,
         #                        pretrained=use_pretrained_midas, force_reload=force_reload)
-        midas = torch.hub.load("../neo_nerfiller/MiDaS/.", midas_model_type, source="local", pretrained=use_pretrained_midas, force_reload=force_reload)
+        print(__file__)
+        neo_nerfiller_path = Path(__file__).parents[4].resolve()
+        print("MIDAS Neo Nerfiller Path")
+        print(neo_nerfiller_path)
+        midas = torch.hub.load(neo_nerfiller_path / "MiDaS", midas_model_type, source="local", pretrained=use_pretrained_midas, force_reload=force_reload)
         kwargs.update({'keep_aspect_ratio': force_keep_ar})
         midas_core = MidasCore(midas, trainable=train_midas, fetch_features=fetch_features,
                                freeze_bn=freeze_bn, img_size=img_size, **kwargs)
