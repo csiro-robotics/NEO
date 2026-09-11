@@ -101,6 +101,8 @@ class ExperimentConfig(NeoDataConfig, InstantiateConfig):
     """Name of the object in the scene"""
     steps_to_run: Optional[List[int]] = None
     """Steps to run in the experiment"""
+    nerfiller_device: str = "cuda:0"
+    """What device should nerfiller be run on (change to cpu for low-power devices)"""
 
     def save_config(self) -> None:
         """Save config to base directory"""
@@ -185,8 +187,8 @@ class Experiment():
             # if self.config.pipeline_elements.evaluation._execute_all:
             #     elements = self.config.pipeline_elements.evaluation
             #     preparing_nerfiller = {"name": "Prepare Nerfiller", "active": elements.prepare_nerfiller, "idx": 1, "func": prepare_nerfiller}
-            #     training_nerfiller = {"name": "Training Nerfiller", "active": elements.train_nerfiller, "idx": 2, "func": train_nerfiller}
-            #     training_nerfiller_no_depth = {"name": "Training Nerfiller No Depth", "active": elements.train_nerfiller_no_depth, "idx": 3, "func": train_nerfiller_no_depth}
+            #     training_nerfiller = {"name": "Training Nerfiller", "active": elements.train_nerfiller, "idx": 2, "func": train_nerfiller, "kwargs": {"device": self.config.nerfiller_device}}
+            #     training_nerfiller_no_depth = {"name": "Training Nerfiller No Depth", "active": elements.train_nerfiller_no_depth, "idx": 3, "func": train_nerfiller_no_depth, "kwargs": {"device": self.config.nerfiller_device}}
             #     evaluating = {"name": "Evaluation", "active": elements.evaluate, "idx": 4, "func": eval}
                 
             #     pipeline_elements = [[preparing_nerfiller, "→", training_nerfiller, "→", evaluating],

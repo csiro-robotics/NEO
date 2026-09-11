@@ -7,18 +7,26 @@ from neo.utils.commands import run_command
 from scripts.experiment_config import NeoDataConfig
 
 
-def train_nerfiller(config: NeoDataConfig) -> None:
+def train_nerfiller(config: NeoDataConfig, device="cuda:0") -> None:
     """Main function that executes the training pipeline."""
     output_dir = config.get_output_dir()
     cache_dir = output_dir / "before" / "nerfacto-nerfiller" / config.get_timestamp() / "cache"
 
     def train(method_name):
-        run_command([
+        command = [
             "ns-train", method_name,
             "--data", cache_dir,
             "--output-dir", output_dir.parent,
             "--experiment-name", f"{config.object_name}/before",
             "--timestamp", config.get_timestamp(),
+        ]
+        if method_name == "grid-prior-du":
+            command.extend([
+                '--pipeline.rgb-inpaint-device', device, 
+                                "--pipeline.depth-inpaint-device", device, 
+                                "--pipeline.upscale-device", device
+            ])
+        command.extend([
             "--viewer.quit-on-train-completion", "True",
             "--pipeline.model.camera-optimizer.mode", "off",
             "nerfstudio-data",
@@ -27,6 +35,8 @@ def train_nerfiller(config: NeoDataConfig) -> None:
             "--auto-scale-poses", "False",
             "--train-split-fraction", "0.99",
         ])
+        
+        run_command(command)
 
     # Train NeRFiller baseline
     CONSOLE.print("[bold green]Training Nerfiller base...[/bold green]")
