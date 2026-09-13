@@ -108,7 +108,8 @@ class PatchedDepthDataset(DepthDataset):
                     frames = None
                     filenames = dataparser_outputs.image_filenames
 
-                self.zoe = torch.compile(torch.hub.load("../neo_nerfiller/ZoeDepth/.", "ZoeD_NK", source="local", pretrained=True).to(device))
+                zoedepth_folder = Path(__file__).parents[2] / "ZoeDepth"
+                self.zoe = torch.compile(torch.hub.load(str(zoedepth_folder), "ZoeD_NK", source="local", pretrained=True).to(device))
 
                 for i in track(range(len(filenames)), description="Generating depth images"):
                     image_filename = filenames[i]
