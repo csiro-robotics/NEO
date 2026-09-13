@@ -167,13 +167,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--outputs-root",
         type=Path,
-        default=Path("outputs/real"),
+        default=Path("outputs"),
         help="Root searched for after/nerfacto/<run>/config.yml files. before configs are ignored.",
     )
     parser.add_argument(
         "--output-root",
         type=Path,
-        default=Path("renders/real"),
+        default=Path("renders"),
         help="Root where rendered folders will be mirrored.",
     )
     parser.add_argument(

@@ -54,6 +54,8 @@ class EvalBaseConfig:
     """Scale factors for cropping the rendered images"""
     crop_rot: tuple = (0.0, 0.0, 0.0)
     """Rotation angles for cropping the rendered images"""
+    neo_data_root: Path = Path("data/")
+    """Path to root neo data folder"""
 
     def execute_command(self, command: str) -> None:
         """
@@ -200,6 +202,9 @@ class EvalBaseConfig:
 
         # Load edited model config
         self.model_config = yaml.load(self.config_path.read_text(), Loader=yaml.Loader)
+        print("#####################################")
+        print(self.config_path)
+        print(self.model_config)
         assert isinstance(self.model_config, TrainerConfig)
 
         # Get rendering command
@@ -207,15 +212,25 @@ class EvalBaseConfig:
         if self.model_config.method_name == "replace-nerf":
             base_path = str(self.model_config.get_base_dir().parent)
 
-        if "lerf-lite" in base_path:
-            gt_data_path = Path(base_path.replace('outputs', 'data')).parents[1]
-        else:
-            gt_data_path = Path(base_path.replace('outputs', 'data').replace('before', 'after')).parents[1]
+        output_root = str(self.model_config.output_dir.parents[5]) # parents should end with date, model_name, before/after, object, scene, action, root
 
-        render_output_path = Path(base_path.replace('outputs', 'renders'))
+        if "lerf-lite" in base_path:
+            gt_data_path = Path(base_path.replace(output_root, str(self.neo_data_root / "processed"))).parents[1]
+            print(gt_data_path)
+        else:
+            gt_data_path = Path(base_path.replace(output_root, str(self.neo_data_root / "processed")).replace('before', 'after')).parents[1]
+            print(gt_data_path)
+
+        print("??????????????????")
+        print(base_path)
+        print(output_root)
+        print(self.neo_data_root)
+        print(gt_data_path)
+
+        render_output_path = Path(base_path.replace(output_root, 'renders'))
 
         # Load focal lengths and transforms
-        with open(self.model_config.data / 'transforms.json') as f:
+        with open(self.model_config.data / 'transforms.json') as f: 
             transforms = json.load(f)
             if 'frames' in transforms and 'fl_x' in transforms['frames'][0]:
                 self.focal_lengths = (transforms['frames'][0]['fl_x'], transforms['frames'][0]['fl_y'])
