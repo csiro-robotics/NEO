@@ -209,10 +209,11 @@ class EvalBaseConfig:
 
         # Get rendering command
         base_path = str(self.model_config.get_base_dir())
+        print(base_path)
         if self.model_config.method_name == "replace-nerf":
             base_path = str(self.model_config.get_base_dir().parent)
 
-        output_root = str(self.model_config.output_dir.parents[5]) # parents should end with date, model_name, before/after, object, scene, action, root
+        output_root = str(Path(base_path).parents[5]) # parents should end with date, model_name, before/after, object, scene, action, root
 
         if "lerf-lite" in base_path:
             gt_data_path = Path(base_path.replace(output_root, str(self.neo_data_root / "processed"))).parents[1]
@@ -250,12 +251,12 @@ class EvalBaseConfig:
         # Copy GT data to render output path
         shutil.copytree(gt_data_path, render_output_path / f"{exp_names[0]}_gt", dirs_exist_ok=True)
 
-        # # Render full images
-        # self.render_full(render_output_path)
+        # Render full images
+        self.render_full(render_output_path)
 
-        # # Render cropped images
-        # self.render_cropped(render_output_path)
-        # self.render_cropped(render_output_path, is_edited=False)
+        # Render cropped images
+        self.render_cropped(render_output_path)
+        self.render_cropped(render_output_path, is_edited=False)
 
         # Create datasets and dataloaders
         dataloaders = self.create_dataloaders(render_output_path, exp_names)
@@ -272,11 +273,11 @@ class EvalBaseConfig:
         eval_output_path = Path(f"eval/{'/'.join(str(self.model_config.get_base_dir()).split('/')[1:])}")
         os.makedirs(eval_output_path, exist_ok=True)
 
-        # with open(eval_output_path / "results.json", "w") as f:
-        #     json.dump(results, f, indent=4)
+        with open(eval_output_path / "results.json", "w") as f:
+            json.dump(results, f, indent=4)
 
         CONSOLE.print("[bold green]Finished calculations, results are:")
-        # CONSOLE.print(results)
+        CONSOLE.print(results)
 
 
 @dataclass
