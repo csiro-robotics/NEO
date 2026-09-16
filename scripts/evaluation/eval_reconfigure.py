@@ -16,7 +16,7 @@ def eval(config: NeoDataConfig) -> None:
     config_path = output_dir / "before" / "neo" / config.get_timestamp() / "replace-nerf" / "config.yml"
 
     def evaluate(path: Path) -> None:
-        run_command(["ns-eval-neo", "--config-path", path, "--dry-run", "False", "--verbose", "True"])
+        run_command(["ns-eval-neo", "--config-path", path, "--dry-run", "False", "--verbose", "True", "--neo-data-root", config.neo_data_root])
 
     # Evaluate LERF
     CONSOLE.print("[bold green]Evaluating...[/bold green]")
