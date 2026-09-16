@@ -1,0 +1,8 @@
+experiment_name: reconfigure-spam
+neo_data_root: data/Neo-raw
+outputs_root: outputs
+action: reconfigure
+scene_name: spam
+object_name: spam
+lerf_prompt: Spam
+timestamp: null

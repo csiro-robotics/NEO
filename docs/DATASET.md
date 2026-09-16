@@ -19,14 +19,14 @@ splits, and a machine-readable checksum file.
 Each prepared scene follows this structure :
 
 ```text
-<neo_data_root>/<processed>/<action>/<scene_name>/<object>/
+<neo_data_root>/processed/<action>/<scene_name>/<object>/
 ├── before/{images,depth,transforms.json}
 ├── after/{images,depth,transforms.json}
-└── movement.json or movement.txt
+└── object_reconfiguration.json
 ```
 
-`remove` scenes contain registered captures before and after physical removal and do not include a `movement.json` file.
-`translate_and_rotate` scenes additionally include the `movement.json` file. 
+`remove` scenes contain registered captures before and after physical removal and do not include a `movement.txt` file.
+`reconfigure` scenes additionally include the `object_reconfiguration.json` file. 
 Depth images are stored in mms and are converted to metres to match scale used for the underlying NF scene.
 
 ## Raw Capture Naming

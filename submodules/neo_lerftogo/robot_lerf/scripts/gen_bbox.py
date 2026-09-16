@@ -6,9 +6,7 @@ def main():
     parser = ArgumentParser()
     parser.add_argument("--neo_data_root", default="data/neo_dataset",
                         help="absolute path of output for dataset")
-    parser.add_argument("--action", choices=["remove", "translate", 
-                                        "rotate", "translate_and_rotate",
-                                        "mix", "assembly"])
+    parser.add_argument("--action", choices=["remove", "reconfigure", "assembly"])
     parser.add_argument("--scene_name", "-n", type=str, 
                         help="name of scene. Used in naming all related files")
     parser.add_argument("--object_name", type=str)

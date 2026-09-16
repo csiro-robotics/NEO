@@ -149,7 +149,7 @@ def test_ray_generator_coordinates_follow_camera_device() -> None:
     "relative_path, expected_action, config_type",
     [
         ("removal/tomato_soup_can.yaml", "remove", RemovalConfig),
-        ("relocation/banana.yaml", "translate_and_rotate", ReconfigurationConfig),
+        ("reconfiguration/banana.yaml", "reconfigure", ReconfigurationConfig),
     ],
 )
 def test_paper_scene_manifests_load(relative_path: str, expected_action: str, config_type) -> None:

@@ -1,7 +1,7 @@
-experiment_name: relocation-rubiks-cube
-neo_data_root: data
+experiment_name: reconfigure-rubiks-cube
+neo_data_root: data/Neo-raw
 outputs_root: outputs
-action: translate_and_rotate
+action: reconfigure
 scene_name: rubiks_cube
 object_name: rubiks_cube
 lerf_prompt: Rubiks Cube

@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-DEFAULT_TASKS = ("remove", "translate_and_rotate")
+DEFAULT_TASKS = ("remove", "reconfigure")
 
 
 def load_depth(path: Path, depth_scale: float) -> torch.Tensor:
@@ -698,7 +698,7 @@ def calculate_reprojection_tree(
                     data_path=data_path,
                     out_mask_dir=mask_dir_from_info(info, render_name),
                     in_mask_dir=mask_after_dir_from_info(info, render_name),
-                    use_in_mask=info["task"] == "translate_and_rotate",
+                    use_in_mask=info["task"] == "reconfigure",
                     frames=frames,
                     meta=meta,
                     i=i,

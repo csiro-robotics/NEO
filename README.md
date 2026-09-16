@@ -153,8 +153,8 @@ NEO expects registered `before` and `after` Nerfstudio datasets:
 `-- movement.json or movement.txt
 ```
 
-Removal uses `action: remove`; rigid relocation uses
-`action: translate_and_rotate`. Depth images are stored in millimetres. The
+Removal uses `action: remove`; rigid reconfiguration uses
+`action: reconfigure`. Depth images are stored in millimetres. The
 capture, registration, movement, and raw-file conventions are described in
 [docs/DATASET.md](docs/DATASET.md).
 
@@ -167,7 +167,7 @@ fields, and run the appropriate installed command:
 
 ```bash
 neo-remove --load-config my_removal.yaml
-neo-reconfigure --load-config my_relocation.yaml
+neo-reconfigure --load-config my_reconfiguration.yaml
 ```
 
 Config paths passed to `--load-config` are relative to `experiments/`. Use the

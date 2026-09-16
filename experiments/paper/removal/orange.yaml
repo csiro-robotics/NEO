@@ -1,5 +1,5 @@
 experiment_name: removal-orange
-neo_data_root: data
+neo_data_root: data/Neo-raw
 outputs_root: outputs
 action: remove
 scene_name: orange
