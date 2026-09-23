@@ -34,8 +34,6 @@ class DataPreperationElements():
     """Extract arm movement"""
     train_lerf: bool = True
     """Train LERF"""
-    prepare_gt: bool = True
-    """Prepare GT"""
 
 @dataclass
 class TrainingElements():
@@ -139,7 +137,6 @@ class Experiment():
             from scripts.data_preparation.extract_arm_movement import extract_arm_movement
             from scripts.data_preparation.extract_images import extract_images
             from scripts.data_preparation.match_arucos import match_arucos
-            from scripts.data_preparation.prepare_gt import prepare_gt
             from scripts.data_preparation.train_lerf import train_lerf
 
             elements = self.config.pipeline_elements.data_preparation
@@ -152,10 +149,9 @@ class Experiment():
             extracting_arm_movement = {"name": "Extract Arm Movement", "active": elements.extract_arm_movement, "idx": 6, "func": extract_arm_movement}
             ready_datasets = {"name": "Ready Datasets", "active": True, "idx": 7, "func": dummy_fnc}
             training_lerf = {"name": "Training LERF", "active": elements.train_lerf, "idx": 8, "func": train_lerf, "kwargs": {"camera_optimizer": "off"}}
-            preparing_gt = {"name": "Preparing GT", "active": elements.prepare_gt, "idx": 9, "func": prepare_gt}
             
             pipeline_elements = [[process_bags, "→", colmap_1, "→", selecting_frames, "→", colmap_2, "→", matching_arucos, "→", ready_datasets, "→", training_lerf],
-                                [None, "", None, "", None, "", None, "↘", extracting_arm_movement, "↗", None, "↘", preparing_gt]]
+                                [None, "", None, "", None, "", None, "↘", extracting_arm_movement, "↗", None]]
 
             self._execute_pipeline(pipeline_elements)
 
