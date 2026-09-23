@@ -19,7 +19,7 @@ class NeoDataConfig():
     """Root directory for trained models and editing outputs"""
     raw_bagfiles_root: Union[Path, None] = None
     """Optional raw capture root; defaults to <neo_data_root>/raw_bagfiles"""
-    action: Literal["remove", "reconfigure"] = "remove"
+    action: Literal["remove", "reconfigure", "assembly"] = "remove"
     """Action to perform"""
     scene_name: Union[str, None]= None
     """Name of scene"""
