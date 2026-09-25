@@ -85,7 +85,6 @@ def prepare_subassembly(config: NeoDataConfig, first_step: bool = False, previou
     if first_step:
         # Copy the data
         shutil.copytree(base_dir.parent / "assembly" / "before", base_dir / "before", dirs_exist_ok=True)
-        shutil.copytree(base_dir.parent / "assembly" / "after", base_dir / "after", dirs_exist_ok=True)
 
         # Prepare LERF-Lite
         lerf_lite_dir = config.get_output_dir().parent
@@ -103,7 +102,6 @@ def prepare_subassembly(config: NeoDataConfig, first_step: bool = False, previou
     else:
         # Copy the data from previous step
         shutil.copytree(base_dir.parent / "assembly" / "before", base_dir / "before", dirs_exist_ok=True)
-        shutil.copytree(base_dir.parent / "assembly" / "after", base_dir / "after", dirs_exist_ok=True)
 
         lerf_lite_dir = config.get_output_dir().parent
 

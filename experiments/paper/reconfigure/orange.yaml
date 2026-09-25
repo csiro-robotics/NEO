@@ -1,8 +1,24 @@
 experiment_name: reconfigure-orange
-neo_data_root: data/Neo-raw
-outputs_root: outputs
+neo_data_root: data/Neo
+outputs_root: outputs/processed
 action: reconfigure
 scene_name: orange
 object_name: orange
 lerf_prompt: Orange
 timestamp: null
+pipeline_elements:
+  data_preparation:
+    process_bags: false
+    colmap_1: false
+    colmap_2: false
+    select_frames: false
+    match_arucos: false
+    extract_arm_movement: false
+    train_lerf: true
+    train_gt: true
+  training:
+    generate_bbox: true
+    train_neo: true
+    loopback_neo: true
+  evaluation:
+    evaluate: true

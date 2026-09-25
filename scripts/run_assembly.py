@@ -51,29 +51,12 @@ class TrainingElements():
     """Loopback Neo"""
 
 @dataclass
-class EvaluationElements():
-    """Evaluation elements to run"""
-
-    _execute_all: bool = True
-    """Execute all evaluation elements"""
-    prepare_nerfiller: bool = True
-    """Prepare Nerfiller"""
-    train_nerfiller: bool = True
-    """Train Nerfiller"""
-    train_nerfiller_no_depth: bool = True
-    """Train Nerfiller without depth"""
-    evaluate: bool = True
-    """Evaluate"""
-
-@dataclass
 class PipelineElements():
 
     data_preparation: DataPreperationElements = field(default_factory=DataPreperationElements)
     """Data preparation elements to run"""
     training: TrainingElements = field(default_factory=TrainingElements)
     """Training elements to run"""
-    evaluation: EvaluationElements = field(default_factory=EvaluationElements)
-    """Evaluation elements to run"""
 
 @dataclass
 class ExperimentConfig(NeoDataConfig, InstantiateConfig):
@@ -178,19 +161,6 @@ class Experiment():
                                     [edited_object, "", None, "", None, "", None]]
 
                 self._execute_pipeline(pipeline_elements)
-
-            # # Evaluation
-            # if self.config.pipeline_elements.evaluation._execute_all:
-            #     elements = self.config.pipeline_elements.evaluation
-            #     preparing_nerfiller = {"name": "Prepare Nerfiller", "active": elements.prepare_nerfiller, "idx": 1, "func": prepare_nerfiller}
-            #     training_nerfiller = {"name": "Training Nerfiller", "active": elements.train_nerfiller, "idx": 2, "func": train_nerfiller, "kwargs": {"device": self.config.nerfiller_device}}
-            #     training_nerfiller_no_depth = {"name": "Training Nerfiller No Depth", "active": elements.train_nerfiller_no_depth, "idx": 3, "func": train_nerfiller_no_depth, "kwargs": {"device": self.config.nerfiller_device}}
-            #     evaluating = {"name": "Evaluation", "active": elements.evaluate, "idx": 4, "func": eval}
-                
-            #     pipeline_elements = [[preparing_nerfiller, "→", training_nerfiller, "→", evaluating],
-            #                         [None, "↘", training_nerfiller_no_depth, "↗", None]]
-                
-            #     self._execute_pipeline(pipeline_elements)
 
 
 def main(config: ExperimentConfig) -> None:

@@ -1,0 +1,17 @@
+experiment_name: assembly
+neo_data_root: data/Neo-raw
+outputs_root: outputs/raw
+action: assembly
+scene_name: paper-assembly
+object_names:
+  - lego_bricks_1
+  - red_cup
+  - lego_bricks_2
+  - golf_ball
+lerf_prompts:
+  - Lego bricks
+  - Red cup
+  - Lego bricks
+  - Golf ball
+steps_to_run: [0, 1, 2, 3]
+timestamp: null

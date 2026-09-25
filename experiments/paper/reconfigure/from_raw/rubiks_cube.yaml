@@ -1,0 +1,8 @@
+experiment_name: reconfigure-rubiks-cube
+neo_data_root: data/Neo-raw
+outputs_root: outputs/raw
+action: reconfigure
+scene_name: rubiks_cube
+object_name: rubiks_cube
+lerf_prompt: Rubiks Cube
+timestamp: null

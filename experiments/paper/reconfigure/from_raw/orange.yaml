@@ -1,0 +1,8 @@
+experiment_name: reconfigure-orange
+neo_data_root: data/Neo-raw
+outputs_root: outputs/raw
+action: reconfigure
+scene_name: orange
+object_name: orange
+lerf_prompt: Orange
+timestamp: null

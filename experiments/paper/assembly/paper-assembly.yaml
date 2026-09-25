@@ -1,6 +1,6 @@
 experiment_name: assembly
-neo_data_root: data/Neo-raw
-outputs_root: outputs
+neo_data_root: data/Neo
+outputs_root: outputs/processed
 action: assembly
 scene_name: paper-assembly
 object_names:
@@ -15,3 +15,17 @@ lerf_prompts:
   - Golf ball
 steps_to_run: [0, 1, 2, 3]
 timestamp: null
+pipeline_elements:
+  data_preparation:
+    process_bags: false
+    colmap_1: false
+    colmap_2: false
+    select_frames: false
+    match_arucos: false
+    extract_arm_movement: false
+    train_lerf: true
+  training:
+    prepare_subassembly: true
+    generate_bbox: true
+    train_neo: true
+    loopback_neo: true
