@@ -13,6 +13,7 @@ def main():
     parser.add_argument("--lerf_prompt", type=str)
     parser.add_argument("--model_types", type=str, choices=["neo"], nargs="+", default=["neo"],
                         help="Model type to edit")
+    parser.add_argument("--outputs_root", default="outputs", help="path of root for outputs linked to the data")
     args=parser.parse_args()
 
     from robot_lerf.scripts.gen_grasp import GenGrasp
@@ -28,8 +29,8 @@ def main():
     gen_grasp = GenGrasp()
     gen_grasp.populate()
 
-    gen_grasp.lerf_train_button_callback(neo_data_root=str(args.neo_data_root), lerf_dataset_path=str(data_path))
-    gen_grasp.gen_grasp_button_callback(neo_data_root=str(args.neo_data_root), gen_grasp_text=args.lerf_prompt, model_types=args.model_types)
+    gen_grasp.lerf_train_button_callback(neo_data_root=str(args.neo_data_root), lerf_dataset_path=str(data_path), outputs_root=str(args.outputs_root))
+    gen_grasp.gen_grasp_button_callback(neo_data_root=str(args.neo_data_root), gen_grasp_text=args.lerf_prompt, model_types=args.model_types, outputs_root=str(args.outputs_root))
     
 if __name__ == "__main__":
     tyro.cli(main)

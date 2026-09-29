@@ -20,6 +20,7 @@ def generate_bbox(config: NeoDataConfig) -> None:
         "--object_name", config.object_name,
         "--lerf_prompt", config.lerf_prompt,
         "--model_types", "neo",
+        "--outputs_root", config.outputs_root
     ]
     run_command(command, verbose=True)
 

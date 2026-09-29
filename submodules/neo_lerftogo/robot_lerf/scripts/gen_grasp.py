@@ -457,7 +457,7 @@ class GenGrasp():
         torch.cuda.empty_cache()
 
 
-    def lerf_train_button_callback(self, neo_data_root: str = 'data', lerf_dataset_path: str = None):
+    def lerf_train_button_callback(self, neo_data_root: str = 'data', lerf_dataset_path: str = None, outputs_root: str = "outputs"):
 
         if lerf_dataset_path is not None:
             self.lerf_dataset_path.value = lerf_dataset_path
@@ -476,7 +476,7 @@ class GenGrasp():
         config.max_num_iterations = num_steps+1
         config.steps_per_save = num_steps
         config.viewer.quit_on_train_completion = True
-        config.output_dir = str(data.parents[1]).replace(neo_data_root+'/processed', 'outputs')
+        config.output_dir = str(data.parents[1]).replace(neo_data_root+'/processed', outputs_root)
         config.experiment_name = f"{data.parent.name}/before"
 
         if osp.exists(config.get_base_dir().parent):
@@ -547,7 +547,7 @@ class GenGrasp():
         )
         self.lerf_train_button.disabled = False
 
-    def gen_grasp_button_callback(self, neo_data_root: str = 'data', gen_grasp_text: str = None, model_types: List[str] = ["neo"]):
+    def gen_grasp_button_callback(self, neo_data_root: str = 'data', gen_grasp_text: str = None, model_types: List[str] = ["neo"], outputs_root: str = 'outputs'):
         """
         Updates LERF scores by updating the LERF query
         """
@@ -768,7 +768,7 @@ class GenGrasp():
 
         for model_type in model_types:
             print("----------------------------------------------------------------------------------------------------------------------------")
-            box_dir = Path(f"{str(data.parents[1]).replace(neo_data_root+'/processed', 'outputs')}/{data.parent.name}/before/{model_type}/{self.timestamp}")
+            box_dir = Path(f"{str(data.parents[1]).replace(neo_data_root+'/processed', outputs_root)}/{data.parent.name}/before/{model_type}/{self.timestamp}")
             print(f"OUTPUT FOLDER: {box_dir}")
             print("----------------------------------------------------------------------------------------------------------------------------")
 
