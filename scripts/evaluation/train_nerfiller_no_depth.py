@@ -7,7 +7,7 @@ from neo.utils.commands import run_command
 from scripts.experiment_config import NeoDataConfig
 
 
-def train_nerfiller_no_depth(config: NeoDataConfig) -> None:
+def train_nerfiller_no_depth(config: NeoDataConfig, device='cuda:0') -> None:
     """Main function that executes the training pipeline."""
     output_dir = config.get_output_dir()
     cache_dir = output_dir / "before" / "nerfacto-nerfiller-no-depth" / config.get_timestamp() / "cache"
@@ -20,6 +20,12 @@ def train_nerfiller_no_depth(config: NeoDataConfig) -> None:
             "--experiment-name", f"{config.object_name}/before",
             "--timestamp", config.get_timestamp(),
         ]
+        if method_name == 'grid-prior-du-no-depth':
+            command.extend([
+                '--pipeline.rgb-inpaint-device', device, 
+                "--pipeline.depth-inpaint-device", device, 
+                "--pipeline.upscale-device", device
+            ])
         if output_method_name is not None:
             command.extend(["--method-name", output_method_name])
         command.extend([

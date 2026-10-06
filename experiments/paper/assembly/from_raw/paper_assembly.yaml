@@ -1,11 +1,8 @@
 experiment_name: assembly
-root_input: data
-outputs_root: outputs
-data_type: real
+neo_data_root: data/Neo-raw
+outputs_root: outputs/raw
 action: assembly
-scene_type: single
-scene_name: assembly
-object_name: assembly
+scene_name: paper_assembly
 object_names:
   - lego_bricks_1
   - red_cup

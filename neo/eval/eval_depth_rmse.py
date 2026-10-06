@@ -12,7 +12,7 @@ from tqdm import tqdm
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-DEFAULT_TASKS = ("remove", "translate_and_rotate")
+DEFAULT_TASKS = ("remove", "reconfigure")
 
 
 def render_name_candidates(render_name: str) -> tuple[str, ...]:
@@ -159,10 +159,10 @@ def discover_render_depth_dirs(renders_root: Path, tasks: tuple[str, ...], rende
 
 def data_path_from_render_info(info: dict) -> Path:
     return (
+        # TODO how to remove data as the hard code path
         Path("data")
-        / "real"
+        / "processed"
         / info["task"]
-        / "single"
         / info["object_group"]
         / info["object_name"]
         / "after"
@@ -172,9 +172,7 @@ def data_path_from_render_info(info: dict) -> Path:
 def resolve_gt_render_depth_dir_from_info(renders_root: Path, info: dict, gt_render_name: str) -> Path:
     after_nerfacto_root = (
         renders_root
-        / "real"
         / info["task"]
-        / "single"
         / info["object_group"]
         / info["object_name"]
         / "after"
@@ -196,9 +194,7 @@ def resolve_gt_render_depth_dir_from_info(renders_root: Path, info: dict, gt_ren
 def eval_depth_dir_from_render_info(info: dict) -> Path:
     return (
         Path("eval_depth_rmse")
-        / "real"
         / info["task"]
-        / "single"
         / info["object_group"]
         / info["object_name"]
         / "before"
@@ -428,7 +424,7 @@ def calculate_depth_rmse_for_render(
         if out_mask_path.exists():
             out_mask = torch.tensor(cv2.imread(str(out_mask_path), cv2.IMREAD_GRAYSCALE), device=device).float() / 255.0
         in_mask = None
-        if info["task"] == "translate_and_rotate" and in_mask_path.exists():
+        if info["task"] == "reconfigure" and in_mask_path.exists():
             in_mask = torch.tensor(cv2.imread(str(in_mask_path), cv2.IMREAD_GRAYSCALE), device=device).float() / 255.0
 
         frame_all, frame_all_pred, valid_mask = depth_errors(
@@ -589,7 +585,7 @@ def calculate_depth_rmse(
     """
     Discover rendered depth folders and compare them against after/nerfacto depth.
 
-    The script searches renders/real/{remove,translate_and_rotate}/.../before for
+    The script searches renders/real/{remove,reconfigure}/.../before for
     render_name/depth folders, uses the matching after/nerfacto render as ground
     truth, writes per-render JSON results, and prints an aggregate table.
     Rendered depths are true z-depth PNGs in millimeters, so z-depth comparison

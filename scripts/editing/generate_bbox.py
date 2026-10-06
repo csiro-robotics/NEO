@@ -14,14 +14,13 @@ def generate_bbox(config: NeoDataConfig) -> None:
     CONSOLE.print("[bold green]Obtaining BBoxes...[/bold green]")
     command = [
         "lerftogo-neo",
-        "--root_input", config.root_input,
-        "--data_type", config.data_type,
+        "--neo_data_root", config.neo_data_root,
         "--scene_name", config.scene_name,
         "--action", config.action,
-        "--scene_type", config.scene_type,
         "--object_name", config.object_name,
         "--lerf_prompt", config.lerf_prompt,
         "--model_types", "neo",
+        "--outputs_root", config.outputs_root
     ]
     run_command(command, verbose=True)
 

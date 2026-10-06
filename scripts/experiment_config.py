@@ -13,18 +13,14 @@ TIMESTAMP_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}_\d{6}$")
 class NeoDataConfig():
     """Configuration for running experiments."""
 
-    root_input: Path = Path("data")
-    """Root directory for input data"""
+    neo_data_root: Path = Path("data")
+    """Root directory for neo data"""
     outputs_root: Path = Path("outputs")
     """Root directory for trained models and editing outputs"""
     raw_bagfiles_root: Union[Path, None] = None
-    """Optional raw capture root; defaults to <root_input>/raw_bagfiles"""
-    data_type: Literal["real", "synthetic"] = "real"
-    """Type of data to process"""
-    action: Literal["remove", "translate", "rotate", "translate_and_rotate", "mix"] = "remove"
+    """Optional raw capture root; defaults to <neo_data_root>/raw_bagfiles"""
+    action: Literal["remove", "reconfigure", "assembly"] = "remove"
     """Action to perform"""
-    scene_type: Literal["single", "multiple_one", "multiple_sequential", "multiple_multiaction"] = "single"
-    """Type of scene"""
     scene_name: Union[str, None]= None
     """Name of scene"""
     object_name: Union[str, None] = None
@@ -33,11 +29,11 @@ class NeoDataConfig():
     """Timestamp of the experiment"""
 
     def get_base_dir(self):
-        return self.root_input / self.data_type / self.action / self.scene_type / self.scene_name / self.object_name
+        return self.neo_data_root / "processed" / self.action / self.scene_name / self.object_name
 
     def get_relative_scene_dir(self) -> Path:
-        """Return the scene path relative to the configured data root."""
-        return self.get_base_dir().relative_to(self.root_input)
+        """Return the scene path relative to the processed data root."""
+        return self.get_base_dir().relative_to(self.neo_data_root / "processed")
 
     def get_output_dir(self) -> Path:
         """Return the model/output directory corresponding to the data scene."""
@@ -45,7 +41,7 @@ class NeoDataConfig():
 
     def get_raw_capture_base(self) -> Path:
         """Return the raw capture path without a stage suffix."""
-        raw_root = self.raw_bagfiles_root or self.root_input / "raw_bagfiles"
+        raw_root = self.raw_bagfiles_root or self.neo_data_root / "raw_bagfiles"
         return raw_root / self.get_relative_scene_dir()
     
     def print_to_terminal(self) -> None:

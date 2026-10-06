@@ -1,7 +1,7 @@
 """Average saved metrics summary tables across datasets.
 
 Example:
-    python scripts/average_metrics_tables.py --root eval/real/translate_and_rotate
+    python scripts/average_metrics_tables.py --root eval/real/reconfigure
 """
 
 from __future__ import annotations

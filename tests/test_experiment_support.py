@@ -51,25 +51,23 @@ def test_unknown_config_keys_fail_with_context(tmp_path: Path) -> None:
 
 def test_scene_paths_are_mirrored_without_string_replacement() -> None:
     config = NeoDataConfig(
-        root_input=Path("datasets/input"),
+        neo_data_root=Path("datasets/input"),
         outputs_root=Path("artifacts/models"),
-        data_type="real",
         action="remove",
-        scene_type="single",
         scene_name="data_in_scene_name",
         object_name="object",
     )
 
-    assert config.get_relative_scene_dir() == Path("real/remove/single/data_in_scene_name/object")
-    assert config.get_output_dir() == Path("artifacts/models/real/remove/single/data_in_scene_name/object")
+    assert config.get_relative_scene_dir() == Path("remove/data_in_scene_name/object")
+    assert config.get_output_dir() == Path("artifacts/models/remove/data_in_scene_name/object")
     assert config.get_raw_capture_base() == Path(
-        "datasets/input/raw_bagfiles/real/remove/single/data_in_scene_name/object"
+        "datasets/input/raw_bagfiles/remove/data_in_scene_name/object"
     )
 
 
 def test_timestamp_resolves_latest_lerf_output(tmp_path: Path) -> None:
     config = NeoDataConfig(
-        root_input=tmp_path / "data",
+        neo_data_root=tmp_path / "data",
         outputs_root=tmp_path / "outputs",
         scene_name="scene",
         object_name="object",
@@ -84,7 +82,7 @@ def test_timestamp_resolves_latest_lerf_output(tmp_path: Path) -> None:
 
 def test_timestamp_is_generated_when_no_lerf_output_exists(tmp_path: Path) -> None:
     config = NeoDataConfig(
-        root_input=tmp_path / "data",
+        neo_data_root=tmp_path / "data",
         outputs_root=tmp_path / "outputs",
         scene_name="scene",
         object_name="object",
@@ -151,7 +149,7 @@ def test_ray_generator_coordinates_follow_camera_device() -> None:
     "relative_path, expected_action, config_type",
     [
         ("removal/tomato_soup_can.yaml", "remove", RemovalConfig),
-        ("relocation/banana.yaml", "translate_and_rotate", ReconfigurationConfig),
+        ("reconfiguration/banana.yaml", "reconfigure", ReconfigurationConfig),
     ],
 )
 def test_paper_scene_manifests_load(relative_path: str, expected_action: str, config_type) -> None:

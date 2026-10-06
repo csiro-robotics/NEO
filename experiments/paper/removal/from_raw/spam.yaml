@@ -1,0 +1,8 @@
+experiment_name: removal-spam
+neo_data_root: data/Neo-raw
+outputs_root: outputs/raw
+action: remove
+scene_name: spam
+object_name: spam
+lerf_prompt: Spam
+timestamp: null

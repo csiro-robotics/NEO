@@ -140,7 +140,7 @@ library symlink.
 NEO expects registered `before` and `after` Nerfstudio datasets:
 
 ```text
-data/real/<action>/single/<scene>/<object>/
+<neo_data_root>/processed/<action>/<scene>/<object>/
 |-- before/
 |   |-- images/
 |   |-- depth/
@@ -153,8 +153,8 @@ data/real/<action>/single/<scene>/<object>/
 `-- movement.json or movement.txt
 ```
 
-Removal uses `action: remove`; rigid relocation uses
-`action: translate_and_rotate`. Depth images are stored in millimetres. The
+Removal uses `action: remove`; rigid reconfiguration uses
+`action: reconfigure`. Depth images are stored in millimetres. The
 capture, registration, movement, and raw-file conventions are described in
 [docs/DATASET.md](docs/DATASET.md).
 
@@ -167,7 +167,7 @@ fields, and run the appropriate installed command:
 
 ```bash
 neo-remove --load-config my_removal.yaml
-neo-reconfigure --load-config my_relocation.yaml
+neo-reconfigure --load-config my_reconfiguration.yaml
 ```
 
 Config paths passed to `--load-config` are relative to `experiments/`. Use the
@@ -271,13 +271,13 @@ For an individual edited checkpoint, use:
 
 ```bash
 ns-eval-neo --config-path \
-  outputs/real/<action>/single/<scene>/<object>/before/neo/<timestamp>/replace-nerf/config.yml
+  outputs/<action>/<scene>/<object>/before/neo/<timestamp>/replace-nerf/config.yml
 ```
 
 Typical artifacts are written to:
 
 ```text
-outputs/real/<action>/single/<scene>/<object>/before/
+outputs/<action>/<scene>/<object>/before/
 |-- lerf-lite/<timestamp>/
 `-- neo/<timestamp>/
     |-- config.yml

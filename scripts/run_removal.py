@@ -1,5 +1,6 @@
 import tyro
 import os
+import sys
 
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -20,21 +21,21 @@ class DataPreperationElements():
 
     _execute_all: bool = True
     """Execute all data preparation elements"""
-    process_bags: bool = False
+    process_bags: bool = True
     """Process bags"""
-    colmap_1: bool = False
+    colmap_1: bool = True
     """Run COLMAP"""
-    colmap_2: bool = False
+    colmap_2: bool = True
     """Run COLMAP"""
-    select_frames: bool = False
+    select_frames: bool = True
     """Select frames"""
-    match_arucos: bool = False
+    match_arucos: bool = True
     """Match Arucos"""
-    extract_arm_movement: bool = False
+    extract_arm_movement: bool = True
     """Extract arm movement"""
-    train_lerf: bool = False
+    train_lerf: bool = True
     """Train LERF"""
-    train_gt: bool = False
+    train_gt: bool = True
     """Train GT"""
 
 @dataclass
@@ -43,9 +44,9 @@ class TrainingElements():
 
     _execute_all: bool = True
     """Execute all training elements"""
-    generate_bbox: bool = False
+    generate_bbox: bool = True
     """Generate BBoxes"""
-    train_neo: bool = False
+    train_neo: bool = True
     """Train Neo"""
 
 @dataclass
@@ -54,7 +55,7 @@ class EvaluationElements():
 
     _execute_all: bool = True
     """Execute all evaluation elements"""
-    prepare_nerfiller: bool = False
+    prepare_nerfiller: bool = True
     """Prepare Nerfiller"""
     train_nerfiller: bool = True
     """Train Nerfiller"""
@@ -89,6 +90,8 @@ class ExperimentConfig(NeoDataConfig, InstantiateConfig):
     """Pipeline elements to run"""
     lerf_prompt: str = "What is the object in the scene?"
     """Prompt for LERF-TOGO"""
+    nerfiller_device: str = "cuda:0"
+    """What device should nerfiller be run on (change to cpu for low-power devices)"""
 
     def save_config(self) -> None:
         """Save config to base directory"""
@@ -160,6 +163,11 @@ class Experiment():
 
         # Evaluation
         if self.config.pipeline_elements.evaluation._execute_all:
+            # Hack to fix issues with ZoeDepth and MiDaS
+            repo_root = Path(__file__).parents[1]
+            sys.path.append( str(repo_root / "submodules" / "neo_nerfiller" / "MiDaS"))
+            sys.path.append( str(repo_root / "submodules" / "neo_nerfiller" / "ZoeDepth" / "zoedepth"))
+            print(sys.path)
             from scripts.data_preparation.prepare_nerfiller import prepare_nerfiller
             from scripts.evaluation.eval import eval
             from scripts.evaluation.train_nerfiller import train_nerfiller
@@ -167,8 +175,8 @@ class Experiment():
 
             elements = self.config.pipeline_elements.evaluation
             preparing_nerfiller = {"name": "Prepare Nerfiller", "active": elements.prepare_nerfiller, "idx": 1, "func": prepare_nerfiller}
-            training_nerfiller = {"name": "Training Nerfiller", "active": elements.train_nerfiller, "idx": 2, "func": train_nerfiller}
-            training_nerfiller_no_depth = {"name": "Training Nerfiller No Depth", "active": elements.train_nerfiller_no_depth, "idx": 3, "func": train_nerfiller_no_depth}
+            training_nerfiller = {"name": "Training Nerfiller", "active": elements.train_nerfiller, "idx": 2, "func": train_nerfiller, "kwargs": {"device": self.config.nerfiller_device}}
+            training_nerfiller_no_depth = {"name": "Training Nerfiller No Depth", "active": elements.train_nerfiller_no_depth, "idx": 3, "func": train_nerfiller_no_depth, "kwargs": {"device": self.config.nerfiller_device}}
             evaluating = {"name": "Evaluation", "active": elements.evaluate, "idx": 4, "func": eval}
             
             pipeline_elements = [[preparing_nerfiller, "→", training_nerfiller, "→", evaluating],

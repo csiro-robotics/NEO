@@ -34,8 +34,6 @@ class DataPreperationElements():
     """Extract arm movement"""
     train_lerf: bool = True
     """Train LERF"""
-    prepare_gt: bool = True
-    """Prepare GT"""
 
 @dataclass
 class TrainingElements():
@@ -53,29 +51,12 @@ class TrainingElements():
     """Loopback Neo"""
 
 @dataclass
-class EvaluationElements():
-    """Evaluation elements to run"""
-
-    _execute_all: bool = True
-    """Execute all evaluation elements"""
-    prepare_nerfiller: bool = True
-    """Prepare Nerfiller"""
-    train_nerfiller: bool = True
-    """Train Nerfiller"""
-    train_nerfiller_no_depth: bool = True
-    """Train Nerfiller without depth"""
-    evaluate: bool = True
-    """Evaluate"""
-
-@dataclass
 class PipelineElements():
 
     data_preparation: DataPreperationElements = field(default_factory=DataPreperationElements)
     """Data preparation elements to run"""
     training: TrainingElements = field(default_factory=TrainingElements)
     """Training elements to run"""
-    evaluation: EvaluationElements = field(default_factory=EvaluationElements)
-    """Evaluation elements to run"""
 
 @dataclass
 class ExperimentConfig(NeoDataConfig, InstantiateConfig):
@@ -101,6 +82,8 @@ class ExperimentConfig(NeoDataConfig, InstantiateConfig):
     """Name of the object in the scene"""
     steps_to_run: Optional[List[int]] = None
     """Steps to run in the experiment"""
+    nerfiller_device: str = "cuda:0"
+    """What device should nerfiller be run on (change to cpu for low-power devices)"""
 
     def save_config(self) -> None:
         """Save config to base directory"""
@@ -137,7 +120,6 @@ class Experiment():
             from scripts.data_preparation.extract_arm_movement import extract_arm_movement
             from scripts.data_preparation.extract_images import extract_images
             from scripts.data_preparation.match_arucos import match_arucos
-            from scripts.data_preparation.prepare_gt import prepare_gt
             from scripts.data_preparation.train_lerf import train_lerf
 
             elements = self.config.pipeline_elements.data_preparation
@@ -150,10 +132,9 @@ class Experiment():
             extracting_arm_movement = {"name": "Extract Arm Movement", "active": elements.extract_arm_movement, "idx": 6, "func": extract_arm_movement}
             ready_datasets = {"name": "Ready Datasets", "active": True, "idx": 7, "func": dummy_fnc}
             training_lerf = {"name": "Training LERF", "active": elements.train_lerf, "idx": 8, "func": train_lerf, "kwargs": {"camera_optimizer": "off"}}
-            preparing_gt = {"name": "Preparing GT", "active": elements.prepare_gt, "idx": 9, "func": prepare_gt}
             
             pipeline_elements = [[process_bags, "→", colmap_1, "→", selecting_frames, "→", colmap_2, "→", matching_arucos, "→", ready_datasets, "→", training_lerf],
-                                [None, "", None, "", None, "", None, "↘", extracting_arm_movement, "↗", None, "↘", preparing_gt]]
+                                [None, "", None, "", None, "", None, "↘", extracting_arm_movement, "↗", None]]
 
             self._execute_pipeline(pipeline_elements)
 
@@ -180,19 +161,6 @@ class Experiment():
                                     [edited_object, "", None, "", None, "", None]]
 
                 self._execute_pipeline(pipeline_elements)
-
-            # # Evaluation
-            # if self.config.pipeline_elements.evaluation._execute_all:
-            #     elements = self.config.pipeline_elements.evaluation
-            #     preparing_nerfiller = {"name": "Prepare Nerfiller", "active": elements.prepare_nerfiller, "idx": 1, "func": prepare_nerfiller}
-            #     training_nerfiller = {"name": "Training Nerfiller", "active": elements.train_nerfiller, "idx": 2, "func": train_nerfiller}
-            #     training_nerfiller_no_depth = {"name": "Training Nerfiller No Depth", "active": elements.train_nerfiller_no_depth, "idx": 3, "func": train_nerfiller_no_depth}
-            #     evaluating = {"name": "Evaluation", "active": elements.evaluate, "idx": 4, "func": eval}
-                
-            #     pipeline_elements = [[preparing_nerfiller, "→", training_nerfiller, "→", evaluating],
-            #                         [None, "↘", training_nerfiller_no_depth, "↗", None]]
-                
-            #     self._execute_pipeline(pipeline_elements)
 
 
 def main(config: ExperimentConfig) -> None:

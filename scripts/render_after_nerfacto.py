@@ -12,7 +12,7 @@ from pathlib import Path
 
 RENDER_SUFFIXES = {".png", ".jpg", ".jpeg"}
 DEFAULT_CONDA_ENV = "neo"
-DEFAULT_TASKS = ("remove", "translate_and_rotate")
+DEFAULT_TASKS = ("remove", "reconfigure")
 STATE_NAME = "after"
 METHOD_NAME = "nerfacto"
 
@@ -160,27 +160,27 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Render rgb/depth image folders only for after/nerfacto configs under remove and "
-            "translate_and_rotate using after transforms and the existing "
+            "reconfigure using after transforms and the existing "
             "renders/.../full_edited/{rgb,depth} layout."
         )
     )
     parser.add_argument(
         "--outputs-root",
         type=Path,
-        default=Path("outputs/real"),
+        default=Path("outputs"),
         help="Root searched for after/nerfacto/<run>/config.yml files. before configs are ignored.",
     )
     parser.add_argument(
         "--output-root",
         type=Path,
-        default=Path("renders/real"),
+        default=Path("renders"),
         help="Root where rendered folders will be mirrored.",
     )
     parser.add_argument(
         "--tasks",
         nargs="+",
         default=list(DEFAULT_TASKS),
-        help="Task directories below outputs-root to render. Supports: remove, translate_and_rotate.",
+        help="Task directories below outputs-root to render. Supports: remove, reconfigure.",
     )
     parser.add_argument(
         "--ns-render",

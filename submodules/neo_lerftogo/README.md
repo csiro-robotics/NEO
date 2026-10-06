@@ -33,7 +33,7 @@ lerftogo
 
 Run the headless version
 ```bash
-lerftogo-neo --root_input <FOLDER_WITH_DATA> --data_type <DATA_TYPE> --scene_name <SCENE_NAME> --action <ACTION> --scene_type <SCENE_TYPE> --object_name <OBJECT_NAME> --lerf_prompt <LERF_PTOMPT>
+lerftogo-neo --neo_data_root <FOLDER_WITH_NEO_DATA> --scene_name <SCENE_NAME> --action <ACTION> --object_name <OBJECT_NAME> --lerf_prompt <LERF_PTOMPT>
 ```
 ATTENTION!!! LERF prompt above is simple prompt without ';' sign.
 

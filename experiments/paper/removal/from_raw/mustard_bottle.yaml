@@ -1,0 +1,8 @@
+experiment_name: removal-mustard-bottle
+neo_data_root: data/Neo-raw
+outputs_root: outputs/raw
+action: remove
+scene_name: mustard_bottle
+object_name: mustard_bottle
+lerf_prompt: Mustard bottle
+timestamp: null

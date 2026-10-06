@@ -1,10 +1,26 @@
 experiment_name: removal-orange
-root_input: data
-outputs_root: outputs
-data_type: real
+neo_data_root: data/Neo
+outputs_root: outputs/processed
 action: remove
-scene_type: single
 scene_name: orange
 object_name: orange
 lerf_prompt: Orange
 timestamp: null
+pipeline_elements:
+  data_preparation:
+    process_bags: false
+    colmap_1: false
+    colmap_2: false
+    select_frames: false
+    match_arucos: false
+    extract_arm_movement: false
+    train_lerf: true
+    train_gt: true
+  training:
+    generate_bbox: true
+    train_neo: true
+  evaluation:
+    prepare_nerfiller: true
+    train_nerfiller: true
+    train_nerfiller_no_depth: true
+    evaluate: true

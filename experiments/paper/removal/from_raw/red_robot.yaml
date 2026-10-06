@@ -1,0 +1,8 @@
+experiment_name: removal-red-robot
+neo_data_root: data/Neo-raw
+outputs_root: outputs/raw
+action: remove
+scene_name: red_robot
+object_name: red_robot
+lerf_prompt: Kids toy
+timestamp: null

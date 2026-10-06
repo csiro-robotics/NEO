@@ -62,7 +62,7 @@ class RGBInpainter:
         lora_model_path: Optional[str] = None,
         device: str = "cuda:0",
         vae_device: str = "cuda:0",
-        pipeline_name: str = "stabilityai/stable-diffusion-2-inpainting",
+        pipeline_name: str = "sd2-community/stable-diffusion-2-inpainting",
     ):
         print(f"Loading RGB Inpainter ...")
 

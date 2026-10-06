@@ -563,7 +563,7 @@ def calculate_reprojection_error(config: ExperimentConfig) -> None:
                 data_path=data_path,
                 out_mask_dir=render_run_dir / f"{config.eval_render_name.removesuffix('_edited')}_masks" / "temp_masks",
                 in_mask_dir=render_run_dir / f"{config.eval_render_name.removesuffix('_edited')}_masks_after" / "temp_masks",
-                use_in_mask=config.action == "translate_and_rotate",
+                use_in_mask=config.action == "reconfigure",
                 frames=frames,
                 meta=meta,
                 i=i,
