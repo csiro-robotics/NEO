@@ -26,10 +26,6 @@ revealed background, and distills the object at its target pose into an updated
 NeRF. The updated NeRF and language field can be reused for the next robot
 action without scanning the scene again.
 
-- Repository: <https://github.com/csiro-robotics/Neo>
-- Dataset and checkpoints: not yet published
-- Paper: link to be added when publicly available
-
 ## Method
 
 ```mermaid
@@ -47,7 +43,10 @@ flowchart LR
     H --> C
 ```
 
-The editing pipeline has three stages:
+Given a set of initial images and poses, a NeRF and corresponging language field is first learnt as the starting implicit representation. 
+From this representation, a 3D bounding box around an object/region for editing is defined either through a language prompt (as used in the paper) or manually through a GUI interface (see GUI section below).
+
+After this, the editing pipeline has three stages:
 
 1. **Object removal:** ray intervals inside the selected 3D bounding box are
    excluded and samples are reallocated to the visible parts of each ray.
@@ -61,14 +60,6 @@ NEO supports rigid object removal and relocation in static scenes. It does not
 currently model articulated, deformable, or changing-background interactions.
 Diffusion inpainting is stochastic, so repeated runs may produce different
 content in regions that were never observed.
-
-## Release Status
-
-This repository contains the NEO implementation and portable manifests for the
-paper experiments. The NEO-Dataset, paper checkpoints, final aggregate result
-files, and software/dataset licenses are not yet public. Do not claim exact
-paper-table reproduction until the items in
-[docs/REPRODUCIBILITY.md](docs/REPRODUCIBILITY.md) are resolved.
 
 ## Requirements
 
