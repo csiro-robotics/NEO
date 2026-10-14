@@ -321,11 +321,16 @@ notebooks/           Development and data-inspection notebooks
 See [CITATION.cff](CITATION.cff), or cite:
 
 ```bibtex
-@article{zielinski2026neo,
-  title   = {NEO: NeRF It Once, Edit It Many Times for Continuous Object Manipulation},
-  author  = {Zielinski, Mikolaj and Hall, David and Belter, Dominik and Moghadam, Peyman},
-  year    = {2026}
-}
+@ARTICLE{11623460,
+  author={Zieliński, Mikołaj and Hall, David and Belter, Dominik and Moghadam, Peyman},
+  journal={IEEE Robotics and Automation Letters}, 
+  title={NEO: NeRF It Once, Edit It Many Times for Continuous Object Manipulation}, 
+  year={2026},
+  volume={11},
+  number={9},
+  pages={10736-10743},
+  keywords={Neural radiance field;Modeling;Training;Rendering (computer graphics);Grasping;Robots;Seals;Visualization;Surfaces;Cameras;Deep learning for visual perception;representation learning;visual learning},
+  doi={10.1109/LRA.2026.3717189}}
 ```
 
 ## License
