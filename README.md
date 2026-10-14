@@ -88,31 +88,10 @@ ns-install-cli
 The script creates the `neo` Conda environment from `environment.yml` and then
 builds the vendored tiny-cuda-nn source against its PyTorch, CUDA, and GPU
 architecture. No machine-specific tiny-cuda-nn binary is stored in this
-repository. The environment also installs the vendored Nerfstudio, LERF, and
+repository. The environment also installs the supplied Nerfstudio, LERF, and
 Robot-LERF packages, COLMAP used by `ns-process-data`, and the CUDA 12.4 build
 toolchain. It deliberately excludes raw ROS/RealSense capture tools,
-development tools, and the NeRFiller baseline.
-
-For an existing `neo` environment, rebuild tiny-cuda-nn with:
-
-```bash
-conda activate neo
-./scripts/install_tinycudann.sh
-```
-
-Install optional components only when needed:
-
-```bash
-# ROS bags and RealSense capture processing
-pip install -e ".[capture]"
-
-# NeRFiller baseline
-pip install -e ./submodules/neo_nerfiller
-
-# All paper and capture dependencies
-pip install -e ./submodules/neo_nerfiller
-pip install -e ".[paper,capture]"
-```
+development tools, and the NeRFiller baseline. To fully replicate the paper results, install optional components at the end.
 
 Download the Segment Anything ViT-H checkpoint:
 
@@ -133,6 +112,22 @@ neo-remove --help
 neo-reconfigure --help
 neo-assembly --help
 ```
+
+Install optional components (only when needed):
+
+```bash
+# ROS bags and RealSense capture processing (only if working from raw bagfiles)
+pip install -e ".[capture]"
+
+# NeRFiller baseline (for replication of NeRFiller baseline results from paper)
+pip install -e ./submodules/neo_nerfiller
+
+# All paper and capture dependencies
+pip install -e ./submodules/neo_nerfiller
+pip install -e ".[paper,capture]"
+```
+
+
 
 ### CUDA note
 
