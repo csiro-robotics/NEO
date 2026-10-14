@@ -149,7 +149,7 @@ After downloading the NEO dataset to `data/Neo` (relative to the root repo folde
 2. `neo-reconfigure --load-config paper/reconfigure/<object>.yaml` - performs object reconfiguration on the `<object>` scene from the NEO Datset
 3. `neo-assembly --load-config paper/assembly/paper_assembly.yaml` - performs multi-stage assembly on the paper_assembly scene from the NEO Dataset
 
-**TODO** Provide example of what output looks like
+At the end of this process, the `outputs/Neo/processed/<action>/<scene>/<object>/before/neo/<timestamp>` folder which contained the original Neo model, there will be a set of sub-folders with edited models created as part of the process. The final modelweights and config are stored in a `replace-nerf` folder. For `neo-remove` and `neo-reconfigure`, evaluation results are printed at the end of processing and saved in a newly created `eval` folder under the root directory.
 
 
 **Note** - Config paths here are given relative to `experiments` folder. Evaluation stages of the neo-remove and neo-reconfigure pipeline assume full installation of Neo (including optional components). If you don't wish to perform evaluation, set all parameters under `evaluation` in the config yaml files to False. These can also be set by command line values. See `--help` for more details.
@@ -185,14 +185,30 @@ ns-viewer --load-config <path_to_neo_model>/config.yml
 ```
 
 and on the bottom-right should be a new "custom element" enabling you to add, remove and edit bounding boxes.
-![neo-edit-widget](docs/figs/neo_gui_widget.png)
+<p align="center">
+   <img src=docs/figs/neo_gui_widget.png width=300>
+</p>
 
 When a box has been added, a red box will appear showing the region that shall have content removed. When selected, this box will be reduced to a light wireframe.
-
-
 When the reconfigure checkbox has been selected, it adds a secondary menu with parameters to update the reconfigured bounding box (where region in red will be moved to). In the main viewer, a green wireframe bounding box will be added to show where the reconfigured bounding box.
 
+<p align="center">
+
+Removal BBox | Wireframe of Removal BBox | Wireframe of Reconfigure BBox
+:-----------:|:-------------------------:|:-----------------------------:
+<img src=docs/figs/removal_box_example.png width=300> | <img src=docs/figs/removal_box_wireframe_example.png width=300> | <img src=docs/figs/reconfigure_bbox_example.png width=300>
+
+</p>
+
 You can preview what the edit will look like (without any inpainting) by changing the output type from rgb to rgb_preview.
+
+<p align="center">
+
+Removal Preview | Reconfigure Preview
+:--------------:|:------------------:
+<img src=docs/figs/removal_preview.png width=300> | <img src=docs/figs/reconfigure_preview.png width=300>
+
+</p>
 
 When happy, you can press the "Apply changes" button and it will perform the neo editing procedure producing the outputs as defined in [Paper Reproduction Quick Start](#paper-reproduction-quick-start).
 
