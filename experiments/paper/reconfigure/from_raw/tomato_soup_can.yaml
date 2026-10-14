@@ -1,6 +1,6 @@
 experiment_name: reconfigure-tomato-soup-can
-neo_data_root: data/Neo-raw
-outputs_root: outputs/raw
+neo_data_root: data/Neo
+outputs_root: outputs/Neo/raw
 action: reconfigure
 scene_name: tomato_soup_can
 object_name: tomato_soup_can

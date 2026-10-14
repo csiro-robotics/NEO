@@ -1,6 +1,6 @@
 experiment_name: reconfigure-rubiks-cube
 neo_data_root: data/Neo
-outputs_root: outputs/processed
+outputs_root: outputs/Neo/processed
 action: reconfigure
 scene_name: rubiks_cube
 object_name: rubiks_cube

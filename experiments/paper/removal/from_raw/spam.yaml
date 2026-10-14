@@ -1,6 +1,6 @@
 experiment_name: removal-spam
-neo_data_root: data/Neo-raw
-outputs_root: outputs/raw
+neo_data_root: data/Neo
+outputs_root: outputs/Neo/raw
 action: remove
 scene_name: spam
 object_name: spam
