@@ -75,6 +75,7 @@ vendored in `submodules/`; their provenance is recorded in
 [submodules/README.md](submodules/README.md).
 
 ## Installation
+We provide helper scripts for setting up a conda environment "neo". Note, assumes conda already installed.
 
 Create the runtime environment and compile tiny-cuda-nn for the locally
 installed NVIDIA GPU architecture:
@@ -127,8 +128,6 @@ pip install -e ./submodules/neo_nerfiller
 pip install -e ".[paper,capture]"
 ```
 
-
-
 ### CUDA note
 
 Do not manually symlink a host file such as `libcuda.so.565.77` into the Conda
@@ -139,31 +138,9 @@ would make the environment machine-specific. The host NVIDIA driver provides
 check the NVIDIA driver and the PyTorch/CUDA installation instead of adding a
 library symlink.
 
-## Data
+## Full Pipeline Quick Start
 
-NEO expects registered `before` and `after` Nerfstudio datasets:
-
-```text
-<neo_data_root>/processed/<action>/<scene>/<object>/
-|-- before/
-|   |-- images/
-|   |-- depth/
-|   `-- transforms.json
-|-- after/
-|   |-- images/
-|   |-- depth/
-|   `-- transforms.json
-|-- bbox.json
-`-- movement.json or movement.txt
-```
-
-Removal uses `action: remove`; rigid reconfiguration uses
-`action: reconfigure`. Depth images are stored in millimetres. The
-capture, registration, movement, and raw-file conventions are described in
-[docs/DATASET.md](docs/DATASET.md).
-
-## Quick Start
-
+To run the full Neo pipeline 
 The public quick start will use a downloadable example scene and checkpoint.
 Those artifacts do not yet have release URLs. Once a prepared scene is placed
 under the layout above, copy a paper manifest, change its scene and prompt
