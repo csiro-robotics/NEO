@@ -1,6 +1,24 @@
-# NEO: NeRF It Once, Edit It Many Times
+<div align="center">
+<h1>NEO: NeRF It Once, Edit It Many Times</h1>
+<h2> Accepted in IEEE Robotics and Automation Letters 2026 </h2>
 
-Language-guided, persistent NeRF editing for continuous object manipulation.
+[**Mikołaj Zieliński**](https://scholar.google.com/citations?user=ISOdWukAAAAJ&hl=en&oi=ao)<sup>1,2</sup>,
+[**David Hall**](https://scholar.google.com.au/citations?user=dosODoQAAAAJ&hl=en)<sup>2</sup>,
+[**Dominik Belter**](https://scholar.google.com.au/citations?user=3XvUbbMAAAAJ&hl=en&oi=ao)<sup>1</sup>,
+[**Peyman Moghadam**](https://scholar.google.com.au/citations?user=QAVcuWUAAAAJ&hl=en&oi=ao)<sup>2</sup>
+
+<sup>1</sup>Poznan University of Technology&emsp;&emsp;&emsp;<sup>2</sup>CSIRO Robotics
+<br>
+
+<a href="https://arxiv.org/abs/2607.24538v1"><img src='https://img.shields.io/badge/arXiv-NEO-red
+' alt='Paper PDF'></a>
+<a href='https://csiro-robotics.github.io/NEO/'><img src='https://img.shields.io/badge/Project%20Page-NEO-green' alt='Project Page'></a>
+<a href=''><img src='https://img.shields.io/badge/Dataset%20Download-NEO-blue'></a>
+
+
+</div>
+
+This is the official repository for NEO, a language-guided, persistent NeRF editing process for continuous object manipulation.
 
 NEO predicts future scene states from a single initial scan. A text prompt
 selects an object, NEO removes it from the neural field, reconstructs the
