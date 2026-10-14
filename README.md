@@ -138,22 +138,19 @@ would make the environment machine-specific. The host NVIDIA driver provides
 check the NVIDIA driver and the PyTorch/CUDA installation instead of adding a
 library symlink.
 
-## Full Pipeline Quick Start
+## Paper Reproduction Quick Start
+To quickly test all elements of the NEO pipeline are operating correctly, we recommend using the [NEO dataset]()
+alongside our simplified `neo-remove`, `neo-reconfigure` and `neo-assembly` command line scripts.
+These will train initial NeRFs and Language Fields, edit based on provided language prompt for the scene, and evaluate edited scene against scanned GT.
+More details on the NEO dataset can be found in [DATASET.md](docs/DATASET.md).
 
-To run the full Neo pipeline 
-The public quick start will use a downloadable example scene and checkpoint.
-Those artifacts do not yet have release URLs. Once a prepared scene is placed
-under the layout above, copy a paper manifest, change its scene and prompt
-fields, and run the appropriate installed command:
+After downloading the NEO dataset to `data/Neo` (relative to the root repo folder) you may run one of three commands:
+1. `neo-remove --load-config paper/removal/<object>.yaml` - performs object removal on the `<object>` scene from the NEO Dataset
+2. `neo-reconfigure --load-config paper/reconfigure/<object>.yaml` - performs object reconfiguration on the `<object>` scene from the NEO Datset
+3. `neo-assembly --load-config paper/assembly/paper_assembly.yaml` - performs multi-stage assembly on the paper_assembly scene from the NEO Dataset
 
-```bash
-neo-remove --load-config my_removal.yaml
-neo-reconfigure --load-config my_reconfiguration.yaml
-```
 
-Config paths passed to `--load-config` are relative to `experiments/`. Use the
-individual boolean pipeline options shown by `--help` to reuse existing data,
-checkpoints, or bounding boxes instead of rerunning every stage.
+**Note** - Config paths here are given relative to `experiments` folder. Evaluation stages of the neo-remove and neo-reconfigure pipeline assume full installation of Neo (including optional components). If you don't wish to perform evaluation, set all parameters under `evaluation` in the config yaml files to False. These can also be set by command line values. See `--help` for more details.
 
 ## Custom Scene Workflow
 
