@@ -161,10 +161,12 @@ However, each stage can be called individually through command line arguments wi
 
 1. Capture and process data into nerfstudio format (see [nerfstudio documentation](https://docs.nerf.studio/quickstart/custom_dataset.html))
 2. Save data within a NEO dataset folder structure `<neo_data_root>/processed/<action>/<scene>/<object>/<before>/` (see [here](docs/DATASET.md) for more details).
+   - **Note** this step is not required if creating BBoxes and editing scenes using GUI interface
 2. Train the initial `lerf-lite` language field NeRF with the provided data - `ns-train lerf-lite --output-dir <model_folder> --data <data_folder> --experiment-name <experiment_name>`. 
    - `<model_folder>` will be where all models will be output, under a given timestamp
    - `<data_folder>` will be the folder containing your nerfstudio format data (containing a `transforms.json` file).
    - `<experiment_name>` will be the name under `<model_folder>` for this specific experiment. If not specified will be the stem of the `<data_folder>`.
+   - **Note** if not using language prompts, can train a standard nerfacto model instead
 3. Convert the trained language-field checkpoint to a neo (editable) model `ns-convert to-neo --load-config <model_folder>/<experiment_name>/lerf-lite/<timestamp>/config.yml`
    - `<timestamp>` will be the timestamp for when you trained your model
 4. Generate your bounding box for edited region as a bbox.json file within your neo model folder by:
@@ -174,7 +176,11 @@ However, each stage can be called individually through command line arguments wi
       - **NOTE** This also assumes that your objects sit on a surface on the XY plane
    b) Through the [GUI](#gui)
    c) Manually defining bbox.json to follow structure outlined [here]
-5. Perform the edit operation through **TODO**
+5. Perform the edit operation through
+   a) **TODO CHECK CMD LINE**
+   b) [GUI interface](#gui)
+
+Final outputs will match the outputs of the [quickstart](#paper-reproduction-quick-start) but without evaluation statistics as those require aligned "after" GT currently only provided by the NEO Dataset.
 
 ## GUI
 To preview what the editing operation will look like in advance, you can use the nerfstudio visualizer on the neo version of the model.
