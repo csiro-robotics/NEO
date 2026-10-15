@@ -46,11 +46,15 @@ forms include:
 ```
 
 ## Registration
-TODO full pipeline
 
-Data preparation extracts frames, runs `ns-process-data images`, detects ArUco
-markers, and applies a common scale and world frame. Keep `raw_transforms.json`
-alongside each registered `transforms.json` so registration can be audited.
+The `before` recording captures the scene before manipulation. The robot then
+moves or removes the object, and the `after` recording captures the changed
+scene along the same camera trajectory.
+
+Data preparation extracts frames, runs `ns-process-data images`, and uses the
+four table-mounted ArUco markers to align both captures at a common scale and
+in the same coordinate system. Keep `raw_transforms.json` alongside each
+registered `transforms.json` to preserve the original camera poses.
 
 Before publication, document camera calibration, marker size, capture frame
 selection, object-motion convention, and the license of every YCB-derived
