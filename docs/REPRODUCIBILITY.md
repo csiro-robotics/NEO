@@ -17,9 +17,6 @@ changes from the paper-development working trees; see
 [`submodules/README.md`](../submodules/README.md) for provenance and licensing
 notes.
 
-The exact GPU model, driver, CUDA toolkit build, random seeds, and runtime logs
-must be added to the final artifact manifest.
-
 ## Experiment Sets
 
 Removal scenes: `mustard_bottle`, `orange`, `red_robot`, `spam`, and
@@ -39,7 +36,6 @@ Its reported `Reproj Mean` is the mean RGB L1 error after projection. A separate
 two-way round-trip pixel reprojection error is also stored in the JSON output
 but is not placed in the summary table.
 
-# TODO copied from main README
 ## Paper Reproduction
 
 Paper manifests are plain YAML files under `experiments/paper`. Set `timestamp`
@@ -58,7 +54,7 @@ The five scenes and prompts are:
 | `spam` | Spam can |
 | `tomato_soup_can` | Tomato soup can |
 
-Run one scene with:
+Example, run one scene with:
 
 ```bash
 neo-remove --load-config paper/removal/tomato_soup_can.yaml
@@ -81,7 +77,7 @@ The six scenes and prompts are:
 | `sugar` | Sugar box |
 | `tomato_soup_can` | Tomato soup can |
 
-Run one scene with:
+Example, run one scene with:
 
 ```bash
 neo-reconfigure --load-config paper/relocation/banana.yaml
@@ -103,7 +99,7 @@ The tracked manifest performs all four edits in paper order:
 | 3 | `golf_ball` | Golf ball |
 
 ```bash
-neo-assembly --load-config paper/assembly.yaml
+neo-assembly --load-config paper/assembly/paper_assembly.yaml
 ```
 
 Each completed step produces a new NeRF and language field that become the
@@ -113,15 +109,14 @@ motions are inputs to the full sequence.
 ## Evaluation
 
 The paper reports PSNR, SSIM, depth RMSE, and photometric reprojection error for
-the full image and edited masks. Current evaluation defaults are documented in
-[docs/REPRODUCIBILITY.md](docs/REPRODUCIBILITY.md).
+the full image and edited masks. 
 
 Experiment runners invoke evaluation when their evaluation stage is enabled.
 For an individual edited checkpoint, use:
 
 ```bash
 ns-eval-neo --config-path \
-  outputs/<action>/<scene>/<object>/before/neo/<timestamp>/replace-nerf/config.yml
+  <outputs_root>/<action>/<scene>/<object>/before/neo/<timestamp>/replace-nerf/config.yml
 ```
 
 Typical artifacts are written to:
@@ -146,21 +141,4 @@ python -m scripts.average_metrics_tables --help
 ```
 
 The repository includes the modified NeRFiller source in
-`submodules/neo_nerfiller`, but the basic environment does not install it. DFF
-and Seal3D implementations are not bundled; their exact result provenance still
-needs to be attached to the final release.
-
-## Items Requiring Author Resolution
-
-1. The density-zero regularizer described in paper Eqs. (4)-(5) is currently
-   commented out in `SparseGuidedNeRFModel.get_loss_dict`.
-2. Table II reports NEO depth RMSE `0.141/0.182`, while Table III reports
-   `0.056/0.033` for the full pick-and-place model.
-3. The paper must state explicitly that `E_rep` is the photometric RGB L1
-   statistic if that is the intended table value.
-4. DFF and Seal3D code or externally generated result manifests are required
-   to reproduce every baseline row.
-5. Expected aggregate JSON/CSV files and random seeds must be checked in after
-   the final reference runs are selected.
-
-Do not claim exact table reproduction until these five items are resolved.
+`submodules/neo_nerfiller`, but the basic environment does not install it.

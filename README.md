@@ -176,9 +176,7 @@ However, each stage can be called individually through command line arguments wi
       - **NOTE** This also assumes that your objects sit on a surface on the XY plane
    b) Through the [GUI](#gui)
    c) Manually defining bbox.json to follow structure outlined [here]
-5. Perform the edit operation through
-   a) **TODO CHECK CMD LINE**
-   b) [GUI interface](#gui)
+5. Perform the edit operation through the [GUI](#gui)
 
 Final outputs will match the outputs of the [quickstart](#paper-reproduction-quick-start) but without evaluation statistics as those require aligned "after" GT currently only provided by the NEO Dataset.
 
