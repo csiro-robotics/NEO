@@ -153,6 +153,8 @@ At the end of this process, the `outputs/Neo/processed/<action>/<scene>/<object>
 
 **Note** - Config paths here are given relative to `experiments` folder. Evaluation stages of the neo-remove and neo-reconfigure pipeline assume full installation of Neo (including optional components). If you don't wish to perform evaluation, set all parameters under `evaluation` in the config yaml files to False. These can also be set by command line values. See `--help` for more details.
 
+**NerFiller Issues** - there can be issues when running NerFiller evaluation in neo-remove pipeline. If you encotounter issues of not being able to find the zoedepth module, please first `source scripts/export_nerfiller.sh` before running the pipeline and see if that resolves the issue.
+
 ## Custom Scene Workflow
 The `neo-remove`, `neo-reconfigure`, and `neo-assembly` scripts provide full pipelines for processing data stored in the format provided by the NEO dataset (see [DATASET.md](docs/DATASET.md) for more details).
 However, each stage can be called individually through command line arguments with the following steps.
