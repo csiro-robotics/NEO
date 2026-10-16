@@ -230,8 +230,6 @@ notebooks/           Development and data-inspection notebooks
 
 ## Citation
 
-See [CITATION.cff](CITATION.cff), or cite:
-
 ```bibtex
 @ARTICLE{11623460,
   author={Zieliński, Mikołaj and Hall, David and Belter, Dominik and Moghadam, Peyman},
