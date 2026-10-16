@@ -71,7 +71,3 @@ Data preparation extracts frames, runs `ns-process-data images`, and uses the
 four table-mounted ArUco markers to align both captures at a common scale and
 in the same coordinate system. Keep `raw_transforms.json` alongside each
 registered `transforms.json` to preserve the original camera poses.
-
-Before publication, document camera calibration, marker size, capture frame
-selection, object-motion convention, and the license of every YCB-derived
-asset included in the archive.
