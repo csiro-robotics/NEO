@@ -10,8 +10,7 @@
 <sup>1</sup>Poznan University of Technology&emsp;&emsp;&emsp;<sup>2</sup>CSIRO Robotics
 <br>
 
-<a href="https://arxiv.org/abs/2607.24538v1"><img src='https://img.shields.io/badge/arXiv-NEO-red
-' alt='Paper PDF'></a>
+<a href="https://arxiv.org/abs/2607.24538v1"><img src='https://img.shields.io/badge/arXiv-NEO-red' alt='Paper PDF'></a>
 <a href='https://csiro-robotics.github.io/NEO/'><img src='https://img.shields.io/badge/Project%20Page-NEO-green' alt='Project Page'></a>
 <a href=''><img src='https://img.shields.io/badge/Dataset%20Download-NEO-blue'></a>
 
