@@ -1,6 +1,6 @@
 experiment_name: assembly
 neo_data_root: data/Neo
-outputs_root: outputs/processed
+outputs_root: outputs/Neo/processed
 action: assembly
 scene_name: paper_assembly
 object_names:

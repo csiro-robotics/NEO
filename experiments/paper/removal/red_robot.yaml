@@ -1,6 +1,6 @@
 experiment_name: removal-red-robot
 neo_data_root: data/Neo
-outputs_root: outputs/processed
+outputs_root: outputs/Neo/processed
 action: remove
 scene_name: red_robot
 object_name: red_robot

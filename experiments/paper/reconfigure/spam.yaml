@@ -1,6 +1,6 @@
 experiment_name: reconfigure-spam
 neo_data_root: data/Neo
-outputs_root: outputs/processed
+outputs_root: outputs/Neo/processed
 action: reconfigure
 scene_name: spam
 object_name: spam

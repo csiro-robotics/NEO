@@ -1,6 +1,6 @@
 experiment_name: removal-tomato-soup-can
 neo_data_root: data/Neo
-outputs_root: outputs/processed
+outputs_root: outputs/Neo/processed
 action: remove
 scene_name: tomato_soup_can
 object_name: tomato_soup_can

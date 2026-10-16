@@ -1,16 +1,30 @@
-# NEO: NeRF It Once, Edit It Many Times
+<div align="center">
+<h1>NEO: NeRF It Once, Edit It Many Times</h1>
+<h2> Accepted in IEEE Robotics and Automation Letters 2026 </h2>
 
-Language-guided, persistent NeRF editing for continuous object manipulation.
+[**Mikołaj Zieliński**](https://scholar.google.com/citations?user=ISOdWukAAAAJ&hl=en&oi=ao)<sup>1,2</sup>,
+[**David Hall**](https://scholar.google.com.au/citations?user=dosODoQAAAAJ&hl=en)<sup>2</sup>,
+[**Dominik Belter**](https://scholar.google.com.au/citations?user=3XvUbbMAAAAJ&hl=en&oi=ao)<sup>1</sup>,
+[**Peyman Moghadam**](https://scholar.google.com.au/citations?user=QAVcuWUAAAAJ&hl=en&oi=ao)<sup>2</sup>
+
+<sup>1</sup>Poznan University of Technology&emsp;&emsp;&emsp;<sup>2</sup>CSIRO Robotics
+<br>
+
+<a href="https://arxiv.org/abs/2607.24538v1"><img src='https://img.shields.io/badge/arXiv-NEO-red
+' alt='Paper PDF'></a>
+<a href='https://csiro-robotics.github.io/NEO/'><img src='https://img.shields.io/badge/Project%20Page-NEO-green' alt='Project Page'></a>
+<a href=''><img src='https://img.shields.io/badge/Dataset%20Download-NEO-blue'></a>
+
+
+</div>
+
+This is the official repository for NEO, a language-guided, persistent NeRF editing process for continuous object manipulation.
 
 NEO predicts future scene states from a single initial scan. A text prompt
 selects an object, NEO removes it from the neural field, reconstructs the
 revealed background, and distills the object at its target pose into an updated
 NeRF. The updated NeRF and language field can be reused for the next robot
 action without scanning the scene again.
-
-- Repository: <https://github.com/csiro-robotics/Neo>
-- Dataset and checkpoints: not yet published
-- Paper: link to be added when publicly available
 
 ## Method
 
@@ -29,7 +43,10 @@ flowchart LR
     H --> C
 ```
 
-The editing pipeline has three stages:
+Given a set of initial images and poses, a NeRF and corresponging language field is first learnt as the starting implicit representation. 
+From this representation, a 3D bounding box around an object/region for editing is defined either through a language prompt (as used in the paper) or manually through a GUI interface (see GUI section below).
+
+After this, the editing pipeline has three stages:
 
 1. **Object removal:** ray intervals inside the selected 3D bounding box are
    excluded and samples are reallocated to the visible parts of each ray.
@@ -43,14 +60,6 @@ NEO supports rigid object removal and relocation in static scenes. It does not
 currently model articulated, deformable, or changing-background interactions.
 Diffusion inpainting is stochastic, so repeated runs may produce different
 content in regions that were never observed.
-
-## Release Status
-
-This repository contains the NEO implementation and portable manifests for the
-paper experiments. The NEO-Dataset, paper checkpoints, final aggregate result
-files, and software/dataset licenses are not yet public. Do not claim exact
-paper-table reproduction until the items in
-[docs/REPRODUCIBILITY.md](docs/REPRODUCIBILITY.md) are resolved.
 
 ## Requirements
 
@@ -66,6 +75,7 @@ vendored in `submodules/`; their provenance is recorded in
 [submodules/README.md](submodules/README.md).
 
 ## Installation
+We provide helper scripts for setting up a conda environment "neo". Note, assumes conda already installed.
 
 Create the runtime environment and compile tiny-cuda-nn for the locally
 installed NVIDIA GPU architecture:
@@ -79,31 +89,10 @@ ns-install-cli
 The script creates the `neo` Conda environment from `environment.yml` and then
 builds the vendored tiny-cuda-nn source against its PyTorch, CUDA, and GPU
 architecture. No machine-specific tiny-cuda-nn binary is stored in this
-repository. The environment also installs the vendored Nerfstudio, LERF, and
+repository. The environment also installs the supplied Nerfstudio, LERF, and
 Robot-LERF packages, COLMAP used by `ns-process-data`, and the CUDA 12.4 build
 toolchain. It deliberately excludes raw ROS/RealSense capture tools,
-development tools, and the NeRFiller baseline.
-
-For an existing `neo` environment, rebuild tiny-cuda-nn with:
-
-```bash
-conda activate neo
-./scripts/install_tinycudann.sh
-```
-
-Install optional components only when needed:
-
-```bash
-# ROS bags and RealSense capture processing
-pip install -e ".[capture]"
-
-# NeRFiller baseline
-pip install -e ./submodules/neo_nerfiller
-
-# All paper and capture dependencies
-pip install -e ./submodules/neo_nerfiller
-pip install -e ".[paper,capture]"
-```
+development tools, and the NeRFiller baseline. To fully replicate the paper results, install optional components at the end.
 
 Download the Segment Anything ViT-H checkpoint:
 
@@ -125,6 +114,20 @@ neo-reconfigure --help
 neo-assembly --help
 ```
 
+Install optional components (only when needed):
+
+```bash
+# ROS bags and RealSense capture processing (only if working from raw bagfiles)
+pip install -e ".[capture]"
+
+# NeRFiller baseline (for replication of NeRFiller baseline results from paper)
+pip install -e ./submodules/neo_nerfiller
+
+# All paper and capture dependencies
+pip install -e ./submodules/neo_nerfiller
+pip install -e ".[paper,capture]"
+```
+
 ### CUDA note
 
 Do not manually symlink a host file such as `libcuda.so.565.77` into the Conda
@@ -135,170 +138,84 @@ would make the environment machine-specific. The host NVIDIA driver provides
 check the NVIDIA driver and the PyTorch/CUDA installation instead of adding a
 library symlink.
 
-## Data
+## Paper Reproduction Quick Start
+To quickly test all elements of the NEO pipeline are operating correctly, we recommend using the [NEO dataset]()
+alongside our simplified `neo-remove`, `neo-reconfigure` and `neo-assembly` command line scripts.
+These will train initial NeRFs and Language Fields, edit based on provided language prompt for the scene, and evaluate edited scene against scanned GT.
+More details on the NEO dataset can be found in [DATASET.md](docs/DATASET.md).
 
-NEO expects registered `before` and `after` Nerfstudio datasets:
+After downloading the NEO dataset to `data/Neo` (relative to the root repo folder) you may run one of three commands:
+1. `neo-remove --load-config paper/removal/<object>.yaml` - performs object removal on the `<object>` scene from the NEO Dataset
+2. `neo-reconfigure --load-config paper/reconfigure/<object>.yaml` - performs object reconfiguration on the `<object>` scene from the NEO Datset
+3. `neo-assembly --load-config paper/assembly/paper_assembly.yaml` - performs multi-stage assembly on the paper_assembly scene from the NEO Dataset
 
-```text
-<neo_data_root>/processed/<action>/<scene>/<object>/
-|-- before/
-|   |-- images/
-|   |-- depth/
-|   `-- transforms.json
-|-- after/
-|   |-- images/
-|   |-- depth/
-|   `-- transforms.json
-|-- bbox.json
-`-- movement.json or movement.txt
-```
+At the end of this process, the `outputs/Neo/processed/<action>/<scene>/<object>/before/neo/<timestamp>` folder which contained the original Neo model, there will be a set of sub-folders with edited models created as part of the process. The final modelweights and config are stored in a `replace-nerf` folder. For `neo-remove` and `neo-reconfigure`, evaluation results are printed at the end of processing and saved in a newly created `eval` folder under the root directory.
 
-Removal uses `action: remove`; rigid reconfiguration uses
-`action: reconfigure`. Depth images are stored in millimetres. The
-capture, registration, movement, and raw-file conventions are described in
-[docs/DATASET.md](docs/DATASET.md).
 
-## Quick Start
-
-The public quick start will use a downloadable example scene and checkpoint.
-Those artifacts do not yet have release URLs. Once a prepared scene is placed
-under the layout above, copy a paper manifest, change its scene and prompt
-fields, and run the appropriate installed command:
-
-```bash
-neo-remove --load-config my_removal.yaml
-neo-reconfigure --load-config my_reconfiguration.yaml
-```
-
-Config paths passed to `--load-config` are relative to `experiments/`. Use the
-individual boolean pipeline options shown by `--help` to reuse existing data,
-checkpoints, or bounding boxes instead of rerunning every stage.
+**Note** - Config paths here are given relative to `experiments` folder. Evaluation stages of the neo-remove and neo-reconfigure pipeline assume full installation of Neo (including optional components). If you don't wish to perform evaluation, set all parameters under `evaluation` in the config yaml files to False. These can also be set by command line values. See `--help` for more details.
 
 ## Custom Scene Workflow
+The `neo-remove`, `neo-reconfigure`, and `neo-assembly` scripts provide full pipelines for processing data stored in the format provided by the NEO dataset (see [DATASET.md](docs/DATASET.md) for more details).
+However, each stage can be called individually through command line arguments with the following steps.
 
-1. Capture images with known camera poses and convert them to the Nerfstudio
-   data layout.
-2. Train the initial `lerf-lite` language field.
-3. Run `lerftogo-neo` through the runner to localize the prompted object and
-   write `bbox.json`.
-4. Convert the language-field checkpoint with `ns-convert to-neo` and run the
-   NEO edit.
-5. For relocation, provide the rigid object motion and run language-field
-   loopback so the edited state can be queried again.
 
-The vendored LERF package supplies `lerf-lite` and `lerf-lite-lan`; the vendored
-Robot-LERF package supplies `lerftogo-neo`. Bounding-box translation and yaw
-offsets can be adjusted in its viewer before editing.
+1. Capture and process data into nerfstudio format (see [nerfstudio documentation](https://docs.nerf.studio/quickstart/custom_dataset.html))
+2. Save data within a NEO dataset folder structure `<neo_data_root>/processed/<action>/<scene>/<object>/<before>/` (see [here](docs/DATASET.md) for more details).
+   - **Note** this step is not required if creating BBoxes and editing scenes using GUI interface
+2. Train the initial `lerf-lite` language field NeRF with the provided data - `ns-train lerf-lite --output-dir <model_folder> --data <data_folder> --experiment-name <experiment_name>`. 
+   - `<model_folder>` will be where all models will be output, under a given timestamp
+   - `<data_folder>` will be the folder containing your nerfstudio format data (containing a `transforms.json` file).
+   - `<experiment_name>` will be the name under `<model_folder>` for this specific experiment. If not specified will be the stem of the `<data_folder>`.
+   - **Note** if not using language prompts, can train a standard nerfacto model instead
+3. Convert the trained language-field checkpoint to a neo (editable) model `ns-convert to-neo --load-config <model_folder>/<experiment_name>/lerf-lite/<timestamp>/config.yml`
+   - `<timestamp>` will be the timestamp for when you trained your model
+4. Generate your bounding box for edited region as a bbox.json file within your neo model folder by:
+   a) If folder structure matches NEO dataset conventions, use `lerftogo-neo  --neo_data_root <neo_data_root> --action <action> --scene_name <scene> --object_name <object> --lerf_prompt <prompt> --outputs_root <neo_output_root>`
+      - For info on `<neo_data_root>, <action>, <scene>, <object>` definitions please see info on the NEO Dataset structure [here](docs/DATASET.md).
+      - `<prompt>` will be your prompt for the LERF language model as a string
+      - **NOTE** This also assumes that your objects sit on a surface on the XY plane
+   b) Through the [GUI](#gui)
+   c) Manually defining bbox.json to follow structure outlined [here]
+5. Perform the edit operation through the [GUI](#gui)
 
-## Paper Reproduction
+Final outputs will match the outputs of the [quickstart](#paper-reproduction-quick-start) but without evaluation statistics as those require aligned "after" GT currently only provided by the NEO Dataset.
 
-Paper manifests are plain YAML files under `experiments/paper`. Set `timestamp`
-to a reference run timestamp when reusing checkpoints, or leave it `null` for
-the runner to select/create a run.
-
-### Object removal
-
-The five scenes and prompts are:
-
-| Scene | Prompt |
-| --- | --- |
-| `mustard_bottle` | Mustard bottle |
-| `orange` | Orange |
-| `red_robot` | Red robot |
-| `spam` | Spam can |
-| `tomato_soup_can` | Tomato soup can |
-
-Run one scene with:
+## GUI
+To preview what the editing operation will look like in advance, you can use the nerfstudio visualizer on the neo version of the model.
+To bring up the visualizer simply run
 
 ```bash
-neo-remove --load-config paper/removal/tomato_soup_can.yaml
+ns-viewer --load-config <path_to_neo_model>/config.yml
 ```
 
-The full-image metrics check preservation of the unedited scene. The `Out`
-mask is the projection of the object's original 3D bounding box and measures
-the newly revealed region.
+and on the bottom-right should be a new "custom element" enabling you to add, remove and edit bounding boxes.
+<p align="center">
+   <img src=docs/figs/neo_gui_widget.png width=300>
+</p>
 
-### Object relocation
+When a box has been added, a red box will appear showing the region that shall have content removed. When selected, this box will be reduced to a light wireframe.
+When the reconfigure checkbox has been selected, it adds a secondary menu with parameters to update the reconfigured bounding box (where region in red will be moved to). In the main viewer, a green wireframe bounding box will be added to show where the reconfigured bounding box.
 
-The six scenes and prompts are:
+<p align="center">
 
-| Scene | Prompt |
-| --- | --- |
-| `banana` | Banana |
-| `orange` | Orange |
-| `rubiks_cube` | Rubik's cube |
-| `spam` | Spam can |
-| `sugar` | Sugar box |
-| `tomato_soup_can` | Tomato soup can |
+Removal BBox | Wireframe of Removal BBox | Wireframe of Reconfigure BBox
+:-----------:|:-------------------------:|:-----------------------------:
+<img src=docs/figs/removal_box_example.png width=300> | <img src=docs/figs/removal_box_wireframe_example.png width=300> | <img src=docs/figs/reconfigure_bbox_example.png width=300>
 
-Run one scene with:
+</p>
 
-```bash
-neo-reconfigure --load-config paper/relocation/banana.yaml
-```
+You can preview what the edit will look like (without any inpainting) by changing the output type from rgb to rgb_preview.
 
-`Out` measures the original object region after removal; `In` measures the
-object at its target pose. Both masks are generated by projecting the
-corresponding 3D bounding boxes into the evaluation views.
+<p align="center">
 
-### Four-step assembly
+Removal Preview | Reconfigure Preview
+:--------------:|:------------------:
+<img src=docs/figs/removal_preview.png width=300> | <img src=docs/figs/reconfigure_preview.png width=300>
 
-The tracked manifest performs all four edits in paper order:
+</p>
 
-| Step | Object | Prompt |
-| ---: | --- | --- |
-| 0 | `lego_bricks_1` | Lego bricks |
-| 1 | `red_cup` | Red cup |
-| 2 | `lego_bricks_2` | Lego bricks |
-| 3 | `golf_ball` | Golf ball |
+When happy, you can press the "Apply changes" button and it will perform the neo editing procedure producing the outputs as defined in [Paper Reproduction Quick Start](#paper-reproduction-quick-start).
 
-```bash
-neo-assembly --load-config paper/assembly.yaml
-```
-
-Each completed step produces a new NeRF and language field that become the
-input state for the next step. Only the initial scan and reference object
-motions are inputs to the full sequence.
-
-## Evaluation
-
-The paper reports PSNR, SSIM, depth RMSE, and photometric reprojection error for
-the full image and edited masks. Current evaluation defaults are documented in
-[docs/REPRODUCIBILITY.md](docs/REPRODUCIBILITY.md).
-
-Experiment runners invoke evaluation when their evaluation stage is enabled.
-For an individual edited checkpoint, use:
-
-```bash
-ns-eval-neo --config-path \
-  outputs/<action>/<scene>/<object>/before/neo/<timestamp>/replace-nerf/config.yml
-```
-
-Typical artifacts are written to:
-
-```text
-outputs/<action>/<scene>/<object>/before/
-|-- lerf-lite/<timestamp>/
-`-- neo/<timestamp>/
-    |-- config.yml
-    |-- bbox.json
-    |-- sparse-guided-nerf/
-    `-- replace-nerf/
-
-renders/     rendered RGB, depth, and masks
-eval/        per-scene metric JSON files
-```
-
-Aggregate available result files with:
-
-```bash
-python -m scripts.average_metrics_tables --help
-```
-
-The repository includes the modified NeRFiller source in
-`submodules/neo_nerfiller`, but the basic environment does not install it. DFF
-and Seal3D implementations are not bundled; their exact result provenance still
-needs to be attached to the final release.
 
 ## Repository Layout
 
@@ -317,11 +234,16 @@ notebooks/           Development and data-inspection notebooks
 See [CITATION.cff](CITATION.cff), or cite:
 
 ```bibtex
-@article{zielinski2026neo,
-  title   = {NEO: NeRF It Once, Edit It Many Times for Continuous Object Manipulation},
-  author  = {Zielinski, Mikolaj and Hall, David and Belter, Dominik and Moghadam, Peyman},
-  year    = {2026}
-}
+@ARTICLE{11623460,
+  author={Zieliński, Mikołaj and Hall, David and Belter, Dominik and Moghadam, Peyman},
+  journal={IEEE Robotics and Automation Letters}, 
+  title={NEO: NeRF It Once, Edit It Many Times for Continuous Object Manipulation}, 
+  year={2026},
+  volume={11},
+  number={9},
+  pages={10736-10743},
+  keywords={Neural radiance field;Modeling;Training;Rendering (computer graphics);Grasping;Robots;Seals;Visualization;Surfaces;Cameras;Deep learning for visual perception;representation learning;visual learning},
+  doi={10.1109/LRA.2026.3717189}}
 ```
 
 ## License

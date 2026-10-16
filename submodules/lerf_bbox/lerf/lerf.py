@@ -190,7 +190,6 @@ class LERFModel(NerfactoModel):
                     max_across = max_across.unsqueeze(-1)
                     positions = lerf_samples.frustums.get_positions().unsqueeze(0)
                     outputs["raw_relevancy"] = torch.cat([max_across, positions], dim=-1)  # N x B x 1
-                    print("Outputs Relevancy Ortho:", outputs["raw_relevancy"].shape)
                     outputs["best_scales"] = ray_bundle.metadata["override_scales"]  # N
                     outputs["lerf_weights"] = lerf_weights
                     outputs["lerf_densities"] = lerf_densities
@@ -207,7 +206,6 @@ class LERFModel(NerfactoModel):
                     )
 
                     outputs["raw_relevancy"] = max_across  # N x B x 1
-                    print("Outputs Relevancy Regular:", outputs["raw_relevancy"].shape)
                     outputs["best_scales"] = best_scales.to(self.device)  # N
 
                     # print("Regular:", max_across.shape)
