@@ -202,9 +202,6 @@ class EvalBaseConfig:
 
         # Load edited model config
         self.model_config = yaml.load(self.config_path.read_text(), Loader=yaml.Loader)
-        print("#####################################")
-        print(self.config_path)
-        print(self.model_config)
         assert isinstance(self.model_config, TrainerConfig)
 
         # Get rendering command
@@ -217,16 +214,8 @@ class EvalBaseConfig:
 
         if "lerf-lite" in base_path:
             gt_data_path = Path(base_path.replace(output_root, str(self.neo_data_root / "processed"))).parents[1]
-            print(gt_data_path)
         else:
             gt_data_path = Path(base_path.replace(output_root, str(self.neo_data_root / "processed")).replace('before', 'after')).parents[1]
-            print(gt_data_path)
-
-        print("??????????????????")
-        print(base_path)
-        print(output_root)
-        print(self.neo_data_root)
-        print(gt_data_path)
 
         render_output_path = Path(base_path.replace(output_root, 'renders'))
 
