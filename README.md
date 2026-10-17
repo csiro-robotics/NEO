@@ -27,20 +27,9 @@ action without scanning the scene again.
 
 ## Method
 
-```mermaid
-flowchart LR
-    A[Initial images and poses] --> B[NeRF and language field]
-    P[Language prompt] --> C[Object localization]
-    B --> C
-    C --> D[Neural-field resampling]
-    D --> E[Progressive multi-view inpainting]
-    M[Desired rigid motion] --> F[Teacher-student distillation]
-    B --> F
-    E --> F
-    F --> G[Updated NeRF]
-    G --> H[Updated language field]
-    H --> C
-```
+<p align="center">
+   <img src=docs/figs/neo_process.png width=1280>
+</p>
 
 Given a set of initial images and poses, a NeRF and corresponging language field is first learnt as the starting implicit representation. 
 From this representation, a 3D bounding box around an object/region for editing is defined either through a language prompt (as used in the paper) or manually through a GUI interface (see GUI section below).
