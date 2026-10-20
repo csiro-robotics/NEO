@@ -12,7 +12,7 @@
 
 <a href="https://arxiv.org/abs/2607.24538v1"><img src='https://img.shields.io/badge/arXiv-NEO-red' alt='Paper PDF'></a>
 <a href='https://csiro-robotics.github.io/NEO/'><img src='https://img.shields.io/badge/Project%20Page-NEO-green' alt='Project Page'></a>
-<a href=''><img src='https://img.shields.io/badge/Dataset%20Download-NEO-blue'></a>
+<a href='https://doi.org/10.25919/w4mw-as68'><img src='https://img.shields.io/badge/Dataset%20Download-NEO-blue'></a>
 
 
 </div>
@@ -127,7 +127,7 @@ check the NVIDIA driver and the PyTorch/CUDA installation instead of adding a
 library symlink.
 
 ## Paper Reproduction Quick Start
-To quickly test all elements of the NEO pipeline are operating correctly, we recommend using the [NEO dataset]()
+To quickly test all elements of the NEO pipeline are operating correctly, we recommend using the [NEO dataset](https://doi.org/10.25919/w4mw-as68)
 alongside our simplified `neo-remove`, `neo-reconfigure` and `neo-assembly` command line scripts.
 These will train initial NeRFs and Language Fields, edit based on provided language prompt for the scene, and evaluate edited scene against scanned GT.
 More details on the NEO dataset can be found in [DATASET.md](docs/DATASET.md).
