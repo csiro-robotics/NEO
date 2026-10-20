@@ -1,6 +1,6 @@
 # NEO-Dataset
 
-NEO-Dataset contains twelve registered tabletop scenes: eleven single-object
+[NEO-Dataset](https://doi.org/10.25919/w4mw-as68) contains twelve registered tabletop scenes: eleven single-object
 scenes used by removal and relocation experiments and one multi-object assembly
 scene. Scenes were captured with Franka Emika Panda and UR5 setups under
 controlled illumination. Four table-mounted ArUco markers align the before and
